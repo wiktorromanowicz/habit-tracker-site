@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f5f6f8; --line:#e3e6eb;
+    --text:#000000; --muted:#000000; --accent:#16a34a; --accent-dim:#dcfce7;
+    --today:#2563eb;
+  }
+  *{box-sizing:border-box;-webkit-user-select:none;user-select:none;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Roboto',-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    padding:28px;min-height:100vh;}
+  .wrap{max-width:860px;margin:0 auto;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .weekbar{display:flex;align-items:center;gap:10px;margin:18px 0 14px;}
+  .weekbar .label{font-size:14px;color:var(--muted);min-width:210px;text-align:center;}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;
+    background:var(--panel2);color:var(--text);padding:7px 12px;font-size:13px;
+    transition:background .15s,transform .05s;}
+  button:hover{background:#eceef2;}
+  button:active{transform:scale(.97);}
+  .ghost{background:transparent;color:var(--muted);padding:7px 10px;}
+  .ghost:hover{background:#eef0f3;color:var(--text);}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line);}
+  th,td{padding:0;text-align:center;border-bottom:1px solid var(--line);border-right:1px solid var(--line);}
+  th:last-child,td:last-child{border-right:none;}
+  tr:last-child td{border-bottom:none;}
+  thead th{padding:12px 6px;font-size:12px;font-weight:500;color:var(--muted);background:var(--panel2);}
+  thead th.today{color:var(--today);}
+  th.habit-col,td.habit-col{text-align:left;padding:14px 14px;width:38%;}
+  .hname{font-size:14px;font-weight:500;}
+  .hmeta{font-size:11px;color:var(--muted);margin-top:3px;}
+  .streak{color:var(--accent);}
+  td.day{width:8.8%;height:52px;cursor:pointer;position:relative;}
+  td.day:hover{background:var(--panel2);}
+  .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);
+    margin:0 auto;display:flex;align-items:center;justify-content:center;
+    transition:all .12s;}
+  td.done .dot{background:var(--accent);border-color:var(--accent);}
+  td.done .dot::after{content:"";width:6px;height:11px;border:solid #0f1115;
+    border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-2px);}
+  td.future{cursor:default;opacity:.4;}
+  td.future:hover{background:transparent;}
+  td.today-cell{background:rgba(59,130,246,.07);}
+  .habit-actions{display:none;gap:6px;margin-top:8px;}
+  td.habit-col:hover .habit-actions{display:flex;}
+  .habit-actions button{padding:3px 8px;font-size:11px;background:transparent;color:var(--muted);}
+  .habit-actions button:hover{color:var(--text);background:var(--panel2);}
+  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:12px;color:var(--muted);}
+  .add-row{margin-top:14px;}
+  .add-row button{background:var(--accent-dim);color:var(--accent);}
+  .add-row button:hover{background:#274d38;}
+  .empty{text-align:center;color:var(--muted);padding:40px;font-size:14px;}
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:9999;}
+
+  /* ---- Planner: yearly / monthly goals + bottlenecks ---- */
+  .planner{margin-top:26px;display:flex;flex-direction:column;gap:16px;}
+  .planner .toolbar{position:sticky;top:0;z-index:5;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:8px;flex-wrap:wrap;margin:0;}
+  .block{background:var(--panel);border-radius:12px;padding:16px 18px 18px;border:1px solid var(--line);}
+  .block-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .block-head h2{flex:1;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .block-head .ghost{padding:5px 9px;}
+  .toolbar{display:flex;gap:4px;margin-left:auto;}
+  .toolbar button{width:34px;height:30px;padding:0;font-size:14px;background:var(--panel2);
+    color:var(--text);display:flex;align-items:center;justify-content:center;}
+  .toolbar button:hover{background:#e6e8ec;}
+  .toolbar .sep{width:1px;background:var(--line);margin:0 4px;}
+  .editor{min-height:48px;height:220px;max-height:80vh;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.7;color:var(--text);
+    outline:none;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere;
+    resize:vertical;overflow:auto;}
+  .editor:focus{border-color:#b8bec9;}
+  .editor:empty:before{content:attr(data-ph);color:#8b94a7;}
+  .toolbar .swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);padding:0;}
+  .toolbar .swatch:hover{border-color:#9aa1ad;}
+  .toolbar input[type=color]{width:32px;height:30px;padding:2px;border:none;border-radius:8px;
+    background:var(--panel2);cursor:pointer;}
+  .editor h3{font-size:15px;margin:14px 0 6px;color:var(--text);}
+  .editor ul,.editor ol{margin:6px 0 6px 4px;padding-left:22px;}
+  .editor li{margin:3px 0;}
+  .editor a{color:var(--today);}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="wrap">
+  <header>
+    <h1>🎯 Habit Tracker</h1>
+    <div style="font-size:13px;color:var(--muted);text-align:right;font-weight:500" id="weekInfo"></div>
+  </header>
+
+  <div class="weekbar">
+    <button class="ghost" onclick="shiftWeek(-1)">‹ Prev</button>
+    <div class="label" id="weekLabel"></div>
+    <button class="ghost" onclick="shiftWeek(1)">Next ›</button>
+    <button class="ghost" onclick="thisWeek()">This week</button>
+  </div>
+
+  <table>
+    <thead><tr id="headRow"></tr></thead>
+    <tbody id="body"></tbody>
+  </table>
+
+  <div class="add-row"><button onclick="addHabit()">+ Add habit</button></div>
+
+  <div class="footer">
+    <span id="weekStat"></span>
+  </div>
+
+  <section class="planner">
+    <div class="toolbar" id="toolbar">
+      <button onmousedown="fmt(event,'formatBlock','h3')" title="Heading">H</button>
+      <button onmousedown="fmt(event,'bold')" title="Bold"><b>B</b></button>
+      <button onmousedown="fmt(event,'italic')" title="Italic"><i>I</i></button>
+      <button onmousedown="fmt(event,'strikeThrough')" title="Strikethrough"><s>S</s></button>
+      <span class="sep"></span>
+      <button onmousedown="fmt(event,'insertUnorderedList')" title="Bulleted list">•</button>
+      <button onmousedown="fmt(event,'insertOrderedList')" title="Numbered list">1.</button>
+      <span class="sep"></span>
+      <button class="swatch" style="background:#000000" onmousedown="fmtColor(event,'#000000')" title="Black"></button>
+      <button class="swatch" style="background:#4ade80" onmousedown="fmtColor(event,'#4ade80')" title="Green"></button>
+      <button class="swatch" style="background:#3b82f6" onmousedown="fmtColor(event,'#3b82f6')" title="Blue"></button>
+      <button class="swatch" style="background:#f59e0b" onmousedown="fmtColor(event,'#f59e0b')" title="Amber"></button>
+      <button class="swatch" style="background:#ef4444" onmousedown="fmtColor(event,'#ef4444')" title="Red"></button>
+      <button class="swatch" style="background:#a855f7" onmousedown="fmtColor(event,'#a855f7')" title="Purple"></button>
+      <input type="color" title="Custom color" onmousedown="rememberSel()" oninput="fmtColorCustom(this.value)">
+      <span class="sep"></span>
+      <button onmousedown="fmt(event,'removeFormat')" title="Clear formatting">⌫</button>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h2>Current bottlenecks</h2>
+      </div>
+      <div id="bottleEditor" class="editor" contenteditable="true" spellcheck="true"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h2 id="monthLabel">Monthly goals</h2>
+        <button class="ghost" onclick="shiftMonth(-1)">‹</button>
+        <button class="ghost" onclick="shiftMonth(1)">›</button>
+        <button class="ghost" onclick="thisMonth()">Today</button>
+      </div>
+      <div id="goalEditor" class="editor" contenteditable="true" spellcheck="true"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h2 id="yearLabel">Yearly goals</h2>
+        <button class="ghost" onclick="shiftYear(-1)">‹</button>
+        <button class="ghost" onclick="shiftYear(1)">›</button>
+      </div>
+      <div id="yearEditor" class="editor" contenteditable="true" spellcheck="true"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const KEY = "titan_habits_v1";
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem(KEY)) || null; }catch(e){ return null; }
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+let state = load() || {
+  habits: [
+    { id: uid(), name: "100 min of marketing", target: "100 min/day", done: {} }
+  ]
+};
+
+// migrate: ensure done object exists
+state.habits.forEach(h => h.done = h.done || {});
+state.goals = state.goals || {};   // { "2026-08": "<html>" }
+
+let weekStart = mondayOf(new Date());
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function mondayOf(d){
+  d = new Date(d); const day = (d.getDay()+6)%7;
+  d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d;
+}
+function iso(d){ return d.toISOString().slice(0,10); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function sameDay(a,b){ return iso(a)===iso(b); }
+
+function shiftWeek(n){ weekStart = addDays(weekStart, n*7); render(); }
+function thisWeek(){ weekStart = mondayOf(new Date()); render(); }
+
+function currentStreak(h){
+  let s=0, d=new Date(); d.setHours(0,0,0,0);
+  // if today not done, start from yesterday so an untouched today doesn't break streak
+  if(!h.done[iso(d)]) d = addDays(d,-1);
+  while(h.done[iso(d)]){ s++; d = addDays(d,-1); }
+  return s;
+}
+
+function toggle(hid, dstr, isFuture, ev){
+  if(isFuture) return;
+  const h = state.habits.find(x=>x.id===hid);
+  if(h.done[dstr]){ delete h.done[dstr]; }
+  else { h.done[dstr]=true; fireworks(ev); }
+  save(); render();
+}
+
+/* ---- fireworks / confetti burst on completion ---- */
+const fxCanvas = document.getElementById("fx");
+const fxCtx = fxCanvas.getContext("2d");
+let fxParts = [], fxRunning = false;
+function fxResize(){ fxCanvas.width=innerWidth; fxCanvas.height=innerHeight; }
+addEventListener("resize", fxResize); fxResize();
+
+function fireworks(ev){
+  let x = innerWidth/2, y = innerHeight/2;
+  if(ev){ x = ev.clientX; y = ev.clientY; }
+  const colors = ["#4ade80","#3b82f6","#f59e0b","#ef4444","#a855f7","#ec4899","#eab308"];
+  const n = 46;
+  for(let i=0;i<n;i++){
+    const a = (Math.PI*2*i)/n + Math.random()*0.4;
+    const sp = 3 + Math.random()*6;
+    fxParts.push({
+      x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 2,
+      life: 1, size: 3+Math.random()*4,
+      color: colors[(Math.random()*colors.length)|0],
+      rot: Math.random()*6.28, vr:(Math.random()-.5)*.4
+    });
+  }
+  if(!fxRunning){ fxRunning = true; requestAnimationFrame(fxTick); }
+}
+function fxTick(){
+  fxCtx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
+  fxParts.forEach(p=>{
+    p.vy += 0.15; p.vx *= 0.99; p.x += p.vx; p.y += p.vy;
+    p.life -= 0.012; p.rot += p.vr;
+    fxCtx.save();
+    fxCtx.globalAlpha = Math.max(0,p.life);
+    fxCtx.translate(p.x,p.y); fxCtx.rotate(p.rot);
+    fxCtx.fillStyle = p.color;
+    fxCtx.fillRect(-p.size/2,-p.size/2,p.size,p.size*1.6);
+    fxCtx.restore();
+  });
+  fxParts = fxParts.filter(p=>p.life>0 && p.y<fxCanvas.height+40);
+  if(fxParts.length){ requestAnimationFrame(fxTick); }
+  else { fxCtx.clearRect(0,0,fxCanvas.width,fxCanvas.height); fxRunning=false; }
+}
+
+function addHabit(){
+  const name = prompt("Habit name:");
+  if(!name) return;
+  const target = prompt("Daily target / note (optional):","") || "";
+  state.habits.push({ id: uid(), name: name.trim(), target: target.trim(), done:{} });
+  save(); render();
+}
+function editHabit(hid){
+  const h = state.habits.find(x=>x.id===hid);
+  const name = prompt("Habit name:", h.name); if(name===null) return;
+  const target = prompt("Daily target / note:", h.target);
+  h.name = name.trim() || h.name;
+  if(target!==null) h.target = target.trim();
+  save(); render();
+}
+function delHabit(hid){
+  const h = state.habits.find(x=>x.id===hid);
+  if(confirm("Delete \""+h.name+"\" and its history?")){
+    state.habits = state.habits.filter(x=>x.id!==hid);
+    save(); render();
+  }
+}
+
+function render(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end = addDays(weekStart,6);
+  const fmt = d => d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  document.getElementById("weekLabel").textContent = fmt(weekStart)+" – "+fmt(end);
+
+  // header
+  let head = '<th class="habit-col">Habit</th>';
+  DAYS.forEach((d,i)=>{
+    const date = addDays(weekStart,i);
+    const isT = sameDay(date,today);
+    head += `<th class="${isT?'today':''}">${d}<br><span style="font-size:10px;opacity:.7">${date.getDate()}</span></th>`;
+  });
+  document.getElementById("headRow").innerHTML = head;
+
+  // body
+  const body = document.getElementById("body");
+  if(state.habits.length===0){
+    body.innerHTML = `<tr><td colspan="8" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
+  } else {
+    body.innerHTML = state.habits.map(h=>{
+      const streak = currentStreak(h);
+      let row = `<td class="habit-col">
+        <div class="hname">${escapeHtml(h.name)}</div>
+        <div class="hmeta">${h.target?escapeHtml(h.target)+" · ":""}${streak>0?`<span class="streak">🔥 ${streak}-day streak</span>`:"no active streak"}</div>
+        <div class="habit-actions">
+          <button onclick="editHabit('${h.id}')">Edit</button>
+          <button onclick="delHabit('${h.id}')">Delete</button>
+        </div>
+      </td>`;
+      for(let i=0;i<7;i++){
+        const date = addDays(weekStart,i);
+        const dstr = iso(date);
+        const future = date>today;
+        const done = !!h.done[dstr];
+        const isT = sameDay(date,today);
+        row += `<td class="day ${done?'done':''} ${future?'future':''} ${isT?'today-cell':''}"
+                  onclick="toggle('${h.id}','${dstr}',${future},event)"><div class="dot"></div></td>`;
+      }
+      return `<tr>${row}</tr>`;
+    }).join("");
+  }
+
+  // weekly stat
+  let cells=0, filled=0;
+  state.habits.forEach(h=>{
+    for(let i=0;i<7;i++){
+      const date=addDays(weekStart,i);
+      if(date>today) continue;
+      cells++; if(h.done[iso(date)]) filled++;
+    }
+  });
+  const pct = cells? Math.round(filled/cells*100):0;
+  document.getElementById("weekStat").textContent =
+    `This week: ${filled}/${cells} done (${pct}%)`;
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---- Planner: yearly / monthly goals + bottlenecks (WYSIWYG) ---- */
+let activeEditor = null;
+function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+
+const yearEditor   = document.getElementById("yearEditor");
+const goalEditor   = document.getElementById("goalEditor");
+const bottleEditor = document.getElementById("bottleEditor");
+
+let curYear  = new Date().getFullYear();
+let curMonth = new Date(); curMonth.setDate(1); curMonth.setHours(0,0,0,0);
+state.goalsYear = state.goalsYear || {};
+
+function renderYear(){
+  document.getElementById("yearLabel").textContent = "Yearly goals · " + curYear;
+  yearEditor.innerHTML = state.goalsYear[curYear] || "";
+}
+function saveYear(){ state.goalsYear[curYear] = yearEditor.innerHTML; save(); }
+function shiftYear(n){ saveYear(); curYear += n; renderYear(); }
+
+function renderGoals(){
+  document.getElementById("monthLabel").textContent =
+    "Monthly goals · " + curMonth.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  goalEditor.innerHTML = state.goals[monthKey(curMonth)] || "";
+}
+function saveGoals(){ state.goals[monthKey(curMonth)] = goalEditor.innerHTML; save(); }
+function shiftMonth(n){ saveGoals(); curMonth.setMonth(curMonth.getMonth()+n); renderGoals(); }
+function thisMonth(){ saveGoals(); curMonth = new Date(); curMonth.setDate(1); curMonth.setHours(0,0,0,0); renderGoals(); }
+
+function renderBottle(){ bottleEditor.innerHTML = state.bottlenecks || ""; }
+function saveBottle(){ state.bottlenecks = bottleEditor.innerHTML; save(); }
+
+/* one shared toolbar acts on whichever editor is focused */
+const editorSaves = new Map([[yearEditor,saveYear],[goalEditor,saveGoals],[bottleEditor,saveBottle]]);
+function saveActive(){ const f = editorSaves.get(activeEditor); if(f) f(); }
+editorSaves.forEach((saveFn, el)=>{
+  el.addEventListener("focus", ()=>{ activeEditor = el; });
+  let t; el.addEventListener("input", ()=>{ clearTimeout(t); t=setTimeout(saveFn,300); });
+  el.addEventListener("blur", saveFn);
+});
+
+function ensureActive(){ if(!activeEditor || !editorSaves.has(activeEditor)) activeEditor = goalEditor; }
+function fmt(ev, cmd, val){ ev.preventDefault(); ensureActive(); activeEditor.focus(); document.execCommand(cmd,false,val||null); saveActive(); }
+function applyColor(color){ document.execCommand('styleWithCSS',false,true); document.execCommand('foreColor',false,color); }
+function fmtColor(ev, color){ ev.preventDefault(); ensureActive(); activeEditor.focus(); applyColor(color); saveActive(); }
+let savedRange = null;
+function rememberSel(){
+  const s = window.getSelection();
+  if(s.rangeCount && activeEditor && activeEditor.contains(s.anchorNode)) savedRange = s.getRangeAt(0).cloneRange();
+}
+function fmtColorCustom(color){
+  ensureActive(); activeEditor.focus();
+  if(savedRange){ const s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }
+  applyColor(color); saveActive();
+}
+
+function isoWeek(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay()+6)%7;
+  d.setUTCDate(d.getUTCDate()-dayNum+3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  return 1 + Math.round((d-firstThursday)/(7*86400000));
+}
+function updateWeekInfo(){
+  const now = new Date();
+  const endYear = new Date(now.getFullYear(),11,31,23,59,59);
+  const weeksLeft = Math.max(0, Math.ceil((endYear-now)/(7*86400000)));
+  document.getElementById("weekInfo").textContent =
+    `Week ${isoWeek(now)} · ${weeksLeft} weeks left in ${now.getFullYear()}`;
+}
+
+render();
+renderYear();
+renderGoals();
+renderBottle();
+updateWeekInfo();
+</script>
+</body>
+</html>
