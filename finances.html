@@ -37,6 +37,7 @@
   .total .big{font-size:26px;font-weight:700;letter-spacing:-.02em}
   .total .alt{font-size:13px;color:var(--muted)}
   .kv{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+  .kv.sub{border-top:1px dashed var(--line);margin-top:4px;padding-top:8px;color:var(--muted);font-weight:600}
   .kv.big{font-size:16px;font-weight:600;border-top:2px solid var(--line);margin-top:8px;padding-top:12px}
   .pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--amber)}
   .progress{height:14px;background:var(--chip);border-radius:8px;overflow:hidden;margin:10px 0 6px}
@@ -44,15 +45,23 @@
   .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
   .full{grid-column:1 / -1}
   .flag{font-size:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:8px 11px;margin-top:10px}
+  /* finance goals editor */
+  .goals{min-height:62px;background:#fbfbfd;border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;font-size:14px;line-height:1.6;color:var(--ink);outline:none}
+  .goals:focus{border-color:var(--accent)}
+  .goals:empty:before{content:attr(data-ph);color:#9aa1b2}
   /* allocation donut */
   .alloc{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:16px}
   .pie-wrap{position:relative;width:168px;height:168px;flex-shrink:0}
-  .pie{width:100%;height:100%;border-radius:50%}
+  .donut{width:100%;height:100%}
+  .donut .seg{transition:stroke-width .12s;cursor:pointer}
   .pie-hole{position:absolute;inset:0;margin:auto;width:96px;height:96px;border-radius:50%;
-    background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+    background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
   .pie-hole b{font-size:15px} .pie-hole span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .pie-tip{position:absolute;pointer-events:none;background:#1a1c23;color:#fff;font-size:12px;line-height:1.45;
+    padding:6px 9px;border-radius:8px;opacity:0;transition:opacity .1s;white-space:nowrap;z-index:6}
   .legend{display:flex;flex-direction:column;gap:9px;font-size:13px;flex:1;min-width:210px}
-  .legend .item{display:flex;align-items:center;gap:9px}
+  .legend .item{display:flex;align-items:center;gap:9px;cursor:default}
   .legend .dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
   .legend .lname{flex:1}
   .legend .lpct{color:var(--muted);font-variant-numeric:tabular-nums}
@@ -81,6 +90,12 @@
   </header>
 
   <div class="grid">
+    <!-- FINANCE GOALS -->
+    <div class="card full">
+      <h2>Finance goals</h2>
+      <div id="goals" class="goals" contenteditable="true" spellcheck="true" data-ph="e.g. Hit $30k/mo profit · fund the 12-month buffer · move surplus into S&P"></div>
+    </div>
+
     <!-- NET WORTH -->
     <div class="card full">
       <h2>Net worth</h2>
@@ -109,6 +124,7 @@
       <div class="kv"><span>Transport</span><span><input type="number" id="transport" value="400"> <span class="cur">PLN</span></span></div>
       <div class="kv"><span>Subscriptions</span><span><input type="number" id="subs" value="300"> <span class="cur">PLN</span></span></div>
       <div class="kv"><span>Other</span><span><input type="number" id="other" value="500"> <span class="cur">PLN</span></span></div>
+      <div class="kv sub"><span>Personal expenses</span><span id="expTotal"></span></div>
       <div class="kv big"><span>Monthly surplus</span><span id="surplus"></span></div>
     </div>
 
@@ -138,9 +154,9 @@ const assets = [
   {k:'skool', name:'Skool shares', shares:7000, price:50, v:350000, cur:'USD', color:'#4f46e5'},
   {k:'usbiz', name:'US business (your share)', v:250000, cur:'USD', color:'#0ea5a4'},
   {k:'sp',    name:'S&P 500 investment',       v:310000, cur:'PLN', color:'#f59e0b'},
-  {k:'plusd', name:'PL company (USD)',          v:46000,  cur:'USD', color:'#8b5cf6'},
-  {k:'plpln', name:'PL company (PLN)',          v:90000,  cur:'PLN', color:'#a78bfa'},
-  {k:'cash',  name:'Personal account',          v:2000,   cur:'PLN', color:'#10b981'},
+  {k:'plusd', name:'PL company (USD)', v:46000, cur:'USD', group:'plco', gname:'PL company', gcolor:'#8b5cf6', color:'#8b5cf6'},
+  {k:'plpln', name:'PL company (PLN)', v:90000, cur:'PLN', group:'plco', gname:'PL company', gcolor:'#8b5cf6', color:'#a78bfa'},
+  {k:'cash',  name:'Personal account', v:2000, cur:'PLN', color:'#10b981'},
 ];
 const EXP = ['rent','groceries','eatout','transport','subs','other'];
 const FIELDS = ['liab','draw','biz','split','target','saved'].concat(EXP);
@@ -150,6 +166,7 @@ const fmtPln = n => Math.round(n).toLocaleString('pl-PL')+' zł';
 
 function load(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
   if(s.rate)$('rate').value=s.rate;
+  if(s.goals!=null)$('goals').innerHTML=s.goals;
   const skool=assets.find(a=>a.k==='skool');
   if(s.skoolShares!=null) skool.shares=s.skoolShares;
   if(s.skoolPrice!=null) skool.price=s.skoolPrice;
@@ -157,7 +174,7 @@ function load(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
   assets.forEach(a=>{ if(a.k!=='skool' && s['a_'+a.k]!=null)a.v=s['a_'+a.k];});
   FIELDS.forEach(id=>{ if(s[id]!=null && $(id))$(id).value=s[id];});
 }catch(e){} }
-function save(){ try{const s={rate:$('rate').value};
+function save(){ try{const s={rate:$('rate').value, goals:$('goals').innerHTML};
   assets.forEach(a=>{ if(a.k==='skool'){ s.skoolShares=a.shares; s.skoolPrice=a.price; } s['a_'+a.k]=a.v; });
   FIELDS.forEach(id=>{ if($(id))s[id]=$(id).value; });
   localStorage.setItem('finState',JSON.stringify(s)); }catch(e){} }
@@ -199,21 +216,43 @@ function calc(){
   $('nw_usd').textContent='$'+Math.round(nwUsd).toLocaleString('en-US');
   $('nw_pln').textContent='≈ '+fmtPln(nwUsd*rate);
 
-  // allocation donut (positive assets only)
-  const bars=$('bars'); bars.className='alloc'; bars.innerHTML='';
-  const segList=assets.map(a=>({a,u:toUsd(a.v,a.cur,rate)})).filter(x=>x.u>0).sort((p,q)=>q.u-p.u);
+  // allocation donut — aggregate grouped assets, positive only
+  const groups={};
+  assets.forEach(a=>{ const u=toUsd(a.v,a.cur,rate); if(u<=0) return;
+    const key=a.group||a.k;
+    if(!groups[key]) groups[key]={name:a.gname||a.name.split('(')[0].trim(), color:a.gcolor||a.color, u:0};
+    groups[key].u+=u; });
+  const segList=Object.values(groups).sort((p,q)=>q.u-p.u);
   const totalPos=segList.reduce((t,x)=>t+x.u,0)||1;
-  let acc=0; const stops=[];
-  segList.forEach(x=>{ const p=x.u/totalPos*100; stops.push(`${x.a.color} ${acc.toFixed(2)}% ${(acc+p).toFixed(2)}%`); acc+=p; });
+  let acc=0;
+  const segsSvg=segList.map(x=>{ const p=x.u/totalPos*100; const off=(25-acc);
+    const c=`<circle class="seg" cx="21" cy="21" r="15.915" fill="none" stroke="${x.color}" stroke-width="6"
+      stroke-dasharray="${p.toFixed(2)} ${(100-p).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"
+      data-name="${x.name}" data-usd="${Math.round(x.u)}" data-pct="${p.toFixed(0)}"></circle>`;
+    acc+=p; return c; }).join('');
   const legend=segList.map(x=>{ const p=x.u/totalPos*100;
-    return `<div class="item"><span class="dot" style="background:${x.a.color}"></span><span class="lname">${x.a.name.split('(')[0].trim()}</span><span class="lpct">${p.toFixed(0)}%</span></div>`; }).join('');
-  bars.innerHTML=`<div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops.join(',')})"></div>`+
-    `<div class="pie-hole"><b>$${Math.round(totalPos).toLocaleString('en-US')}</b><span>assets</span></div></div>`+
-    `<div class="legend">${legend}</div>`;
+    return `<div class="item"><span class="dot" style="background:${x.color}"></span><span class="lname">${x.name}</span><span class="lpct">${p.toFixed(0)}%</span></div>`; }).join('');
+  const bars=$('bars'); bars.className='alloc';
+  bars.innerHTML=`<div class="pie-wrap">
+      <svg class="donut" viewBox="0 0 42 42">${segsSvg}</svg>
+      <div class="pie-hole"><b>$${Math.round(totalPos).toLocaleString('en-US')}</b><span>assets</span></div>
+      <div class="pie-tip" id="pieTip"></div>
+    </div>
+    <div class="legend">${legend}</div>`;
+  const tip=$('pieTip'); const wrap=bars.querySelector('.pie-wrap');
+  bars.querySelectorAll('.seg').forEach(seg=>{
+    seg.addEventListener('mouseenter',()=>{ seg.setAttribute('stroke-width','8');
+      tip.innerHTML=`<b>${seg.dataset.name}</b><br>$${(+seg.dataset.usd).toLocaleString('en-US')} · ${seg.dataset.pct}%`;
+      tip.style.opacity='1'; });
+    seg.addEventListener('mousemove',e=>{ const r=wrap.getBoundingClientRect();
+      tip.style.left=(e.clientX-r.left+12)+'px'; tip.style.top=(e.clientY-r.top+10)+'px'; });
+    seg.addEventListener('mouseleave',()=>{ seg.setAttribute('stroke-width','6'); tip.style.opacity='0'; });
+  });
 
   // personal cash flow
   const draw=parseFloat($('draw').value)||0;
   const spend=EXP.reduce((t,id)=>t+(parseFloat($(id).value)||0),0);
+  $('expTotal').textContent='−'+fmtPln(spend);
   const surplus=draw-spend;
   const sEl=$('surplus'); sEl.textContent=(surplus>=0?'+':'')+fmtPln(surplus);
   sEl.className=surplus>0?'pos':(surplus<0?'neg':'warn');
@@ -241,6 +280,7 @@ $('today').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',mont
 load();
 buildAssetRows();
 ['rate'].concat(FIELDS).forEach(id=>{ if($(id))$(id).addEventListener('input',calc); });
+let gt; $('goals').addEventListener('input',()=>{ clearTimeout(gt); gt=setTimeout(save,300); });
 calc();
 </script>
 </body>
