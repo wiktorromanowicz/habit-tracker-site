@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Finances — Net Worth & Cash Flow</title>
+<style>
+  :root{
+    --bg:#f7f8fb; --card:#ffffff; --ink:#1a1c23; --muted:#6b7280; --line:#e7e9ef;
+    --accent:#4f46e5; --green:#12855a; --amber:#c2660a; --red:#c1362c;
+    --chip:#eef0f8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 60px;}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;justify-content:space-between;margin-bottom:4px}
+  h1{font-size:24px;margin:0;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 22px}
+  .rate{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .rate input{width:64px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;
+    box-shadow:0 1px 2px rgba(20,22,35,.04)}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 14px;font-weight:600}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:none}
+  .row label{font-size:14px;flex:1}
+  .row .cur{font-size:11px;color:var(--muted);background:var(--chip);border-radius:6px;padding:1px 6px;margin-left:6px}
+  input[type=number]{font:inherit;font-size:14px;text-align:right;width:110px;border:1px solid var(--line);
+    border-radius:8px;padding:5px 8px;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--accent)}
+  .usd{font-size:12px;color:var(--muted);width:96px;text-align:right}
+  .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:12px;border-top:2px solid var(--line)}
+  .total .big{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .total .alt{font-size:13px;color:var(--muted)}
+  .bars{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+  .bar{display:flex;align-items:center;gap:8px;font-size:12px}
+  .bar .name{width:130px;color:var(--muted);flex-shrink:0}
+  .bar .track{flex:1;height:8px;background:var(--chip);border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px}
+  .bar .pct{width:40px;text-align:right;color:var(--muted)}
+  .kv{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+  .kv.big{font-size:16px;font-weight:600;border-top:2px solid var(--line);margin-top:8px;padding-top:12px}
+  .pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--amber)}
+  .progress{height:14px;background:var(--chip);border-radius:8px;overflow:hidden;margin:10px 0 6px}
+  .progress > div{height:100%;background:linear-gradient(90deg,#4f46e5,#7c72f0);border-radius:8px;transition:width .3s}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .full{grid-column:1 / -1}
+  .flag{font-size:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:8px 11px;margin-top:10px}
+  .nav{display:flex;gap:6px;margin-bottom:18px}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);
+    background:var(--card);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  .nav a:not(.active):hover{background:#f0f1f6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <a href="index.html">🎯 Habits</a>
+    <a href="finances.html" class="active">💰 Net worth</a>
+  </nav>
+  <header>
+    <div>
+      <h1>💰 Finances</h1>
+      <div class="sub">Net worth &amp; cash-flow audit — <span id="today"></span></div>
+    </div>
+    <div class="rate">USD/PLN <input type="number" id="rate" value="3.70" step="0.01"></div>
+  </header>
+
+  <div class="grid">
+    <!-- NET WORTH -->
+    <div class="card full">
+      <h2>Net worth</h2>
+      <div id="assets"></div>
+      <div class="row" style="border-top:1px dashed var(--line);margin-top:4px">
+        <label>Owed to company (loan)</label>
+        <input type="number" data-liab id="liab" value="30000">
+        <span class="cur">PLN</span>
+        <span class="usd" id="liab_usd"></span>
+      </div>
+      <div class="total">
+        <div><div class="alt">Net worth</div><div class="big" id="nw_usd"></div></div>
+        <div class="alt" id="nw_pln"></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <div class="note">Everything but the S&amp;P and personal cash is illiquid or trapped in a company. That's the whole story: rich on paper, thin in the account.</div>
+    </div>
+
+    <!-- CASH FLOW -->
+    <div class="card">
+      <h2>Monthly cash flow — personal</h2>
+      <div class="kv"><span>Income drawn to personal</span><span><input type="number" id="draw" value="10000"> <span class="cur">PLN</span></span></div>
+      <div class="kv"><span>Rent</span><span><input type="number" id="rent" value="5550"> <span class="cur">PLN</span></span></div>
+      <div class="kv"><span>Food + misc</span><span><input type="number" id="food" value="4000"> <span class="cur">PLN</span></span></div>
+      <div class="kv big"><span>Monthly surplus</span><span id="surplus"></span></div>
+      <div class="note" id="surplusNote"></div>
+    </div>
+
+    <!-- BUSINESS -->
+    <div class="card">
+      <h2>Monthly cash flow — business</h2>
+      <div class="kv"><span>US company cash flow (total)</span><span><input type="number" id="biz" value="100000"> <span class="cur">USD</span></span></div>
+      <div class="kv"><span>Your share</span><span><input type="number" id="split" value="50" style="width:60px"> %</span></div>
+      <div class="kv big"><span>Your profit / month</span><span id="myprofit"></span></div>
+      <div class="note">This is the engine. The gap between this and your personal surplus above is money sitting in the business instead of reaching you.</div>
+    </div>
+
+    <!-- BUFFER GOAL -->
+    <div class="card full">
+      <h2>Safety buffer — 12 months</h2>
+      <div class="kv"><span>Target</span><span><input type="number" id="target" value="120000"> <span class="cur">PLN</span></span></div>
+      <div class="kv"><span>Currently saved</span><span><input type="number" id="saved" value="2000"> <span class="cur">PLN</span></span></div>
+      <div class="progress"><div id="bufferBar"></div></div>
+      <div class="kv"><span id="bufferPct"></span><span id="bufferEta"></span></div>
+      <div class="flag" id="bufferFlag"></div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:18px">Editable — numbers save in your browser. Update the rate and balances anytime. Not financial advice; a picture, not a plan.</div>
+</div>
+
+<script>
+const assets = [
+  {k:'skool', name:'Skool shares (~11k × $50)', v:550000, cur:'USD', color:'#4f46e5'},
+  {k:'usbiz', name:'US business (your share)', v:250000, cur:'USD', color:'#0ea5a4'},
+  {k:'sp',    name:'S&P 500 investment',       v:310000, cur:'PLN', color:'#f59e0b'},
+  {k:'plusd', name:'PL company (USD)',          v:46000,  cur:'USD', color:'#8b5cf6'},
+  {k:'plpln', name:'PL company (PLN)',          v:90000,  cur:'PLN', color:'#a78bfa'},
+  {k:'cash',  name:'Personal account',          v:2000,   cur:'PLN', color:'#10b981'},
+];
+const $ = id => document.getElementById(id);
+const fmt = (n,c)=> (c||'$')+Math.round(n).toLocaleString('en-US');
+const fmtPln = n => Math.round(n).toLocaleString('pl-PL')+' zł';
+
+function load(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
+  if(s.rate)$('rate').value=s.rate; assets.forEach(a=>{ if(s['a_'+a.k]!=null)a.v=s['a_'+a.k];});
+  ['liab','draw','rent','food','biz','split','target','saved'].forEach(id=>{ if(s[id]!=null)$(id).value=s[id];});
+}catch(e){} }
+function save(){ try{const s={rate:$('rate').value};
+  assets.forEach(a=>s['a_'+a.k]=a.v);
+  ['liab','draw','rent','food','biz','split','target','saved'].forEach(id=>s[id]=$(id).value);
+  localStorage.setItem('finState',JSON.stringify(s)); }catch(e){} }
+
+function buildAssetRows(){
+  $('assets').innerHTML='';
+  assets.forEach(a=>{
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<label>${a.name}</label>
+      <input type="number" value="${a.v}" data-ak="${a.k}">
+      <span class="cur">${a.cur}</span><span class="usd" id="usd_${a.k}"></span>`;
+    $('assets').appendChild(row);
+    row.querySelector('input').addEventListener('input',e=>{a.v=parseFloat(e.target.value)||0;calc();});
+  });
+}
+function toUsd(v,cur,rate){ return cur==='USD'? v : v/rate; }
+
+function calc(){
+  const rate=parseFloat($('rate').value)||3.7;
+  let totalUsd=0;
+  assets.forEach(a=>{ const u=toUsd(a.v,a.cur,rate); totalUsd+=u; const el=$('usd_'+a.k); if(el)el.textContent='$'+Math.round(u).toLocaleString('en-US'); });
+  const liab=parseFloat($('liab').value)||0; const liabUsd=liab/rate;
+  $('liab_usd').textContent='-$'+Math.round(liabUsd).toLocaleString('en-US');
+  const nwUsd=totalUsd-liabUsd;
+  $('nw_usd').textContent='$'+Math.round(nwUsd).toLocaleString('en-US');
+  $('nw_pln').textContent='≈ '+fmtPln(nwUsd*rate);
+
+  // allocation bars
+  $('bars').innerHTML='';
+  assets.slice().sort((a,b)=>toUsd(b.v,b.cur,rate)-toUsd(a.v,a.cur,rate)).forEach(a=>{
+    const u=toUsd(a.v,a.cur,rate); const pct=totalUsd? (u/totalUsd*100):0;
+    const bar=document.createElement('div'); bar.className='bar';
+    bar.innerHTML=`<span class="name">${a.name.split('(')[0].trim()}</span>
+      <span class="track"><span class="fill" style="width:${pct}%;background:${a.color}"></span></span>
+      <span class="pct">${pct.toFixed(0)}%</span>`;
+    $('bars').appendChild(bar);
+  });
+
+  // personal cash flow
+  const draw=parseFloat($('draw').value)||0, rent=parseFloat($('rent').value)||0, food=parseFloat($('food').value)||0;
+  const surplus=draw-rent-food;
+  const sEl=$('surplus'); sEl.textContent=(surplus>=0?'+':'')+fmtPln(surplus);
+  sEl.className=surplus>0?'pos':(surplus<0?'neg':'warn');
+  $('surplusNote').textContent = surplus<=0
+    ? 'You break even or worse — nothing accumulates. To save, draw more than you spend.'
+    : `At +${fmtPln(surplus)}/mo you're building slowly. Bumping the draw to ${fmtPln(rent+food+3000)} gives you 3k/mo.`;
+
+  // business
+  const biz=parseFloat($('biz').value)||0, split=(parseFloat($('split').value)||0)/100;
+  $('myprofit').textContent=fmt(biz*split);
+
+  // buffer
+  const target=parseFloat($('target').value)||0, saved=parseFloat($('saved').value)||0;
+  const pct=target? Math.min(100,saved/target*100):0;
+  $('bufferBar').style.width=pct+'%';
+  $('bufferPct').textContent=fmtPln(saved)+' of '+fmtPln(target)+' ('+pct.toFixed(0)+'%)';
+  const monthly=Math.max(surplus,0);
+  if(monthly>0 && saved<target){ const months=Math.ceil((target-saved)/monthly);
+    $('bufferEta').textContent='~'+months+' months at current surplus';
+  } else if(saved>=target){ $('bufferEta').textContent='Funded ✅'; }
+  else { $('bufferEta').textContent='— (no surplus to save)'; }
+  $('bufferFlag').textContent = saved>=target
+    ? 'Buffer is full. Now automate the S&P DCA with the surplus.'
+    : 'Fastest path: front-load this from the PL company via student zlecenie (near tax-free) instead of waiting years at a small monthly rate.';
+  save();
+}
+$('today').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+buildAssetRows(); load(); buildAssetRows();
+['rate','liab','draw','rent','food','biz','split','target','saved'].forEach(id=>$(id).addEventListener('input',calc));
+// re-bind asset inputs after load
+document.querySelectorAll('[data-ak]').forEach(inp=>{ const k=inp.dataset.ak; const a=assets.find(x=>x.k===k); inp.value=a.v;
+  inp.addEventListener('input',e=>{a.v=parseFloat(e.target.value)||0;calc();}); });
+calc();
+</script>
+</body>
+</html>
