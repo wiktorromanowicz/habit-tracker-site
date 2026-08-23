@@ -377,6 +377,34 @@ editorSaves.forEach((saveFn, el)=>{
   el.addEventListener("blur", saveFn);
 });
 
+/* ---- remember each box's manually-resized height ---- */
+state.editorSizes = state.editorSizes || {};
+(function persistResize(){
+  // restore any saved heights on load
+  editorSaves.forEach((_, el)=>{
+    const h = state.editorSizes[el.id];
+    if(h) el.style.height = h + "px";
+  });
+  // save whenever the user drags a box to a new size
+  if(window.ResizeObserver){
+    let t;
+    const ro = new ResizeObserver(()=>{
+      clearTimeout(t);
+      t = setTimeout(()=>{
+        let changed = false;
+        editorSaves.forEach((_, el)=>{
+          if(el.style.height){
+            const h = parseInt(el.style.height, 10);
+            if(h && state.editorSizes[el.id] !== h){ state.editorSizes[el.id] = h; changed = true; }
+          }
+        });
+        if(changed) save();
+      }, 300);
+    });
+    editorSaves.forEach((_, el)=> ro.observe(el));
+  }
+})();
+
 function ensureActive(){ if(!activeEditor || !editorSaves.has(activeEditor)) activeEditor = goalEditor; }
 function fmt(ev, cmd, val){ ev.preventDefault(); ensureActive(); activeEditor.focus(); document.execCommand(cmd,false,val||null); saveActive(); }
 function applyColor(color){ document.execCommand('styleWithCSS',false,true); document.execCommand('foreColor',false,color); }
