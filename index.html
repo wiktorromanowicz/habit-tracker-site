@@ -34,6 +34,13 @@
   .nav a.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
   .nav a:not(.active):hover{background:#eceef2;}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text);}
+  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#4f46e5,#6366f1);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(79,70,229,.28);}
+  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0;}
+  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;
+    -webkit-user-select:text;user-select:text;}
+  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500;}
   .ghost:hover{background:#eef0f3;color:var(--text);}
   table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line);}
   th,td{padding:0;text-align:center;border-bottom:1px solid var(--line);border-right:1px solid var(--line);}
@@ -99,6 +106,10 @@
 <body>
 <canvas id="fx"></canvas>
 <div class="wrap">
+  <div class="goalbar">
+    <span class="gl">🎯 FOCUS</span>
+    <div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div>
+  </div>
   <div class="brand">⚡ Wiktor-OS</div>
   <nav class="nav">
     <a href="index.html" class="active">🎯 Habits</a>
@@ -457,6 +468,15 @@ renderYear();
 renderGoals();
 renderBottle();
 updateWeekInfo();
+
+/* ---- sticky focus bar (shared across pages) ---- */
+(function focusBar(){
+  const el=document.getElementById('focusBar'); if(!el) return;
+  const KEY='wiktorOsFocus';
+  try{ const v=localStorage.getItem(KEY); if(v!=null) el.innerHTML=v; }catch(e){}
+  let t; el.addEventListener('input',()=>{ clearTimeout(t);
+    t=setTimeout(()=>{ try{ localStorage.setItem(KEY, el.innerHTML); }catch(e){} },250); });
+})();
 </script>
 </body>
 </html>

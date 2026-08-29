@@ -67,6 +67,12 @@
   .legend .lpct{color:var(--muted);font-variant-numeric:tabular-nums}
   /* brand + nav */
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
+  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#4f46e5,#6366f1);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(79,70,229,.28)}
+  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
+  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px}
+  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .nav{display:flex;gap:6px;margin-bottom:18px}
   .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);
     background:var(--card);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
@@ -76,6 +82,10 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="goalbar">
+    <span class="gl">🎯 FOCUS</span>
+    <div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div>
+  </div>
   <div class="brand">⚡ Wiktor-OS</div>
   <nav class="nav">
     <a href="index.html">🎯 Habits</a>
@@ -282,6 +292,15 @@ buildAssetRows();
 ['rate'].concat(FIELDS).forEach(id=>{ if($(id))$(id).addEventListener('input',calc); });
 let gt; $('goals').addEventListener('input',()=>{ clearTimeout(gt); gt=setTimeout(save,300); });
 calc();
+
+/* ---- sticky focus bar (shared across pages) ---- */
+(function focusBar(){
+  const el=document.getElementById('focusBar'); if(!el) return;
+  const KEY='wiktorOsFocus';
+  try{ const v=localStorage.getItem(KEY); if(v!=null) el.innerHTML=v; }catch(e){}
+  let t; el.addEventListener('input',()=>{ clearTimeout(t);
+    t=setTimeout(()=>{ try{ localStorage.setItem(KEY, el.innerHTML); }catch(e){} },250); });
+})();
 </script>
 </body>
 </html>
