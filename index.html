@@ -16,7 +16,7 @@
   *{box-sizing:border-box;-webkit-user-select:none;user-select:none;}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:'Roboto',-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-    padding:28px;min-height:100vh;}
+    padding:28px;min-height:100vh;overflow-x:hidden;}
   .wrap{max-width:860px;margin:0 auto;}
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.2px;}
@@ -35,8 +35,8 @@
   .nav a:not(.active):hover{background:#eceef2;}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text);}
   .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
-    background:linear-gradient(90deg,#4f46e5,#6366f1);color:#fff;padding:9px 15px;border-radius:10px;
-    margin-bottom:14px;box-shadow:0 2px 10px rgba(79,70,229,.28);}
+    background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
   .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0;}
   .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;
     -webkit-user-select:text;user-select:text;}
@@ -102,40 +102,49 @@
   .editor li{margin:3px 0;}
   .editor a{color:var(--today);}
 
-  /* ---- Spreadsheet-style habit sheet ---- */
-  .sheet{background:#fbf9f4;border:1px solid #e7e2d6;border-radius:16px;overflow:hidden;
-    box-shadow:0 1px 3px rgba(60,50,30,.06);}
+  /* ---- Spreadsheet-style habit sheet (full-width month view) ---- */
+  .sheet{background:#fbf9f4;border-top:1px solid #e7e2d6;border-bottom:1px solid #e7e2d6;
+    box-shadow:0 1px 3px rgba(60,50,30,.06);
+    position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
+  .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
-    padding:20px 22px 16px;flex-wrap:wrap;}
+    padding:22px 0 16px;flex-wrap:wrap;}
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:#a99f8c;text-transform:uppercase;}
-  .sheet-title{font-size:24px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:#2b2a26;}
+  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:#2b2a26;}
   .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
   .periodtabs{display:flex;gap:6px;flex-wrap:wrap;}
-  .ptab{font-size:12px;font-weight:500;padding:6px 13px;border-radius:20px;border:1px solid #e0dacb;
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;
     background:#fff;color:#4a463d;cursor:pointer;}
   .ptab:hover{background:#f3efe4;}
   .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26;}
   .ptab.dark:hover{background:#3a382f;}
-  .sheet-scroll{overflow-x:auto;}
-  .sheet table{width:100%;border-collapse:collapse;background:transparent;border:none;border-radius:0;min-width:580px;}
+  .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
+  .sheet table{width:100%;border-collapse:collapse;background:transparent;border:none;border-radius:0;
+    table-layout:fixed;min-width:1160px;}
   .sheet thead th{background:#f3efe4;border-bottom:1px solid #e2dccd;border-right:1px solid #ece7da;
-    padding:9px 8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8c8474;}
+    padding:7px 2px;font-weight:600;color:#8c8474;}
   .sheet thead th:last-child{border-right:none;}
-  .sheet thead th.today{color:#b4802a;}
-  .sheet th.habit-col,.sheet td.habit-col{text-align:left;padding:12px 16px;width:34%;background:transparent;}
-  .sheet tbody td{border-bottom:1px solid #efeadd;border-right:1px solid #f1ecdf;}
+  .sheet .dnum{display:block;font-size:13px;font-weight:700;color:#6b6355;line-height:1.1;}
+  .sheet .dwd{display:block;font-size:9px;font-weight:600;color:#b3ab99;}
+  .sheet thead th.today .dnum{color:#b4802a;}
+  .sheet th.habit-col,.sheet td.habit-col{text-align:left;padding:12px 16px;width:180px;background:transparent;}
+  .sheet th.habit-col{text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
+  .sheet tbody td{border-bottom:1px solid #efeadd;border-right:1px solid #f3eee2;}
   .sheet tbody td:last-child{border-right:none;}
   .sheet tbody tr:nth-child(even){background:#f8f5ee;}
   .sheet tbody tr:hover{background:#f3efe3;}
   .sheet tbody tr:last-child td{border-bottom:none;}
-  .sheet td.day{height:46px;}
-  .sheet td.day:hover{background:#efe9db;}
-  .sheet td.today-cell{background:rgba(180,128,42,.08);}
-  .sheet .hname{font-weight:600;color:#2b2a26;}
-  .sheet .hmeta{color:#a99f8c;}
-  .sheet .dot{border-color:#d9d2c2;}
+  .sheet th.wend,.sheet td.wend{background:#f6f1e6;}
+  .sheet tbody tr:nth-child(even) td.wend{background:#f2ecde;}
+  .sheet td.day{height:38px;cursor:pointer;padding:0;}
+  .sheet td.day:hover{background:#ece5d5;}
+  .sheet td.today-cell{background:rgba(180,128,42,.12)!important;}
+  .sheet .hname{font-weight:600;color:#2b2a26;font-size:15px;}
+  .sheet .hmeta{color:#a99f8c;font-size:12px;}
+  .sheet .dot{width:15px;height:15px;border:1.5px solid #d4ccbb;}
+  .sheet td.done .dot::after{width:4px;height:7px;transform:rotate(45deg) translate(-1px,-1px);}
   .sheet-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
-    padding:13px 22px 18px;font-size:12px;color:#9c9484;flex-wrap:wrap;}
+    padding:13px 0 20px;font-size:13px;color:#9c9484;flex-wrap:wrap;}
 </style>
 </head>
 <body>
@@ -151,27 +160,29 @@
     <a href="finances.html">💰 Net worth</a>
   </nav>
   <div class="sheet">
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-eyebrow">Habits · Weekly view</div>
-        <div class="sheet-title" id="weekLabel"></div>
-        <div class="sheet-sub" id="weekInfo"></div>
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-eyebrow">Habits · Monthly view</div>
+          <div class="sheet-title" id="weekLabel"></div>
+          <div class="sheet-sub" id="weekInfo"></div>
+        </div>
+        <div class="periodtabs">
+          <button class="ptab" onclick="shiftTrackMonth(-1)">‹ Prev</button>
+          <button class="ptab dark" onclick="thisTrackMonth()">This month</button>
+          <button class="ptab" onclick="shiftTrackMonth(1)">Next ›</button>
+        </div>
       </div>
-      <div class="periodtabs">
-        <button class="ptab" onclick="shiftWeek(-1)">‹ Prev</button>
-        <button class="ptab dark" onclick="thisWeek()">This week</button>
-        <button class="ptab" onclick="shiftWeek(1)">Next ›</button>
+      <div class="sheet-scroll">
+        <table>
+          <thead><tr id="headRow"></tr></thead>
+          <tbody id="body"></tbody>
+        </table>
       </div>
-    </div>
-    <div class="sheet-scroll">
-      <table>
-        <thead><tr id="headRow"></tr></thead>
-        <tbody id="body"></tbody>
-      </table>
-    </div>
-    <div class="sheet-foot">
-      <span id="weekStat"></span>
-      <button class="ptab" onclick="addHabit()">+ Add habit</button>
+      <div class="sheet-foot">
+        <span id="weekStat"></span>
+        <button class="ptab" onclick="addHabit()">+ Add habit</button>
+      </div>
     </div>
   </div>
 
@@ -243,7 +254,8 @@ let state = load() || {
 state.habits.forEach(h => h.done = h.done || {});
 state.goals = state.goals || {};   // { "2026-08": "<html>" }
 
-let weekStart = mondayOf(new Date());
+function firstOfMonth(d){ const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; }
+let trackMonth = firstOfMonth(new Date());
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function mondayOf(d){
@@ -254,8 +266,8 @@ function iso(d){ return d.toISOString().slice(0,10); }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDay(a,b){ return iso(a)===iso(b); }
 
-function shiftWeek(n){ weekStart = addDays(weekStart, n*7); render(); }
-function thisWeek(){ weekStart = mondayOf(new Date()); render(); }
+function shiftTrackMonth(n){ trackMonth.setMonth(trackMonth.getMonth()+n); render(); }
+function thisTrackMonth(){ trackMonth = firstOfMonth(new Date()); render(); }
 
 function currentStreak(h){
   let s=0, d=new Date(); d.setHours(0,0,0,0);
@@ -339,59 +351,63 @@ function delHabit(hid){
 
 function render(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const end = addDays(weekStart,6);
-  const fmt = d => d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-  document.getElementById("weekLabel").textContent = fmt(weekStart)+" – "+fmt(end);
+  const year = trackMonth.getFullYear(), month = trackMonth.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const WD = ["S","M","T","W","T","F","S"];
+  document.getElementById("weekLabel").textContent =
+    trackMonth.toLocaleDateString(undefined,{month:"long",year:"numeric"});
 
-  // header
+  // header — one column per day of the month
   let head = '<th class="habit-col">Habit</th>';
-  DAYS.forEach((d,i)=>{
-    const date = addDays(weekStart,i);
+  for(let i=1;i<=daysInMonth;i++){
+    const date = new Date(year,month,i);
     const isT = sameDay(date,today);
-    head += `<th class="${isT?'today':''}">${d}<br><span style="font-size:10px;opacity:.7">${date.getDate()}</span></th>`;
-  });
+    const we = (date.getDay()===0 || date.getDay()===6);
+    head += `<th class="${isT?'today':''} ${we?'wend':''}"><span class="dnum">${i}</span><span class="dwd">${WD[date.getDay()]}</span></th>`;
+  }
   document.getElementById("headRow").innerHTML = head;
 
   // body
   const body = document.getElementById("body");
   if(state.habits.length===0){
-    body.innerHTML = `<tr><td colspan="8" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${daysInMonth+1}" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
   } else {
     body.innerHTML = state.habits.map(h=>{
       const streak = currentStreak(h);
       let row = `<td class="habit-col">
         <div class="hname">${escapeHtml(h.name)}</div>
-        <div class="hmeta">${h.target?escapeHtml(h.target)+" · ":""}${streak>0?`<span class="streak">🔥 ${streak}-day streak</span>`:"no active streak"}</div>
+        <div class="hmeta">${h.target?escapeHtml(h.target):""}${h.target&&streak>0?" · ":""}${streak>0?`<span class="streak">🔥 ${streak}d</span>`:(h.target?"":"no streak")}</div>
         <div class="habit-actions">
           <button onclick="editHabit('${h.id}')">Edit</button>
           <button onclick="delHabit('${h.id}')">Delete</button>
         </div>
       </td>`;
-      for(let i=0;i<7;i++){
-        const date = addDays(weekStart,i);
+      for(let i=1;i<=daysInMonth;i++){
+        const date = new Date(year,month,i);
         const dstr = iso(date);
         const future = date>today;
         const done = !!h.done[dstr];
         const isT = sameDay(date,today);
-        row += `<td class="day ${done?'done':''} ${future?'future':''} ${isT?'today-cell':''}"
+        const we = (date.getDay()===0 || date.getDay()===6);
+        row += `<td class="day ${done?'done':''} ${future?'future':''} ${isT?'today-cell':''} ${we?'wend':''}"
                   onclick="toggle('${h.id}','${dstr}',${future},event)"><div class="dot"></div></td>`;
       }
       return `<tr>${row}</tr>`;
     }).join("");
   }
 
-  // weekly stat
+  // month stat
   let cells=0, filled=0;
   state.habits.forEach(h=>{
-    for(let i=0;i<7;i++){
-      const date=addDays(weekStart,i);
+    for(let i=1;i<=daysInMonth;i++){
+      const date=new Date(year,month,i);
       if(date>today) continue;
       cells++; if(h.done[iso(date)]) filled++;
     }
   });
   const pct = cells? Math.round(filled/cells*100):0;
   document.getElementById("weekStat").textContent =
-    `This week: ${filled}/${cells} done (${pct}%)`;
+    `This month: ${filled}/${cells} done (${pct}%)`;
 }
 
 function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
