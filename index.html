@@ -76,8 +76,11 @@
 
   /* ---- Planner: yearly / monthly goals + bottlenecks ---- */
   .planner{margin-top:26px;display:flex;flex-direction:column;gap:16px;}
-  .planner .toolbar{position:sticky;top:0;z-index:5;background:var(--panel);
-    border:1px solid var(--line);border-radius:10px;padding:8px;flex-wrap:wrap;margin:0;}
+  .planner .toolbar{position:fixed;left:0;top:0;z-index:60;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin:0;flex-wrap:nowrap;
+    box-shadow:0 6px 22px rgba(20,22,35,.16);opacity:0;pointer-events:none;
+    transform:translate(-50%,-100%) scale(.96);transition:opacity .1s ease,transform .1s ease;}
+  .planner .toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1);}
   .block{background:var(--panel);border-radius:12px;padding:16px 18px 18px;border:1px solid var(--line);}
   .block-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
   .block-head h2{flex:1;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
@@ -500,6 +503,47 @@ function fmtColorCustom(color){
   if(savedRange){ const s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }
   applyColor(color); saveActive();
 }
+
+/* ---- floating toolbar: only show while text is selected inside an editor ---- */
+(function selectionToolbar(){
+  const bar = document.getElementById("toolbar");
+  function selInEditor(){
+    const s = window.getSelection();
+    if(!s || s.rangeCount===0 || s.isCollapsed) return null;
+    for(const el of editorSaves.keys()){
+      if(el.contains(s.anchorNode) && el.contains(s.focusNode)) return el;
+    }
+    return null;
+  }
+  function updateBar(){
+    const el = selInEditor();
+    if(!el){ bar.classList.remove("show"); return; }
+    activeEditor = el;
+    const r = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    if(r.width===0 && r.height===0){ bar.classList.remove("show"); return; }
+    bar.style.left = Math.round(r.left + r.width/2) + "px";
+    bar.style.top  = Math.max(44, Math.round(r.top - 10)) + "px";
+    bar.classList.add("show");
+  }
+  document.addEventListener("selectionchange", ()=> requestAnimationFrame(updateBar));
+  document.addEventListener("scroll", ()=>{ if(bar.classList.contains("show")) updateBar(); }, true);
+  window.addEventListener("resize", ()=>{ if(bar.classList.contains("show")) updateBar(); });
+
+  /* list shortcuts: Cmd/Ctrl+8 = bullets, Cmd/Ctrl+7 = numbered */
+  editorSaves.forEach((saveFn, el)=>{
+    el.addEventListener("keydown", (e)=>{
+      if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const bullets = (e.key==="8" || e.code==="Digit8");
+      const numbers = (e.key==="7" || e.code==="Digit7");
+      if(bullets || numbers){
+        e.preventDefault();
+        activeEditor = el;
+        document.execCommand(bullets ? "insertUnorderedList" : "insertOrderedList");
+        saveFn();
+      }
+    });
+  });
+})();
 
 function isoWeek(date){
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
