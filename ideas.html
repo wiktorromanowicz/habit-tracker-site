@@ -45,6 +45,7 @@
   .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
   .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
 </style>
+<link rel="stylesheet" href="grid.css"/>
 </head>
 <body>
 <div class="wrap">
@@ -68,67 +69,17 @@
   </div>
   <div class="sheet-scroll"><div id="grid"></div></div>
   <div class="sheet-foot"><button class="ptab" onclick="G.addRow()">+ Add row</button><button class="ptab" onclick="G.addCol()">+ Add column</button></div>
-  <div class="sheet-note">Editable — saves in your browser. Rename a column by clicking its header. Paste a list from anywhere into a cell.</div>
+  <div class="sheet-note">Click to select, double-click or type to edit. Double-click a column header to rename it. Drag to select, resize rows/columns by their borders, Cmd+Z to undo, and color-label cells with the toolbar.</div>
 </div></div>
+<script src="grid.js"></script>
 <script>
 /* ---- focus bar (shared) ---- */
 (function(){const el=document.getElementById('focusBar');const K='wiktorOsFocus';
   try{const v=localStorage.getItem(K);if(v!=null)el.innerHTML=v;}catch(e){}
   let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
 
-/* ---- reusable editable grid ---- */
-function makeGrid(mountId){
-  const mount=document.getElementById(mountId);
-  let key=null,label0=false,data={cols:[],rows:[]};
-  function persist(){ try{ localStorage.setItem(key,JSON.stringify(data)); }catch(e){} }
-  let pt; function persistSoon(){ clearTimeout(pt); pt=setTimeout(persist,300); }
-  function esc(s){ return (s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-  function render(){
-    let h='<table class="grid"><thead><tr>';
-    data.cols.forEach((c,ci)=> h+=`<th contenteditable="true" data-c="${ci}">${esc(c)}</th>`);
-    h+='</tr></thead><tbody>';
-    data.rows.forEach((row,ri)=>{ h+='<tr>';
-      data.cols.forEach((c,ci)=>{ const cls=(label0&&ci===0)?'rowlabel':'';
-        h+=`<td class="${cls}" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(row[ci])}</td>`; });
-      h+='</tr>'; });
-    h+='</tbody></table>'; mount.innerHTML=h;
-  }
-  mount.addEventListener('input',e=>{
-    const th=e.target.closest('th[contenteditable]');
-    if(th){ data.cols[+th.dataset.c]=th.innerText; persistSoon(); return; }
-    const td=e.target.closest('td[contenteditable]');
-    if(td){ data.rows[+td.dataset.r][+td.dataset.c]=td.innerText; persistSoon(); }
-  });
-  mount.addEventListener('paste',e=>{
-    const td=e.target.closest('td[contenteditable]'); if(!td) return;
-    const text=(e.clipboardData||window.clipboardData).getData('text/plain');
-    if(!/\t|\n/.test(text)) return;
-    e.preventDefault();
-    const mtx=text.replace(/\r/g,'').replace(/\n+$/,'').split('\n').map(l=>l.split('\t'));
-    const r0=+td.dataset.r,c0=+td.dataset.c;
-    mtx.forEach((line,i)=>{ const ri=r0+i;
-      while(data.rows.length<=ri) data.rows.push(data.cols.map(()=>''));
-      line.forEach((v,j)=>{ const ci=c0+j;
-        while(data.cols.length<=ci){ data.cols.push('Col '+(data.cols.length+1)); data.rows.forEach(r=>r.push('')); }
-        data.rows[ri][ci]=v; }); });
-    persist(); render();
-  });
-  return {
-    load(k,cols,rows,minRows,lbl0){
-      key=k; label0=!!lbl0;
-      let d=null; try{ d=JSON.parse(localStorage.getItem(k)); }catch(e){}
-      if(d&&d.cols&&d.rows){ data=d; }
-      else { data={cols:cols.slice(),rows:(rows||[]).map(r=>r.slice())}; }
-      while(data.rows.length<(minRows||0)) data.rows.push(data.cols.map(()=>''));
-      render(); persist();
-    },
-    addRow(){ data.rows.push(data.cols.map(()=>'')); persist(); render(); },
-    addCol(){ const n=prompt('Column name:','New'); if(n===null)return; data.cols.push(n||'New'); data.rows.forEach(r=>r.push('')); persist(); render(); }
-  };
-}
-
 /* ---- Ideas board ---- */
-const G = makeGrid('grid');
+const G = makeGrid('grid',{label0:false});
 const ICOLS=["Up Next","CSM Innovations","CSM Offer","Learning","Health"];
 G.load('wiktorIdeas', ICOLS, [], 16, false);
 </script>
