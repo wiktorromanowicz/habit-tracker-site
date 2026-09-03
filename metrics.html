@@ -89,7 +89,7 @@ const G = makeGrid('grid',{label0:true,firstW:210});
 const METRICS=["Ad Spend","Availability of closers","Scheduled Sales Calls","Booked Ratio %","TOF Channels","Nurture Channels","YouTube #","YouTube Views","Instagram #","Instagram Impressions","Live Sales Calls #","Show %","Offers made #","Offer %","Closes (not deposits)","Close %","Price Point","New Contracted Revenue","Rev ROAS","UF Cash #","UF Cash %","Total Cash","Cash ROAS","Net Operating Profit","Labor Expenses","Tech & Admin Expenses","Overhead","Total Expenses","Profit Margin"];
 const MCOLS=["Metric","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","EOY"];
 function seedMetrics(){ return METRICS.map(l=>{ const r=new Array(MCOLS.length).fill(''); r[0]=l; return r; }); }
-const YEARS=[2025,2026,2027]; let curY=2026;
+const YEARS=[2026,2027]; let curY=2026;
 function loadYear(y){ curY=y; document.getElementById('mTitle').textContent='Metrics '+y;
   G.load('wiktorMetrics_'+y, MCOLS, seedMetrics(), METRICS.length, true); renderTabs(); }
 function renderTabs(){ document.getElementById('tabs').innerHTML =
