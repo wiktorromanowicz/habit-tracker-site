@@ -38,3 +38,17 @@
 .gfmt .sw.nofill{background:#fff;position:relative;}
 .gfmt .sw.nofill:after{content:"";position:absolute;left:1px;right:1px;top:9px;height:2px;background:#c1362c;transform:rotate(-45deg);}
 .gfmt .sep{width:1px;height:20px;background:#e0dacb;margin:0 3px;}
+
+/* right-click context menu */
+.gmenu{position:fixed;z-index:80;background:#fff;border:1px solid #e0dacb;border-radius:10px;padding:5px;
+  box-shadow:0 10px 30px rgba(20,22,35,.22);min-width:196px;font-size:13px;color:#2b2a26;display:none;}
+.gmenu.show{display:block;}
+.gmenu .gm-row{display:flex;gap:5px;padding:3px 8px 6px;flex-wrap:wrap;}
+.gmenu .gm-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#b3ab99;padding:5px 8px 1px;}
+.gmenu .sw{width:19px;height:19px;border-radius:5px;border:1px solid rgba(0,0,0,.15);cursor:pointer;}
+.gmenu .sw:hover{transform:scale(1.12);}
+.gmenu .sw.nofill{position:relative;background:#fff;}
+.gmenu .sw.nofill:after{content:"";position:absolute;left:1px;right:1px;top:8px;height:2px;background:#c1362c;transform:rotate(-45deg);}
+.gmenu .gm-item{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;border-radius:6px;font-size:13px;color:#2b2a26;cursor:pointer;font-family:inherit;}
+.gmenu .gm-item:hover{background:#f3efe4;}
+.gmenu .gm-sep{height:1px;background:#eee6d6;margin:4px 2px;}
