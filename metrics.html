@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Wiktor-OS · Metrics</title>
+<style>
+  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:28px;min-height:100vh;overflow-x:hidden;}
+  .wrap{max-width:860px;margin:0 auto;}
+  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
+  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
+  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;-webkit-user-select:text;user-select:text;}
+  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
+  .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
+  .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;
+    padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  .nav a:not(.active):hover{background:#f0ece1}
+  .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    box-shadow:0 1px 3px rgba(60,50,30,.06);position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
+  .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
+  .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 0 16px;flex-wrap:wrap;}
+  .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
+  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
+  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:#fff;color:#4a463d;cursor:pointer;}
+  .ptab:hover{background:#f3efe4}
+  .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26}
+  .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
+  table.grid{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1500px;}
+  table.grid th{background:#f3efe4;border-bottom:1px solid #e2dccd;border-right:1px solid #ece7da;
+    padding:9px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8c8474;text-align:left;outline:none;}
+  table.grid th:last-child{border-right:none}
+  table.grid th:first-child,table.grid td:first-child{width:210px;}
+  table.grid td{border-bottom:1px solid #efeadd;border-right:1px solid #f3eee2;padding:8px 10px;
+    font-size:13px;color:#2b2a26;vertical-align:top;outline:none;white-space:pre-wrap;word-break:break-word;}
+  table.grid td:last-child{border-right:none}
+  table.grid tbody tr:nth-child(even){background:#f8f5ee}
+  table.grid td:focus,table.grid th:focus{background:#fff;box-shadow:inset 0 0 0 2px var(--accent);position:relative;z-index:1;}
+  table.grid td.rowlabel{font-weight:600;color:#4a463d;background:#f6f2e8;}
+  table.grid tbody tr:nth-child(even) td.rowlabel{background:#f2ecdd;}
+  .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
+  .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
+  <div class="brand">⚡ Wiktor-OS</div>
+  <nav class="nav">
+    <a href="index.html">🎯 Habits</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html" class="active">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+</div>
+<div class="sheet"><div class="sheet-inner">
+  <div class="sheet-head">
+    <div>
+      <div class="sheet-eyebrow">Business metrics</div>
+      <div class="sheet-title" id="mTitle">Metrics 2026</div>
+      <div class="sheet-sub">Monthly numbers — paste columns straight from your sheet.</div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div class="sheet-scroll"><div id="grid"></div></div>
+  <div class="sheet-foot"><button class="ptab" onclick="G.addRow()">+ Add metric</button></div>
+  <div class="sheet-note">Editable — saves in your browser. Paste a block of cells from Google Sheets / Excel directly into any cell and it fills across.</div>
+</div></div>
+<script>
+/* ---- focus bar (shared) ---- */
+(function(){const el=document.getElementById('focusBar');const K='wiktorOsFocus';
+  try{const v=localStorage.getItem(K);if(v!=null)el.innerHTML=v;}catch(e){}
+  let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
+
+/* ---- reusable editable grid ---- */
+function makeGrid(mountId){
+  const mount=document.getElementById(mountId);
+  let key=null,label0=false,data={cols:[],rows:[]};
+  function persist(){ try{ localStorage.setItem(key,JSON.stringify(data)); }catch(e){} }
+  let pt; function persistSoon(){ clearTimeout(pt); pt=setTimeout(persist,300); }
+  function esc(s){ return (s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  function render(){
+    let h='<table class="grid"><thead><tr>';
+    data.cols.forEach((c,ci)=> h+=`<th contenteditable="true" data-c="${ci}">${esc(c)}</th>`);
+    h+='</tr></thead><tbody>';
+    data.rows.forEach((row,ri)=>{ h+='<tr>';
+      data.cols.forEach((c,ci)=>{ const cls=(label0&&ci===0)?'rowlabel':'';
+        h+=`<td class="${cls}" contenteditable="true" data-r="${ri}" data-c="${ci}">${esc(row[ci])}</td>`; });
+      h+='</tr>'; });
+    h+='</tbody></table>'; mount.innerHTML=h;
+  }
+  mount.addEventListener('input',e=>{
+    const th=e.target.closest('th[contenteditable]');
+    if(th){ data.cols[+th.dataset.c]=th.innerText; persistSoon(); return; }
+    const td=e.target.closest('td[contenteditable]');
+    if(td){ data.rows[+td.dataset.r][+td.dataset.c]=td.innerText; persistSoon(); }
+  });
+  mount.addEventListener('paste',e=>{
+    const td=e.target.closest('td[contenteditable]'); if(!td) return;
+    const text=(e.clipboardData||window.clipboardData).getData('text/plain');
+    if(!/\t|\n/.test(text)) return;
+    e.preventDefault();
+    const mtx=text.replace(/\r/g,'').replace(/\n+$/,'').split('\n').map(l=>l.split('\t'));
+    const r0=+td.dataset.r,c0=+td.dataset.c;
+    mtx.forEach((line,i)=>{ const ri=r0+i;
+      while(data.rows.length<=ri) data.rows.push(data.cols.map(()=>''));
+      line.forEach((v,j)=>{ const ci=c0+j;
+        while(data.cols.length<=ci){ data.cols.push('Col '+(data.cols.length+1)); data.rows.forEach(r=>r.push('')); }
+        data.rows[ri][ci]=v; }); });
+    persist(); render();
+  });
+  return {
+    load(k,cols,rows,minRows,lbl0){
+      key=k; label0=!!lbl0;
+      let d=null; try{ d=JSON.parse(localStorage.getItem(k)); }catch(e){}
+      if(d&&d.cols&&d.rows){ data=d; }
+      else { data={cols:cols.slice(),rows:(rows||[]).map(r=>r.slice())}; }
+      while(data.rows.length<(minRows||0)) data.rows.push(data.cols.map(()=>''));
+      render(); persist();
+    },
+    addRow(){ data.rows.push(data.cols.map(()=>'')); persist(); render(); },
+    addCol(){ const n=prompt('Column name:','New'); if(n===null)return; data.cols.push(n||'New'); data.rows.forEach(r=>r.push('')); persist(); render(); }
+  };
+}
+
+/* ---- Metrics 2026 (rows = metrics, cols = months) ---- */
+const G = makeGrid('grid');
+const METRICS=["Ad Spend","Availability of closers","Scheduled Sales Calls","Booked Ratio %","TOF Channels","Nurture Channels","YouTube #","YouTube Views","Instagram #","Instagram Impressions","Live Sales Calls #","Show %","Offers made #","Offer %","Closes (not deposits)","Close %","Price Point","New Contracted Revenue","Rev ROAS","UF Cash #","UF Cash %","Total Cash","Cash ROAS","Net Operating Profit","Labor Expenses","Tech & Admin Expenses","Overhead","Total Expenses","Profit Margin"];
+const MCOLS=["Metric","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","EOY"];
+function seedMetrics(){ return METRICS.map(l=>{ const r=new Array(MCOLS.length).fill(''); r[0]=l; return r; }); }
+const YEARS=[2025,2026,2027]; let curY=2026;
+function loadYear(y){ curY=y; document.getElementById('mTitle').textContent='Metrics '+y;
+  G.load('wiktorMetrics_'+y, MCOLS, seedMetrics(), METRICS.length, true); renderTabs(); }
+function renderTabs(){ document.getElementById('tabs').innerHTML =
+  YEARS.map(y=>`<button class="ptab ${y===curY?'dark':''}" onclick="loadYear(${y})">${y}</button>`).join(''); }
+loadYear(2026);
+</script>
+</body>
+</html>
