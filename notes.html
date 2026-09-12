@@ -174,7 +174,7 @@
         <span class="sp"></span>
         <button id="pinBtn" onclick="togglePin()" title="Pin (⌘⇧P)">📌 Pin</button>
         <button onclick="insertDateChip(null,true)" title="Insert date (⌘⇧D)">📅 Date</button>
-        <button onclick="deleteNote()" title="Delete (⌘⌫)">🗑 Delete</button>
+        <button onclick="deleteNote()" title="Delete note (⌘⇧⌫)">🗑 Delete</button>
       </div>
       <div class="ed-scroll" id="edScroll">
         <div class="ntitle" id="ntitle" contenteditable="true" spellcheck="true"></div>
@@ -215,8 +215,8 @@
       <tr><td><kbd>⌘</kbd><kbd>\</kbd></td><td>Hide / show the note list</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Previous / next note</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></td><td>Pin / unpin note</td></tr>
-      <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>⌫</kbd></td><td>Delete the current line / list item</td></tr>
-      <tr><td><kbd>⌘</kbd><kbd>⌫</kbd></td><td>Delete the whole note (with undo)</td></tr>
+      <tr><td><kbd>⌘</kbd><kbd>⌫</kbd></td><td>Delete the current line / list item</td></tr>
+      <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>⌫</kbd></td><td>Delete the whole note (with undo)</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>B</kbd> <kbd>⌘</kbd><kbd>I</kbd> <kbd>⌘</kbd><kbd>U</kbd></td><td>Bold / italic / underline</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></td><td>Strikethrough</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>8</kbd> / <kbd>⌘</kbd><kbd>7</kbd> / <kbd>⌘</kbd><kbd>9</kbd></td><td>Bullet / numbered / checklist</td></tr>
@@ -504,13 +504,14 @@ bodyEl.addEventListener('keydown',e=>{
   if(!mod) return;
   const k=e.key.toLowerCase();
   if(e.shiftKey){
-    if(e.key==='Backspace'){ e.preventDefault(); e.stopPropagation(); deleteLine(); return; }
+    if(e.key==='Backspace'){ e.preventDefault(); e.stopPropagation(); deleteNote(); return; }
     if(k==='x'){ e.preventDefault(); fmt(null,'strikeThrough'); }
     else if(k==='d'){ e.preventDefault(); insertDateChip('',true); }
     else if(k==='p'){ e.preventDefault(); togglePin(); }
     else if(/^[0-3]$/.test(e.key)||/^Digit[0-3]$/.test(e.code)){ e.preventDefault(); const n=e.code?e.code.slice(-1):e.key; fmt(null,'formatBlock',n==='0'?'div':'h'+n); }
     return;
   }
+  if(e.key==='Backspace'){ e.preventDefault(); e.stopPropagation(); deleteLine(); return; }
   if(k==='8'||e.code==='Digit8'){ e.preventDefault(); fmt(null,'insertUnorderedList'); }
   else if(k==='7'||e.code==='Digit7'){ e.preventDefault(); fmt(null,'insertOrderedList'); }
   else if(k==='9'||e.code==='Digit9'){ e.preventDefault(); checklist(null); }
@@ -527,7 +528,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='n'&&!e.shiftKey){ e.preventDefault(); newNote(); }
   else if(k==='f'&&!e.shiftKey){ e.preventDefault(); searchEl.focus(); searchEl.select(); }
   else if(k==='/'){ e.preventDefault(); toggleHelp(); }
-  else if(k==='backspace'&&!e.shiftKey&&!e.altKey&&(e.target===bodyEl||e.target===titleEl||e.target===document.body||list.contains(e.target))){ e.preventDefault(); deleteNote(); }
+  else if(k==='backspace'&&e.shiftKey&&!e.altKey&&(e.target===titleEl||e.target===document.body||list.contains(e.target))){ e.preventDefault(); deleteNote(); }
   else if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); step(e.key==='ArrowUp'?-1:1); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('help').classList.contains('show')) toggleHelp(); else if(document.activeElement===searchEl){ searchEl.value=''; renderList(); bodyEl.focus(); } } });

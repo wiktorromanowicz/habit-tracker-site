@@ -3,6 +3,6 @@
      url : "Project URL"        e.g. https://abcdefghijkl.supabase.co
      key : "anon public" key    (safe to ship in the site; row-level security protects the data) */
 window.APEX_SUPABASE = {
-  url: "",
-  key: ""
+  url: "https://jmrfschqyuxozuhquekh.supabase.co",
+  key: "sb_publishable_LE9ueFlCBJLq1dmh9lrRkQ_4WzjWWZb"
 };
