@@ -1,6 +1,7 @@
-/* Wiktor-OS service worker — makes the app work offline / after reboot.
-   Bump CACHE when files change so clients pick up the new version. */
-const CACHE = 'wiktoros-v2';
+/* Wiktor-OS service worker — instant, offline-first loading.
+   Cache-first for everything (served from disk in ~1ms), revalidated in the
+   background. Bump CACHE when files change so clients pick up the new version. */
+const CACHE = 'wiktoros-v3';
 const ASSETS = [
   './', './index.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
   './grid.js', './grid.css', './pwa.js', './manifest.json',
@@ -23,31 +24,27 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return; // let cross-origin (fonts) hit the network
+  if (url.origin !== location.origin) return; // let cross-origin hit the network
 
-  // Page navigations: try network (fresh), fall back to cache (offline / reboot)
+  // Page navigations: serve the cached page INSTANTLY, refresh cache in the background.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy));
-        return res;
-      }).catch(() =>
-        caches.match(req, { ignoreSearch: true })
-          .then(r => r || caches.match(url.pathname) || caches.match('./index.html'))
-      )
+      caches.match(req, { ignoreSearch: true }).then(cached => {
+        const net = fetch(req).then(res => {
+          if (res && res.status === 200) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(url.pathname, copy)); }
+          return res;
+        }).catch(() => cached);
+        return cached || net || caches.match('./index.html');
+      })
     );
     return;
   }
 
-  // Everything else (js/css/icons): serve cache instantly, refresh in the background
+  // Assets (js/css/icons): cache-first, refresh in the background.
   e.respondWith(
     caches.match(req).then(cached => {
       const net = fetch(req).then(res => {
-        if (res && res.status === 200) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy));
-        }
+        if (res && res.status === 200) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
         return res;
       }).catch(() => cached);
       return cached || net;

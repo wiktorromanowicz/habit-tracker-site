@@ -23,6 +23,19 @@
     });
   }
 
+  /* Prerender the tab you're about to click (Chrome Speculation Rules) so
+     switching sections is instant. Falls back silently where unsupported. */
+  try {
+    if (HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules')) {
+      var sr = document.createElement('script');
+      sr.type = 'speculationrules';
+      sr.textContent = JSON.stringify({
+        prerender: [{ source: 'document', where: { href_matches: '/*.html' }, eagerness: 'moderate' }]
+      });
+      document.head.appendChild(sr);
+    }
+  } catch (e) {}
+
   function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
 
   ready(function () {
