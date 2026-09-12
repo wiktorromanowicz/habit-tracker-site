@@ -145,6 +145,64 @@
   .sheet td.done .dot::after{width:4px;height:7px;transform:rotate(45deg) translate(-1px,-1px);}
   .sheet-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:13px 0 20px;font-size:13px;color:#9c9484;flex-wrap:wrap;}
+
+  /* ---- Task board (Google Tasks style) ---- */
+  .tasks-wrap{margin-top:28px;}
+  .tasks-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .tasks-head h2{flex:1;font-size:16px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .tasks-board{display:flex;gap:16px;overflow-x:auto;padding-bottom:6px;align-items:flex-start;}
+  .tlist{flex:0 0 320px;max-width:320px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:14px 8px 10px;box-shadow:0 1px 3px rgba(20,22,35,.05);}
+  .tlist-head{display:flex;align-items:center;gap:6px;padding:0 8px 8px;}
+  .tlist-title{flex:1;font-size:15px;font-weight:600;color:var(--text);outline:none;
+    -webkit-user-select:text;user-select:text;border-radius:6px;padding:2px 4px;min-height:22px;}
+  .tlist-title:focus{background:var(--panel2);}
+  .tlist-menu{background:transparent;color:#9aa1ad;padding:3px 7px;font-size:16px;line-height:1;border-radius:6px;}
+  .tlist-menu:hover{background:var(--panel2);color:var(--text);}
+  .tadd{display:flex;align-items:center;gap:9px;padding:7px 10px;color:var(--accent);
+    font-size:14px;font-weight:500;cursor:pointer;border-radius:8px;}
+  .tadd:hover{background:var(--accent-dim);}
+  .tadd .plus{font-size:18px;line-height:1;font-weight:600;}
+  .titems{list-style:none;margin:2px 0 0;padding:0;min-height:8px;}
+  .titems.dragover{background:var(--accent-dim);border-radius:8px;}
+  .titem{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;
+    cursor:grab;position:relative;transition:background .1s;}
+  .titem:hover{background:var(--panel2);}
+  .titem.dragging{opacity:.4;}
+  .titem.drop-before::before,.titem.drop-after::after{content:"";position:absolute;left:10px;right:10px;
+    height:2px;background:var(--accent);border-radius:2px;}
+  .titem.drop-before::before{top:-1px;}
+  .titem.drop-after::after{bottom:-1px;}
+  .tcheck{flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1.6px solid #c3cad6;
+    margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:all .12s;background:#fff;}
+  .tcheck:hover{border-color:var(--accent);}
+  .titem.done .tcheck{background:var(--accent);border-color:var(--accent);}
+  .titem.done .tcheck::after{content:"";width:5px;height:9px;border:solid #fff;
+    border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px);}
+  .ttext{flex:1;font-size:14px;line-height:1.4;color:var(--text);outline:none;word-break:break-word;
+    -webkit-user-select:text;user-select:text;padding-top:1px;}
+  .titem.done .ttext{color:#9aa1ad;text-decoration:line-through;}
+  .ttext:empty:before{content:"New task";color:#b0b7c3;}
+  .tdel{flex-shrink:0;background:transparent;color:#c3cad6;padding:2px 5px;font-size:15px;
+    line-height:1;opacity:0;border-radius:6px;}
+  .titem:hover .tdel{opacity:1;}
+  .tdel:hover{color:#ef4444;background:transparent;}
+  .tcompleted-head{display:flex;align-items:center;gap:6px;padding:8px 10px 4px;color:var(--muted);
+    font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;}
+  .tcompleted-head:hover{background:var(--panel2);}
+  .tcompleted-head .caret{transition:transform .15s;font-size:11px;}
+  .tlist.collapsed-done .tcompleted-head .caret{transform:rotate(-90deg);}
+  .tlist.collapsed-done .titems.done-items{display:none;}
+  .tlist-add{background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:500;
+    padding:8px 14px;border-radius:10px;}
+  .tlist-add:hover{background:#cdeed7;}
+  .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
+  .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
+    padding:8px 12px;font-size:13px;border-radius:7px;}
+  .tmenu-pop button:hover{background:var(--panel2);}
+  .tmenu-pop button.danger:hover{background:#fdeaea;color:#ef4444;}
 </style>
 <script defer src="pwa.js"></script>
 </head>
@@ -189,6 +247,14 @@
       </div>
     </div>
   </div>
+
+  <section class="tasks-wrap">
+    <div class="tasks-head">
+      <h2>Tasks</h2>
+      <button class="tlist-add" onclick="addList()">+ New list</button>
+    </div>
+    <div class="tasks-board" id="tasksBoard"></div>
+  </section>
 
   <section class="planner">
     <div class="toolbar" id="toolbar">
@@ -257,6 +323,14 @@ let state = load() || {
 // migrate: ensure done object exists
 state.habits.forEach(h => h.done = h.done || {});
 state.goals = state.goals || {};   // { "2026-08": "<html>" }
+
+// Task board: seed two lists the first time (matches the "This week" / "Next" layout)
+if(!state.taskLists){
+  state.taskLists = [
+    { id: uid(), name: "This week", items: [] },
+    { id: uid(), name: "Next",      items: [] }
+  ];
+}
 
 function firstOfMonth(d){ const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; }
 let trackMonth = firstOfMonth(new Date());
@@ -566,6 +640,269 @@ renderYear();
 renderGoals();
 renderBottle();
 updateWeekInfo();
+
+/* ================= Task board (Google Tasks style) ================= */
+const board = document.getElementById("tasksBoard");
+
+function findList(id){ return state.taskLists.find(l => l.id === id); }
+function findItem(listId, itemId){
+  const l = findList(listId); if(!l) return null;
+  return l.items.find(i => i.id === itemId) || null;
+}
+
+function renderTasks(){
+  board.innerHTML = "";
+  state.taskLists.forEach(list => {
+    const active = list.items.filter(i => !i.done);
+    const done   = list.items.filter(i => i.done);
+
+    const col = document.createElement("div");
+    col.className = "tlist" + (list.collapsedDone ? " collapsed-done" : "");
+    col.dataset.list = list.id;
+
+    // header (editable title + menu)
+    const head = document.createElement("div");
+    head.className = "tlist-head";
+    head.innerHTML =
+      '<div class="tlist-title" contenteditable="true" spellcheck="false"></div>' +
+      '<button class="tlist-menu" title="List options">⋮</button>';
+    head.querySelector(".tlist-title").textContent = list.name;
+    head.querySelector(".tlist-title").addEventListener("blur", e => {
+      list.name = e.target.textContent.trim() || "Untitled list"; save();
+    });
+    head.querySelector(".tlist-title").addEventListener("keydown", e => {
+      if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); }
+    });
+    head.querySelector(".tlist-menu").addEventListener("click", e => openListMenu(e, list.id));
+    col.appendChild(head);
+
+    // add-task affordance
+    const add = document.createElement("div");
+    add.className = "tadd";
+    add.innerHTML = '<span class="plus">+</span><span>Add a task</span>';
+    add.addEventListener("click", () => addTask(list.id));
+    col.appendChild(add);
+
+    // active items
+    const ul = document.createElement("ul");
+    ul.className = "titems";
+    ul.dataset.list = list.id;
+    active.forEach(it => ul.appendChild(taskRow(list.id, it)));
+    wireListDrop(ul, list.id, false);
+    col.appendChild(ul);
+
+    // completed section
+    if(done.length){
+      const ch = document.createElement("div");
+      ch.className = "tcompleted-head";
+      ch.innerHTML = '<span class="caret">▾</span><span>Completed (' + done.length + ')</span>';
+      ch.addEventListener("click", () => { list.collapsedDone = !list.collapsedDone; save(); renderTasks(); });
+      col.appendChild(ch);
+
+      const dul = document.createElement("ul");
+      dul.className = "titems done-items";
+      dul.dataset.list = list.id;
+      done.forEach(it => dul.appendChild(taskRow(list.id, it)));
+      wireListDrop(dul, list.id, true);
+      col.appendChild(dul);
+    }
+
+    board.appendChild(col);
+  });
+}
+
+function taskRow(listId, it){
+  const li = document.createElement("li");
+  li.className = "titem" + (it.done ? " done" : "");
+  li.draggable = true;
+  li.dataset.list = listId;
+  li.dataset.item = it.id;
+
+  const check = document.createElement("div");
+  check.className = "tcheck";
+  check.title = it.done ? "Mark not done" : "Mark done";
+  check.addEventListener("click", e => { e.stopPropagation(); toggleTask(listId, it.id); });
+
+  const txt = document.createElement("div");
+  txt.className = "ttext";
+  txt.contentEditable = "true";
+  txt.spellcheck = false;
+  txt.textContent = it.text;
+  txt.addEventListener("blur", e => {
+    const v = e.target.textContent.trim();
+    if(!v){ deleteTask(listId, it.id); return; }
+    it.text = v; save();
+  });
+  txt.addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); addTask(listId); }
+  });
+  // don't start a drag from inside the text field while editing
+  txt.addEventListener("mousedown", e => { li.draggable = false; });
+  txt.addEventListener("blur", () => { li.draggable = true; });
+
+  const del = document.createElement("button");
+  del.className = "tdel";
+  del.textContent = "✕";
+  del.title = "Delete task";
+  del.addEventListener("click", e => { e.stopPropagation(); deleteTask(listId, it.id); });
+
+  li.appendChild(check); li.appendChild(txt); li.appendChild(del);
+  wireItemDrag(li);
+  return li;
+}
+
+/* ---- mutations ---- */
+function addTask(listId){
+  const l = findList(listId); if(!l) return;
+  const it = { id: uid(), text: "", done: false };
+  // insert new task at top of the active items (like Google Tasks)
+  const firstDone = l.items.findIndex(i => i.done);
+  if(firstDone === -1) l.items.push(it); else l.items.splice(firstDone, 0, it);
+  save(); renderTasks();
+  // focus the new empty task
+  const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
+  if(el){ el.focus(); }
+}
+function toggleTask(listId, itemId){
+  const it = findItem(listId, itemId); if(!it) return;
+  it.done = !it.done;
+  const l = findList(listId);
+  // move toggled item to the boundary so active stay on top, done at bottom
+  l.items = l.items.filter(i => i.id !== itemId);
+  if(it.done) l.items.push(it);
+  else { const fd = l.items.findIndex(i => i.done); if(fd === -1) l.items.push(it); else l.items.splice(fd, 0, it); }
+  save(); renderTasks();
+}
+function deleteTask(listId, itemId){
+  const l = findList(listId); if(!l) return;
+  l.items = l.items.filter(i => i.id !== itemId);
+  save(); renderTasks();
+}
+function addList(){
+  state.taskLists.push({ id: uid(), name: "New list", items: [] });
+  save(); renderTasks();
+  // focus the new list title for renaming
+  const cols = board.querySelectorAll(".tlist-title");
+  const last = cols[cols.length-1];
+  if(last){ last.focus();
+    const r = document.createRange(); r.selectNodeContents(last);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+}
+function deleteList(listId){
+  if(state.taskLists.length <= 1){ alert("Keep at least one list."); return; }
+  state.taskLists = state.taskLists.filter(l => l.id !== listId);
+  save(); renderTasks();
+}
+function clearCompleted(listId){
+  const l = findList(listId); if(!l) return;
+  l.items = l.items.filter(i => !i.done);
+  save(); renderTasks();
+}
+
+/* ---- list options menu ---- */
+let openMenuEl = null;
+function closeListMenu(){ if(openMenuEl){ openMenuEl.remove(); openMenuEl = null; } }
+document.addEventListener("click", e => {
+  if(openMenuEl && !openMenuEl.contains(e.target) && !e.target.classList.contains("tlist-menu")) closeListMenu();
+});
+function openListMenu(e, listId){
+  e.stopPropagation();
+  closeListMenu();
+  const pop = document.createElement("div");
+  pop.className = "tmenu-pop";
+  pop.innerHTML =
+    '<button data-a="clear">Clear completed</button>' +
+    '<button data-a="del" class="danger">Delete list</button>';
+  pop.querySelector('[data-a="clear"]').addEventListener("click", () => { clearCompleted(listId); closeListMenu(); });
+  pop.querySelector('[data-a="del"]').addEventListener("click", () => { deleteList(listId); closeListMenu(); });
+  document.body.appendChild(pop);
+  const r = e.target.getBoundingClientRect();
+  pop.style.top = (r.bottom + 4) + "px";
+  pop.style.left = Math.min(r.left, window.innerWidth - 170) + "px";
+  openMenuEl = pop;
+}
+
+/* ================= Drag & drop ================= */
+let dragItem = null;   // {listId, itemId}
+
+function wireItemDrag(li){
+  li.addEventListener("dragstart", e => {
+    dragItem = { listId: li.dataset.list, itemId: li.dataset.item };
+    li.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try{ e.dataTransfer.setData("text/plain", li.dataset.item); }catch(_){}
+  });
+  li.addEventListener("dragend", () => {
+    li.classList.remove("dragging");
+    board.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before","drop-after"));
+    board.querySelectorAll(".dragover").forEach(x => x.classList.remove("dragover"));
+    dragItem = null;
+  });
+  li.addEventListener("dragover", e => {
+    e.preventDefault();
+    if(!dragItem) return;
+    const rect = li.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height/2;
+    li.classList.toggle("drop-after", after);
+    li.classList.toggle("drop-before", !after);
+  });
+  li.addEventListener("dragleave", () => li.classList.remove("drop-before","drop-after"));
+  li.addEventListener("drop", e => {
+    e.preventDefault(); e.stopPropagation();
+    if(!dragItem) return;
+    const rect = li.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height/2;
+    moveItem(dragItem, li.dataset.list, li.dataset.item, after);
+  });
+}
+
+function wireListDrop(ul, listId, doneZone){
+  ul.addEventListener("dragover", e => {
+    e.preventDefault();
+    if(dragItem) ul.classList.add("dragover");
+  });
+  ul.addEventListener("dragleave", e => {
+    if(!ul.contains(e.relatedTarget)) ul.classList.remove("dragover");
+  });
+  ul.addEventListener("drop", e => {
+    e.preventDefault();
+    ul.classList.remove("dragover");
+    if(!dragItem) return;
+    // dropped on empty area of a list -> append to that list's zone
+    moveItem(dragItem, listId, null, true, doneZone);
+  });
+}
+
+function moveItem(src, destListId, destItemId, after, doneZone){
+  const srcList = findList(src.listId);
+  const destList = findList(destListId);
+  if(!srcList || !destList) return;
+  const idx = srcList.items.findIndex(i => i.id === src.itemId);
+  if(idx === -1) return;
+  const [moved] = srcList.items.splice(idx, 1);
+
+  // if dropped directly onto another task, honor its done-state; else use the zone
+  if(destItemId){
+    const target = destList.items.find(i => i.id === destItemId);
+    if(target) moved.done = target.done;
+  } else if(typeof doneZone === "boolean"){
+    moved.done = doneZone;
+  }
+
+  let insertAt;
+  if(destItemId){
+    const di = destList.items.findIndex(i => i.id === destItemId);
+    insertAt = after ? di + 1 : di;
+  } else {
+    // append to the end of the matching (active/done) partition
+    if(moved.done){ insertAt = destList.items.length; }
+    else { const fd = destList.items.findIndex(i => i.done); insertAt = fd === -1 ? destList.items.length : fd; }
+  }
+  destList.items.splice(insertAt, 0, moved);
+  save(); renderTasks();
+}
+
+renderTasks();
 
 /* ---- sticky focus bar (shared across pages) ---- */
 (function focusBar(){
