@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apex · Timer</title>
+<style>
+  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;--green:#30d158;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:28px;min-height:100vh;overflow-x:hidden;}
+  .wrap{max-width:860px;margin:0 auto;}
+  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
+  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
+  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;-webkit-user-select:text;user-select:text;}
+  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
+  .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
+  .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;
+    padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  .nav a:not(.active):hover{background:#f0ece1}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--chip);color:var(--ink);padding:7px 12px;font-size:13px;}
+
+  .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    box-shadow:0 1px 3px rgba(60,50,30,.06);position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
+  .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
+  .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 0 14px;flex-wrap:wrap;}
+  .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
+  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
+  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+
+  /* ---- the timer card (Apple-style, dark) ---- */
+  .tcard{background:#1c1c1e;color:#fff;border-radius:22px;padding:44px 24px 28px;margin:6px 0 26px;
+    box-shadow:0 10px 40px rgba(20,18,12,.18);-webkit-user-select:none;user-select:none;}
+  .labels{display:grid;grid-template-columns:1fr 1fr 1fr;max-width:520px;margin:0 auto;text-align:center;font-size:13px;font-weight:600;color:#8e8e93;}
+  .display{display:flex;justify-content:center;align-items:baseline;gap:2px;margin:6px auto 22px;font-weight:200;
+    font-size:clamp(64px,12vw,120px);letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;}
+  .display .colon{opacity:.85;transform:translateY(-6px)}
+  .display input{width:1.35em;background:transparent;border:none;color:#fff;font:inherit;text-align:center;outline:none;
+    padding:0;margin:0;border-radius:12px;-moz-appearance:textfield;caret-color:var(--green);}
+  .display input::-webkit-outer-spin-button,.display input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .display input:focus{background:rgba(255,255,255,.08)}
+  .tcard.running .display input{pointer-events:none}
+  .tcard.done .display{color:var(--green);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .sound{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:34px;color:#8e8e93;font-size:13px;}
+  .sound select{background:#2c2c2e;color:#fff;border:none;border-radius:8px;padding:6px 30px 6px 12px;font-size:14px;font-family:inherit;
+    appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M5 1l3 3H2zM5 13l3-3H2z' fill='%23fff'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;min-width:200px;}
+  .ctrls{display:flex;justify-content:center;gap:20px;}
+  .ctrls button{min-width:150px;padding:9px 18px;border-radius:9px;font-size:14px;font-weight:600;}
+  .b-cancel{background:#2c2c2e;color:#8e8e93}
+  .b-cancel.on{color:#fff}
+  .b-cancel.on:hover{background:#3a3a3c}
+  .b-start{background:var(--green);color:#0b2a14}
+  .b-start:hover{background:#3ddb64}
+  .b-start.pause{background:#ff9f0a;color:#3a2200}
+  .b-start.stop{background:#ff453a;color:#fff}
+  .hint{text-align:center;color:#636366;font-size:12px;margin-top:18px}
+  .hint kbd{display:inline-block;padding:1px 6px;border:1px solid #3a3a3c;border-radius:5px;background:#2c2c2e;color:#c7c7cc;font-family:inherit;font-size:11px}
+
+  /* ---- recent presets ---- */
+  .recent h3{font-size:16px;margin:0 0 12px;color:var(--ink)}
+  .presets{display:flex;gap:14px;overflow-x:auto;padding-bottom:22px;}
+  .preset{flex:0 0 200px;background:#1c1c1e;color:#fff;border-radius:16px;padding:18px 12px;text-align:center;cursor:pointer;
+    position:relative;transition:transform .08s;}
+  .preset:hover{transform:translateY(-2px)}
+  .ring{width:120px;height:120px;border-radius:50%;border:4px solid #3a3a3c;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring .big{font-size:30px;font-weight:200;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .ring .sm{font-size:12px;color:#8e8e93;font-weight:600;margin-top:2px}
+  .preset .x{position:absolute;top:8px;right:10px;color:#636366;background:transparent;padding:2px 6px;font-size:14px;opacity:0}
+  .preset:hover .x{opacity:1}
+  .preset .x:hover{color:#ff453a}
+  .preset.add{background:#fff;border:1px dashed #d9d2c2;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+  .preset.add:hover{background:#faf8f2}
+  @media (max-width:640px){ .tcard{padding:30px 12px 22px} .ctrls button{min-width:120px} .preset{flex-basis:150px} .ring{width:100px;height:100px} .ring .big{font-size:24px} }
+</style>
+<script defer src="pwa.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
+  <div class="brand">⚡ Apex</div>
+  <nav class="nav">
+    <a href="index.html">🎯 Habits</a>
+    <a href="tasks.html">✅ Tasks</a>
+    <a href="notes.html">📝 Notes</a>
+    <a href="timer.html" class="active">⏱ Timer</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+</div>
+
+<div class="sheet"><div class="sheet-inner">
+  <div class="sheet-head">
+    <div>
+      <div class="sheet-title">Timer</div>
+      <div class="sheet-sub" id="sub">Set a time and press Start · keeps running if you switch tabs or reload</div>
+    </div>
+  </div>
+
+  <div class="tcard" id="card">
+    <div class="labels"><span>hr</span><span>min</span><span>sec</span></div>
+    <div class="display">
+      <input id="h" type="number" min="0" max="23" inputmode="numeric" value="00">
+      <span class="colon">:</span>
+      <input id="m" type="number" min="0" max="59" inputmode="numeric" value="15">
+      <span class="colon">:</span>
+      <input id="s" type="number" min="0" max="59" inputmode="numeric" value="00">
+    </div>
+    <div class="sound">
+      <span>Sound</span>
+      <select id="sound"><option value="classic">Classic</option></select>
+    </div>
+    <div class="ctrls">
+      <button class="b-cancel" id="cancelBtn" onclick="cancelTimer()">Cancel</button>
+      <button class="b-start" id="startBtn" onclick="mainAction()">Start</button>
+    </div>
+    <div class="hint"><kbd>Space</kbd> start / pause &nbsp;·&nbsp; <kbd>Esc</kbd> cancel &nbsp;·&nbsp; <kbd>↑</kbd><kbd>↓</kbd> adjust &nbsp;·&nbsp; click a number to type</div>
+  </div>
+
+  <div class="recent">
+    <h3>Recent</h3>
+    <div class="presets" id="presets"></div>
+  </div>
+</div></div>
+
+<script>
+/* ---- focus bar (shared) ---- */
+(function(){const el=document.getElementById('focusBar');const K='wiktorOsFocus';
+  try{const v=localStorage.getItem(K);if(v!=null)el.innerHTML=v;}catch(e){}
+  let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
+
+/* ================= Timer ================= */
+const KEY='apexTimer';
+const $=id=>document.getElementById(id);
+const H=$('h'),M=$('m'),Sx=$('s'),card=$('card'),startBtn=$('startBtn'),cancelBtn=$('cancelBtn');
+let T; try{ T=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+if(!T||typeof T!=='object') T={};
+T.presets = Array.isArray(T.presets)&&T.presets.length ? T.presets : [25*60,5*60,45*60,15*60];
+// state: idle | running (endAt) | paused (remaining) | done
+T.state = T.state||'idle'; T.duration = T.duration||15*60;
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(T)); }catch(e){} }
+
+const pad=n=>String(n).padStart(2,'0');
+function split(sec){ sec=Math.max(0,Math.round(sec)); return [Math.floor(sec/3600),Math.floor(sec%3600/60),sec%60]; }
+function fmt(sec){ const [h,m,s]=split(sec); return pad(h)+':'+pad(m)+':'+pad(s); }
+function short(sec){ const [h,m,s]=split(sec); return h?pad(h)+':'+pad(m)+':'+pad(s):pad(m)+':'+pad(s); }
+function label(sec){ const [h,m,s]=split(sec); const p=[]; if(h)p.push(h+' hr'); if(m)p.push(m+' min'); if(s&&!h)p.push(s+' sec'); return p.join(' ')||'0 sec'; }
+function readInputs(){ return (+H.value||0)*3600+(+M.value||0)*60+(+Sx.value||0); }
+function show(sec){ const [h,m,s]=split(sec); H.value=pad(h); M.value=pad(m); Sx.value=pad(s); }
+
+/* ---- the single "Classic" alarm: a bright two-tone beep, repeated until stopped ---- */
+let ctx=null, alarmTimer=null;
+function ensureCtx(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx&&ctx.state==='suspended') ctx.resume().catch(()=>{}); return ctx; }
+function beep(at,freq,dur){ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0,at); g.gain.linearRampToValueAtTime(.5,at+.01); g.gain.setValueAtTime(.5,at+dur-.03); g.gain.linearRampToValueAtTime(0,at+dur);
+  o.connect(g); g.connect(ctx.destination); o.start(at); o.stop(at+dur+.02); }
+function classicBurst(){ if(!ensureCtx()) return; const t=ctx.currentTime+.02; for(let i=0;i<4;i++){ beep(t+i*.19,880,.12); beep(t+i*.19,1320,.12);} }
+function startAlarm(){ stopAlarm(); classicBurst(); alarmTimer=setInterval(classicBurst,1400); }
+function stopAlarm(){ if(alarmTimer){ clearInterval(alarmTimer); alarmTimer=null; } }
+
+/* ---- engine ---- */
+let tick=null;
+function remaining(){ return T.state==='running' ? (T.endAt-Date.now())/1000 : T.state==='paused' ? T.remaining : T.duration; }
+function render(){
+  const r=remaining();
+  card.classList.toggle('running',T.state==='running'||T.state==='paused');
+  card.classList.toggle('done',T.state==='done');
+  if(T.state!=='idle') show(r);
+  startBtn.textContent = T.state==='running'?'Pause' : T.state==='paused'?'Resume' : T.state==='done'?'Stop' : 'Start';
+  startBtn.className = 'b-start'+(T.state==='running'?' pause':T.state==='done'?' stop':'');
+  cancelBtn.classList.toggle('on',T.state!=='idle');
+  document.title = T.state==='running' ? short(r)+' · Timer' : T.state==='done' ? '⏰ Time’s up · Timer' : 'Apex · Timer';
+  $('sub').textContent = T.state==='running' ? 'Ends at '+new Date(T.endAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})
+    : T.state==='paused' ? 'Paused' : T.state==='done' ? 'Time’s up — press Stop' : 'Set a time and press Start · keeps running if you switch tabs or reload';
+}
+function loop(){ if(T.state!=='running') return; if(Date.now()>=T.endAt){ finish(); return; } render(); }
+function startTicking(){ clearInterval(tick); tick=setInterval(loop,250); }
+function startTimer(sec){
+  sec=Math.round(sec); if(sec<=0){ M.focus(); return; }
+  ensureCtx();
+  T.duration=sec; T.endAt=Date.now()+sec*1000; T.state='running';
+  addPreset(sec); save(); render(); startTicking();
+  if('Notification' in window && Notification.permission==='default') Notification.requestPermission().catch(()=>{});
+}
+function pauseTimer(){ T.remaining=Math.max(0,(T.endAt-Date.now())/1000); T.state='paused'; save(); render(); }
+function resumeTimer(){ T.endAt=Date.now()+T.remaining*1000; T.state='running'; save(); render(); startTicking(); }
+function cancelTimer(){ stopAlarm(); clearInterval(tick); T.state='idle'; save(); show(T.duration); render(); }
+function finish(){
+  clearInterval(tick); T.state='done'; save(); show(0); render(); startAlarm();
+  try{ if('Notification' in window && Notification.permission==='granted') new Notification('⏰ Time’s up', {body:label(T.duration)+' timer finished', tag:'apex-timer'}); }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate([300,150,300,150,300]); }catch(e){}
+}
+function mainAction(){
+  if(T.state==='idle') startTimer(readInputs());
+  else if(T.state==='running') pauseTimer();
+  else if(T.state==='paused') resumeTimer();
+  else cancelTimer();
+}
+
+/* ---- presets (recent) ---- */
+function addPreset(sec){ T.presets=[sec].concat(T.presets.filter(p=>p!==sec)).slice(0,8); renderPresets(); }
+function removePreset(sec){ T.presets=T.presets.filter(p=>p!==sec); save(); renderPresets(); }
+function renderPresets(){
+  const box=$('presets'); box.innerHTML='';
+  T.presets.forEach(sec=>{
+    const d=document.createElement('div'); d.className='preset';
+    d.innerHTML='<div class="ring"><div class="big">'+short(sec)+'</div><div class="sm">'+label(sec)+'</div></div><button class="x" title="Remove">✕</button>';
+    d.addEventListener('click',e=>{ if(e.target.classList.contains('x')){ removePreset(sec); return; } if(T.state==='idle'){ T.duration=sec; show(sec); save(); startTimer(sec); } });
+    box.appendChild(d);
+  });
+  const add=document.createElement('div'); add.className='preset add'; add.textContent='+ Save current time'; add.title='Add the time shown above to Recent';
+  add.addEventListener('click',()=>{ const s=readInputs(); if(s>0){ addPreset(s); save(); } });
+  box.appendChild(add);
+}
+
+/* ---- input behaviour: type digits, arrows adjust, auto-advance ---- */
+[H,M,Sx].forEach((inp,i)=>{
+  inp.addEventListener('focus',()=>inp.select());
+  inp.addEventListener('input',()=>{ if(inp.value.length>=2){ const nx=[H,M,Sx][i+1]; if(nx){ nx.focus(); } } });
+  inp.addEventListener('blur',()=>{ let v=Math.max(0,Math.min(+inp.max,parseInt(inp.value||'0',10)||0)); inp.value=pad(v); if(T.state==='idle'){ T.duration=readInputs(); save(); } });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ inp.blur(); mainAction(); } });
+});
+document.addEventListener('keydown',e=>{
+  if($('focusBar').contains(e.target)) return;
+  const typing = e.target.tagName==='INPUT' && e.target.type==='number';
+  if(e.key===' '&&!typing){ e.preventDefault(); mainAction(); }
+  else if(e.key==='Escape'){ e.preventDefault(); if(typing) e.target.blur(); else cancelTimer(); }
+  else if(!typing && (e.key==='ArrowUp'||e.key==='ArrowDown') && T.state==='idle'){ e.preventDefault(); const d=(e.key==='ArrowUp'?1:-1)*(e.shiftKey?300:60); T.duration=Math.max(0,readInputs()+d); show(T.duration); save(); }
+});
+// keep the alarm audible: any click after time's up counts as the user gesture browsers need
+document.addEventListener('click',()=>{ if(T.state==='done'&&!alarmTimer) startAlarm(); },{once:false});
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loop(); });
+
+/* ---- boot ---- */
+if(T.state==='running' && Date.now()>=T.endAt){ T.state='done'; }
+show(T.state==='idle'?T.duration:remaining());
+renderPresets(); render();
+if(T.state==='running') startTicking();
+if(T.state==='done'){ /* can't autoplay without a gesture — the blinking display + notification carry it */ }
+</script>
+</body>
+</html>

@@ -45,6 +45,12 @@
     background:#fff;overflow:hidden;margin-bottom:26px;height:calc(100vh - 250px);min-height:520px;}
   @media (max-width:820px){ .np{grid-template-columns:1fr;height:auto} .side{height:280px} }
   .side{border-right:1px solid var(--line);display:flex;flex-direction:column;background:#faf8f2;min-height:0;}
+  .np.side-hidden{grid-template-columns:1fr}
+  .np.side-hidden .side{display:none}
+  .sidebtn{background:transparent;color:#9aa1ad;padding:5px 8px;font-size:15px;line-height:1;border-radius:7px;flex-shrink:0}
+  .sidebtn:hover{background:var(--chip);color:var(--ink)}
+  #showSide{display:none}
+  .np.side-hidden #showSide{display:inline-block}
   .side-top{padding:12px 12px 8px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--line);}
   .search{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;
     background:#fff;color:var(--ink);outline:none;}
@@ -132,6 +138,7 @@
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="notes.html" class="active">📝 Notes</a>
+    <a href="timer.html">⏱ Timer</a>
     <a href="finances.html">💰 Net worth</a>
     <a href="metrics.html">📊 Metrics</a>
     <a href="assets.html">🗂️ Assets</a>
@@ -142,7 +149,6 @@
 <div class="sheet"><div class="sheet-inner">
   <div class="sheet-head">
     <div>
-      <div class="sheet-eyebrow">Notes · Notepad</div>
       <div class="sheet-title">Notes</div>
       <div class="sheet-sub" id="noteCount"></div>
     </div>
@@ -157,11 +163,13 @@
       <div class="side-top">
         <input class="search" id="search" placeholder="Search notes  ⌘F" autocomplete="off">
         <button class="newbtn" onclick="newNote()" title="New note (⌘N)">+</button>
+        <button class="sidebtn" onclick="toggleSide()" title="Hide list (⌘\)">‹</button>
       </div>
       <div class="nlist" id="nlist"></div>
     </aside>
     <section class="ed">
       <div class="ed-top">
+        <button class="sidebtn" id="showSide" onclick="toggleSide()" title="Show list (⌘\)">☰</button>
         <span id="edMeta"></span>
         <span class="sp"></span>
         <button id="pinBtn" onclick="togglePin()" title="Pin (⌘⇧P)">📌 Pin</button>
@@ -204,9 +212,11 @@
     <table>
       <tr><td><kbd>⌘</kbd><kbd>N</kbd></td><td>New note</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>F</kbd></td><td>Search notes</td></tr>
+      <tr><td><kbd>⌘</kbd><kbd>\</kbd></td><td>Hide / show the note list</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Previous / next note</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></td><td>Pin / unpin note</td></tr>
-      <tr><td><kbd>⌘</kbd><kbd>⌫</kbd></td><td>Delete note (with undo)</td></tr>
+      <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>⌫</kbd></td><td>Delete the current line / list item</td></tr>
+      <tr><td><kbd>⌘</kbd><kbd>⌫</kbd></td><td>Delete the whole note (with undo)</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>B</kbd> <kbd>⌘</kbd><kbd>I</kbd> <kbd>⌘</kbd><kbd>U</kbd></td><td>Bold / italic / underline</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></td><td>Strikethrough</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>8</kbd> / <kbd>⌘</kbd><kbd>7</kbd> / <kbd>⌘</kbd><kbd>9</kbd></td><td>Bullet / numbered / checklist</td></tr>
@@ -336,6 +346,11 @@ function step(dir){
   const arr=sorted(); const i=arr.findIndex(n=>n.id===S.active); const nx=arr[i+dir]; if(nx) open(nx.id);
 }
 
+/* ---- hide / show the note list ---- */
+const np=document.querySelector('.np');
+function toggleSide(force){ const hide = typeof force==='boolean'?force:!np.classList.contains('side-hidden'); np.classList.toggle('side-hidden',hide); try{ localStorage.setItem('apexNotesSide',hide?'hidden':'shown'); }catch(e){} }
+try{ if(localStorage.getItem('apexNotesSide')==='hidden') np.classList.add('side-hidden'); }catch(e){}
+
 /* ---- toast ---- */
 let toastEl=null, toastT=null;
 function toast(msg, btn, fn){
@@ -386,7 +401,10 @@ function textBeforeCaret(){
 function autoFormat(e){
   const {txt,range,block}=textBeforeCaret(); if(!range) return;
   const inList=!!closest(range.startContainer,'li');
-  const kill=n=>{ const s=getSelection(); const r=s.getRangeAt(0); if(r.startContainer.nodeType!==3||r.startOffset<n) return false; const del=r.cloneRange(); del.setStart(r.startContainer, r.startOffset-n); del.deleteContents(); return true; };
+  const kill=n=>{ const s=getSelection(); const r=s.getRangeAt(0); if(r.startContainer.nodeType!==3||r.startOffset<n) return false; const del=r.cloneRange(); del.setStart(r.startContainer, r.startOffset-n); del.deleteContents();
+    // if that emptied the line, keep a placeholder so the caret (and the list command) stay on THIS line
+    if(block&&block!==bodyEl&&!block.textContent&&!block.querySelector('br,img,.dchip')){ block.innerHTML='<br>'; const nr=document.createRange(); nr.setStart(block,0); nr.collapse(true); s.removeAllRanges(); s.addRange(nr); }
+    return true; };
   if(e.inputType==='insertText' && e.data===' ' && !inList){
     if(txt==='- '||txt==='* '){ if(!kill(2)) return; document.execCommand('insertUnorderedList'); return; }
     if(txt==='1. '){ if(!kill(3)) return; document.execCommand('insertOrderedList'); return; }
@@ -441,6 +459,25 @@ datePick.addEventListener('change',()=>{
   pickChip=null;
 });
 
+/* ---- delete the current line / list item (⌘⇧⌫) ---- */
+function deleteLine(){
+  const s=getSelection(); if(!s.rangeCount||!bodyEl.contains(s.anchorNode)) return;
+  let b=blockOf(s.anchorNode);
+  if(b===bodyEl){ // loose text with no block wrapper: delete to the line boundaries
+    s.modify('move','backward','lineboundary'); s.modify('extend','forward','lineboundary');
+    document.execCommand('delete'); document.execCommand('forwardDelete'); scheduleSave(); return;
+  }
+  const pick=el=>el.previousElementSibling||el.nextElementSibling;
+  let land=pick(b), parent=b.parentNode; b.remove();
+  // a list or wrapper that is now empty goes too, so no blank line is left behind
+  while(parent&&parent!==bodyEl&&!parent.textContent.trim()&&!parent.querySelector('br,img,.dchip')){ const up=parent.parentNode; land=pick(parent)||land; parent.remove(); parent=up; }
+  if(!bodyEl.textContent.trim()&&!bodyEl.querySelector('img,.dchip')) bodyEl.innerHTML='';
+  const r=document.createRange();
+  if(land&&bodyEl.contains(land)){ let t=land; while(t.lastElementChild&&/^(UL|OL)$/.test(t.nodeName)) t=t.lastElementChild; r.selectNodeContents(t); r.collapse(false); }
+  else { r.selectNodeContents(bodyEl); r.collapse(false); }
+  s.removeAllRanges(); s.addRange(r); bodyEl.focus(); scheduleSave();
+}
+
 /* ---- floating toolbar (only while text selected in the body) ---- */
 function updateBar(){
   const s=getSelection();
@@ -467,6 +504,7 @@ bodyEl.addEventListener('keydown',e=>{
   if(!mod) return;
   const k=e.key.toLowerCase();
   if(e.shiftKey){
+    if(e.key==='Backspace'){ e.preventDefault(); e.stopPropagation(); deleteLine(); return; }
     if(k==='x'){ e.preventDefault(); fmt(null,'strikeThrough'); }
     else if(k==='d'){ e.preventDefault(); insertDateChip('',true); }
     else if(k==='p'){ e.preventDefault(); togglePin(); }
@@ -485,7 +523,8 @@ document.addEventListener('keydown',e=>{
   const mod=e.metaKey||e.ctrlKey; if(!mod) return;
   if($('focusBar').contains(e.target)) return;
   const k=e.key.toLowerCase();
-  if(k==='n'&&!e.shiftKey){ e.preventDefault(); newNote(); }
+  if(e.key==='\\'){ e.preventDefault(); toggleSide(); }
+  else if(k==='n'&&!e.shiftKey){ e.preventDefault(); newNote(); }
   else if(k==='f'&&!e.shiftKey){ e.preventDefault(); searchEl.focus(); searchEl.select(); }
   else if(k==='/'){ e.preventDefault(); toggleHelp(); }
   else if(k==='backspace'&&!e.shiftKey&&!e.altKey&&(e.target===bodyEl||e.target===titleEl||e.target===document.body||list.contains(e.target))){ e.preventDefault(); deleteNote(); }

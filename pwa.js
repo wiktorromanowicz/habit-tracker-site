@@ -17,6 +17,24 @@
   addTag('meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'default' });
   addTag('meta', { name: 'apple-mobile-web-app-title', content: 'Apex' });
 
+  /* Phone layout: shared tweaks so every tab is comfortable on a small screen. */
+  (function () {
+    var st = document.createElement('style');
+    st.textContent =
+      '@media (max-width:700px){' +
+      ' body{padding:12px 12px 24px!important}' +
+      ' .goalbar{padding:8px 11px;gap:8px;margin-bottom:10px} .goalbar .gl{font-size:11px} .goalbar .gt{font-size:13px}' +
+      ' .brand{font-size:14px;margin-bottom:8px}' +
+      ' .nav{gap:5px;margin-bottom:12px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}' +
+      ' .nav a{padding:7px 11px;font-size:12px;white-space:nowrap;flex-shrink:0}' +
+      ' .sheet-inner{padding:0 12px} .sheet-head{padding:14px 0 10px} .sheet-title{font-size:22px}' +
+      ' .tlist{flex:0 0 86vw;max-width:86vw}' +
+      ' .planner .block{padding:12px}' +
+      ' .np{height:auto;min-height:0} .side{height:260px}' +
+      '}';
+    document.head.appendChild(st);
+  })();
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
