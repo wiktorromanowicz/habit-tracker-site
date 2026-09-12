@@ -83,7 +83,7 @@
     let hi=-1; for(let i=0;i<Math.min(rows.length,40);i++){ const c=findCols(rows[i]); if(c.date>=0 && (c.amount>=0||c.debit>=0||c.credit>=0)){ hi=i; break; } }
     const doc={name, kind:'transactions', txns:[], currency:'', endingBalance:null, notes:[]};
     const all=rows.map(r=>r.join(' ')).join('\n');
-    doc.currency=detectCurrency(all);
+    doc.currency=detectCurrency(all); doc.plNumbers=/\d,\d{2}(\s|;|"|$)/m.test(all);
     if(hi<0){ // no header: try positional (date, desc, amount)
       rows.forEach(r=>{ const d=r.map(c=>toDate(c)).find(Boolean); if(!d) return; const nums=r.map(toNum); const ai=nums.map((n,i)=>isNaN(n)?-1:i).filter(i=>i>=0&&!DATE_RE.test(r[i])); if(!ai.length) return; const amount=nums[ai[0]]; const desc=r.filter((c,i)=>!DATE_RE.test(c)&&isNaN(nums[i])).join(' · '); doc.txns.push({date:d,desc,amount}); });
       if(!doc.txns.length) doc.notes.push('Could not find a date + amount column in this file.');
@@ -115,7 +115,7 @@
     doc.txns.forEach(t=>{ t.cat=categorize(t.desc,t.amount); });
     const months={}; doc.txns.forEach(t=>{ const m=t.date.slice(0,7); months[m]=(months[m]||0)+1; });
     doc.months=Object.keys(months).sort(); doc.month=doc.months.length?doc.months.reduce((a,b)=>months[a]>=months[b]?a:b):'';
-    if(!doc.currency) doc.currency= doc.name.match(/pln|zl|mbank|pko|ing|millennium/i)?'PLN':'USD';
+    if(!doc.currency) doc.currency= (doc.name.match(/pln|zl|mbank|pko|ing|millennium|santander|alior|pekao/i) || doc.plNumbers) ? 'PLN' : 'USD';
   }
 
   /* ---------- PDF (statements + P&L) ---------- */

@@ -8,7 +8,7 @@
 
   /* localStorage keys that hold Apex data (per tab) */
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
-              'wiktorOsFocus', 'apexNavOrder', 'apexNotesSide', 'apexTimer'];
+              'wiktorOsFocus', 'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules'];
   var isYearKey = function (k) { return /^wiktorMetrics_\d{4}$/.test(k); };
   var synced = function (k) { return KEYS.indexOf(k) >= 0 || isYearKey(k); };
 
@@ -128,25 +128,54 @@
       card.querySelector('[data-a=sync]').onclick = function () { pullAll(); pushAll(); };
       card.querySelector('[data-a=out]').onclick = function () { sb.auth.signOut().then(function () { location.reload(); }); };
     } else {
-      card.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px">Sign in to Apex</h3><div style="font-size:13px;color:#6f6858;margin-bottom:14px">Use the same email + password on your phone and laptop. First time? Enter the details and press <b>Create account</b>.</div>' +
-        '<input id="apexEmail" type="email" placeholder="Email" autocomplete="email" style="' + inp() + '">' +
-        '<input id="apexPass" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" style="' + inp() + '">' +
+      card.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px">Sign in to Apex</h3>' +
+        '<div style="font-size:13px;color:#6f6858;margin-bottom:14px">Use the same email + password on your phone and laptop. First time? Enter the details and press <b>Create account</b>.</div>' +
+        '<form id="apexForm" autocomplete="on">' +
+        '<input name="email" id="apexEmail" type="email" placeholder="Email" autocomplete="username" style="' + inp() + '">' +
+        '<input name="password" id="apexPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password" style="' + inp() + '">' +
         '<div id="apexMsg" style="font-size:12px;color:#c1362c;min-height:16px;margin:2px 0 10px"></div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button data-a="up" style="' + btn('#f3efe4', '#2b2a26') + '">Create account</button><button data-a="in" style="' + btn('#a9741f', '#fff') + '">Sign in</button></div>';
+        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">' +
+        '<button type="button" data-a="up" style="' + btn('#f3efe4', '#2b2a26') + '">Create account</button>' +
+        '<button type="submit" data-a="in" style="' + btn('#a9741f', '#fff') + '">Sign in</button></div></form>';
+      var form = card.querySelector('#apexForm');
+      var msg = card.querySelector('#apexMsg');
+      var busy = false;
       var go = function (mode) {
-        var email = card.querySelector('#apexEmail').value.trim(), pass = card.querySelector('#apexPass').value, msg = card.querySelector('#apexMsg');
-        if (!email || pass.length < 8) { msg.textContent = 'Enter your email and a password of at least 8 characters.'; return; }
-        msg.style.color = '#6f6858'; msg.textContent = mode === 'up' ? 'Creating account…' : 'Signing in…';
+        if (busy) return;
+        var email = (form.elements.email.value || '').trim();
+        var pass = form.elements.password.value || '';
+        if (!sb) { msg.style.color = '#c1362c'; msg.textContent = 'Sync service could not load — check your connection and reopen this panel.'; return; }
+        if (!email || email.indexOf('@') < 0) { msg.style.color = '#c1362c'; msg.textContent = 'Enter your email address.'; form.elements.email.focus(); return; }
+        if (pass.length < 6) { msg.style.color = '#c1362c'; msg.textContent = 'Password needs at least 6 characters.'; form.elements.password.focus(); return; }
+        busy = true;
+        msg.style.color = '#6f6858'; msg.textContent = mode === 'up' ? 'Creating account\u2026' : 'Signing in\u2026';
         var p = mode === 'up' ? sb.auth.signUp({ email: email, password: pass }) : sb.auth.signInWithPassword({ email: email, password: pass });
-        p.then(function (r) {
-          if (r.error) { msg.style.color = '#c1362c'; msg.textContent = r.error.message; return; }
-          if (mode === 'up' && !r.data.session) { msg.textContent = 'Account created — check your email to confirm, then sign in.'; return; }
+        p.then(function (res) {
+          busy = false;
+          if (res.error) {
+            msg.style.color = '#c1362c';
+            var m = res.error.message || 'Something went wrong.';
+            if (/already registered|already exists/i.test(m)) m = 'That email already has an account \u2014 press Sign in instead.';
+            else if (/Invalid login/i.test(m)) m = 'No account with that email and password yet \u2014 press Create account first.';
+            msg.textContent = m;
+            return;
+          }
+          if (mode === 'up' && !(res.data && res.data.session)) {
+            msg.style.color = '#8a5a0f';
+            msg.textContent = 'Account created \u2014 open the confirmation email, then press Sign in.';
+            return;
+          }
           location.reload();
+        }).catch(function (err) {
+          busy = false; msg.style.color = '#c1362c';
+          msg.textContent = 'Could not reach the sync service: ' + (err && err.message ? err.message : err);
         });
       };
-      card.querySelector('[data-a=up]').onclick = function () { go('up'); };
-      card.querySelector('[data-a=in]').onclick = function () { go('in'); };
-      card.addEventListener('keydown', function (e) { if (e.key === 'Enter') go('in'); });
+      form.addEventListener('submit', function (e) { e.preventDefault(); go('in'); });
+      card.querySelector('[data-a=up]').addEventListener('click', function () { go('up'); });
+      ['keydown', 'keypress', 'keyup', 'input', 'paste'].forEach(function (ev) {
+        card.addEventListener(ev, function (e) { e.stopPropagation(); });
+      });
     }
     panel.appendChild(card); document.body.appendChild(panel);
     panel.addEventListener('mousedown', function (e) { if (e.target === panel) { panel.remove(); panel = null; } });

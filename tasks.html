@@ -53,7 +53,8 @@
   .titems{list-style:none;margin:2px 0 0;padding:0;min-height:8px;}
   .titems.dragover{background:var(--accent-dim);border-radius:8px;}
   .titem{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;
-    cursor:grab;position:relative;transition:background .1s;}
+    cursor:default;position:relative;transition:background .1s;}
+  .tasks-board.isdragging, .tasks-board.isdragging *{cursor:grabbing!important}
   .titem:hover{background:var(--panel2);}
   .titem.dragging{opacity:.4;}
   .titem.drop-before::before,.titem.drop-after::after{content:"";position:absolute;left:10px;right:10px;
@@ -102,6 +103,24 @@
   .tlist-add{background:var(--accent);color:#fff;font-size:13px;font-weight:600;box-shadow:0 1px 3px rgba(26,115,232,.3);
     padding:8px 14px;border-radius:10px;}
   .tlist-add:hover{background:#1765cc;}
+  .tdue{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:4px;cursor:pointer;background:#f3efe4;color:#6f6858;border:1px solid #e7e2d6}
+  .tdue.today{background:#fff3d6;color:#8a5a0f;border-color:#f0d79a} .tdue.over{background:#fdeaea;color:#c1362c;border-color:#f5c6c6} .tdue.soon{background:#e8f6ee;color:#15803d;border-color:#c8ead6}
+  .tdue .rep{opacity:.8}
+  .titem.done .tdue{opacity:.5}
+  .tctx{position:fixed;z-index:85;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(20,22,35,.22);padding:10px;width:300px;font-size:13px;color:var(--text)}
+  .tctx .sec{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a99f8c;padding:6px 6px 4px}
+  .tctx .quick{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 6px}
+  .tctx .q{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600}
+  .tctx .q:hover{background:#ece6d7} .tctx .q.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .tctx .line{display:flex;align-items:center;gap:6px;padding:4px 4px 6px}
+  .tctx .line input,.tctx .line select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text)}
+  .tctx .line input[type=date]{flex:1} .tctx .line input[type=time]{width:104px}
+  .tctx .sep{height:1px;background:#eee6d6;margin:6px 2px}
+  .tctx .it{display:block;width:100%;text-align:left;background:transparent;color:var(--text);padding:7px 8px;border-radius:8px;font-size:13px}
+  .tctx .it:hover{background:var(--panel2)} .tctx .it.danger{color:#c1362c} .tctx .it.danger:hover{background:#fdeaea}
+  .tctx .it .k{float:right;color:#a99f8c;font-size:11px;margin-top:1px}
+  .tctx .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 4px 4px}
+  .tctx .row2 .it{text-align:center;background:var(--panel2)} .tctx .row2 .it:hover{background:#ece6d7}
   .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
   .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
@@ -120,6 +139,7 @@
     <a href="tasks.html" class="active">✅ Tasks</a>
     <a href="notes.html">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
+    <a href="lift.html">🏋️ Lift</a>
     <a href="finances.html">💰 Net worth</a>
     <a href="metrics.html">📊 Metrics</a>
     <a href="assets.html">🗂️ Assets</a>
@@ -191,7 +211,7 @@ state.taskLists.forEach(l => {
     l.items = seedItems(TASK_SEED[l.name]);
     l._seeded = true;
   }
-  l.items.forEach(i => { if(i.parent === undefined) i.parent = null; });
+  l.items.forEach(i => { if(i.parent === undefined) i.parent = null; if(i.due===undefined) i.due=''; if(i.time===undefined) i.time=''; if(i.repeat===undefined) i.repeat=null; });
 });
 
 
@@ -289,6 +309,41 @@ function renderTasks(){
   fresh.forEach(id => { const li = board.querySelector('[data-item="'+id+'"]'); if(li) li.classList.add('enter'); });
 }
 
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---- dates / recurrence ---- */
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function isoOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayIso(){ return isoOf(new Date()); }
+function addDays(iso,n){ const [y,m,d]=iso.split('-').map(Number); const x=new Date(y,m-1,d+n); return isoOf(x); }
+function dueLabel(it){
+  if(!it.due) return '';
+  const t=todayIso(), tm=addDays(t,1); const [y,m,d]=it.due.split('-').map(Number); const dt=new Date(y,m-1,d);
+  let s = it.due===t?'Today' : it.due===tm?'Tomorrow' : it.due===addDays(t,-1)?'Yesterday' : dt.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:y!==new Date().getFullYear()?'numeric':undefined});
+  if(it.time) s+=' \u00b7 '+it.time;
+  return s;
+}
+function dueClass(it){ if(!it.due) return ''; const t=todayIso(); return it.due<t?'over':it.due===t?'today':it.due<=addDays(t,7)?'soon':''; }
+function repeatLabel(r){ if(!r||r.freq==='none') return ''; const n=r.interval||1; const each=n>1?'every '+n+' ':'';
+  switch(r.freq){ case 'daily': return n>1?each+'days':'daily'; case 'weekdays': return 'weekdays'; case 'weekly': return (n>1?each+'weeks':'weekly')+(r.days&&r.days.length?' on '+r.days.map(d=>DOW[d]).join(', '):''); case 'monthly': return n>1?each+'months':'monthly'; case 'yearly': return 'yearly'; } return ''; }
+function nextDue(it){
+  const r=it.repeat; if(!r||r.freq==='none') return null;
+  const base=it.due||todayIso(); const n=r.interval||1; const [y,m,d]=base.split('-').map(Number);
+  if(r.freq==='daily') return addDays(base,n);
+  if(r.freq==='weekdays'){ let x=addDays(base,1); while([0,6].includes(new Date(x+'T00:00').getDay())) x=addDays(x,1); return x; }
+  if(r.freq==='weekly'){ if(r.days&&r.days.length){ for(let k=1;k<=7*n;k++){ const x=addDays(base,k); if(r.days.includes(new Date(x+'T00:00').getDay())) return x; } } return addDays(base,7*n); }
+  if(r.freq==='monthly'){ const x=new Date(y,m-1+n,1); const last=new Date(x.getFullYear(),x.getMonth()+1,0).getDate(); x.setDate(Math.min(d,last)); return isoOf(x); }
+  if(r.freq==='yearly'){ return isoOf(new Date(y+n,m-1,d)); }
+  return null;
+}
+function dueChip(listId,it){
+  if(!it.due && !(it.repeat&&it.repeat.freq!=='none')) return null;
+  const c=document.createElement('span'); c.className='tdue '+dueClass(it);
+  c.innerHTML=(it.due?'\ud83d\udcc5 '+dueLabel(it):'')+(it.repeat&&it.repeat.freq!=='none'?' <span class="rep">\u21bb '+repeatLabel(it.repeat)+'</span>':'');
+  c.title='Change date / repeat'; c.addEventListener('click',e=>{ e.stopPropagation(); openCtx(e,listId,it.id); });
+  return c;
+}
+
 function taskRow(listId, it, isSub){
   const li = document.createElement("li");
   li.className = "titem" + (it.done ? " done" : "") + (isSub ? " sub" : "");
@@ -336,6 +391,8 @@ function taskRow(listId, it, isSub){
   desc.addEventListener("mousedown", () => { li.draggable = false; });
   desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
+  const chip=dueChip(listId,it); if(chip) main.appendChild(chip);
+  li.addEventListener("contextmenu", e=>{ e.preventDefault(); openCtx(e,listId,it.id); });
 
   const actions = document.createElement("div");
   actions.className = "titem-actions";
@@ -348,8 +405,10 @@ function taskRow(listId, it, isSub){
   const del = document.createElement("button");
   del.className = "tdel"; del.textContent = "✕"; del.title = "Delete task";
   del.addEventListener("click", e => { e.stopPropagation(); deleteTask(listId, it.id); });
+  const more = document.createElement("button"); more.className="tind"; more.textContent="\u22ef"; more.title="Date, repeat & more (right-click)";
+  more.addEventListener("click", e => { e.stopPropagation(); openCtx(e, listId, it.id); });
   if(isSub) actions.appendChild(outdentBtn); else actions.appendChild(indentBtn);
-  actions.appendChild(del);
+  actions.appendChild(more); actions.appendChild(del);
 
   li.appendChild(check); li.appendChild(main); li.appendChild(actions);
   wireItemDrag(li);
@@ -389,6 +448,11 @@ function toggleTask(listId, itemId){
   it.done = !it.done;
   // completing a parent completes its subtasks too
   if(it.parent === null) childrenOf(l, it.id).forEach(s => s.done = it.done);
+  // recurring: the next occurrence appears at the top, the finished one goes to Completed
+  if(it.done && it.repeat && it.repeat.freq!=='none'){
+    const nx = { id: uid(), text: it.text, desc: it.desc||'', done:false, parent: it.parent, due: nextDue(it), time: it.time||'', repeat: JSON.parse(JSON.stringify(it.repeat)) };
+    it.repeat = null; l.items.splice(0,0,nx); justAdded=[nx.id];
+  }
   save(); renderTasks();
 }
 function deleteTask(listId, itemId){
@@ -485,18 +549,75 @@ function openListMenu(e, listId){
   openMenuEl = pop;
 }
 
+/* ================= Task context menu: due date, time, repeat, actions ================= */
+let ctxEl=null;
+function closeCtx(){ if(ctxEl){ ctxEl.remove(); ctxEl=null; } }
+document.addEventListener("mousedown", e => { if(ctxEl && !ctxEl.contains(e.target)) closeCtx(); }, true);
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeCtx(); });
+function openCtx(e, listId, itemId){
+  closeCtx(); closeListMenu();
+  const l=findList(listId), it=findItem(listId,itemId); if(!it) return;
+  const t=todayIso(); const nextMon=(()=>{ let x=addDays(t,1); while(new Date(x+'T00:00').getDay()!==1) x=addDays(x,1); return x; })();
+  const rep=it.repeat||{freq:'none',interval:1};
+  const dow=new Date((it.due||t)+'T00:00').getDay(), dom=+(it.due||t).split('-')[2];
+  const box=document.createElement("div"); box.className="tctx";
+  box.innerHTML=
+    '<div class="sec">Due date</div>'+
+    '<div class="quick">'+[['Today',t],['Tomorrow',addDays(t,1)],['Next week',nextMon],['In 2 weeks',addDays(t,14)]].map(q=>'<button class="q'+(it.due===q[1]?' on':'')+'" data-due="'+q[1]+'">'+q[0]+'</button>').join('')+(it.due?'<button class="q" data-due="">\u2715 Clear</button>':'')+'</div>'+
+    '<div class="line"><input type="date" id="ctxDate" value="'+(it.due||'')+'"><input type="time" id="ctxTime" value="'+(it.time||'')+'" title="Time (optional)"></div>'+
+    '<div class="sec">Repeat</div>'+
+    '<div class="line"><select id="ctxFreq" style="flex:1">'+
+      [['none','Does not repeat'],['daily','Daily'],['weekdays','Every weekday (Mon\u2013Fri)'],['weekly','Weekly on '+DOW[dow]],['monthly','Monthly on day '+dom],['yearly','Yearly'],['custom','Custom\u2026']].map(o=>'<option value="'+o[0]+'"'+((rep.custom?o[0]==='custom':rep.freq===o[0])?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></div>'+
+    '<div class="line" id="ctxCustom" style="display:'+(rep.custom?'flex':'none')+'"><span>Every</span><input type="number" id="ctxN" min="1" value="'+(rep.interval||1)+'" style="width:60px"><select id="ctxUnit"><option value="daily"'+(rep.freq==='daily'?' selected':'')+'>days</option><option value="weekly"'+(rep.freq==='weekly'?' selected':'')+'>weeks</option><option value="monthly"'+(rep.freq==='monthly'?' selected':'')+'>months</option></select></div>'+
+    '<div class="quick" id="ctxDays" style="display:'+(rep.freq==='weekly'&&rep.custom?'flex':'none')+'">'+[1,2,3,4,5,6,0].map(d=>'<button class="q'+((rep.days||[]).includes(d)?' on':'')+'" data-day="'+d+'">'+DOW[d]+'</button>').join('')+'</div>'+
+    '<div class="sep"></div>'+
+    '<div class="row2">'+(it.parent===null?'<button class="it" data-a="indent">\u21e5 Make subtask</button>':'<button class="it" data-a="outdent">\u21e4 Promote</button>')+'<button class="it" data-a="dup">\u29c9 Duplicate</button></div>'+
+    '<div class="line"><span style="color:#6f6858;font-size:12px">Move to</span><select id="ctxMove" style="flex:1">'+state.taskLists.map(x=>'<option value="'+x.id+'"'+(x.id===listId?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>'+
+    '<div class="sep"></div>'+
+    '<button class="it" data-a="done">'+(it.done?'\u21a9 Mark not done':'\u2713 Mark done')+'</button>'+
+    '<button class="it danger" data-a="del">\ud83d\uddd1 Delete task</button>';
+  document.body.appendChild(box); ctxEl=box;
+  const W=box.offsetWidth, H=box.offsetHeight;
+  box.style.left=Math.max(8,Math.min(e.clientX, innerWidth-W-10))+'px';
+  box.style.top=Math.max(8,Math.min(e.clientY, innerHeight-H-10))+'px';
+  const commit=()=>{ save(); renderTasks(); };
+  box.querySelectorAll('[data-due]').forEach(b=>b.addEventListener('click',()=>{ it.due=b.dataset.due||''; commit(); closeCtx(); }));
+  box.querySelector('#ctxDate').addEventListener('change',ev=>{ it.due=ev.target.value; commit(); });
+  box.querySelector('#ctxTime').addEventListener('change',ev=>{ it.time=ev.target.value; commit(); });
+  const freqSel=box.querySelector('#ctxFreq'), custom=box.querySelector('#ctxCustom'), days=box.querySelector('#ctxDays'), unitSel=box.querySelector('#ctxUnit');
+  const applyRepeat=()=>{
+    const f=freqSel.value;
+    if(f==='none'){ it.repeat=null; }
+    else if(f==='custom'){ const unit=unitSel.value; const n=Math.max(1,+box.querySelector('#ctxN').value||1); const ds=[...days.querySelectorAll('.q.on')].map(b=>+b.dataset.day); it.repeat={freq:unit,interval:n,custom:true,days:unit==='weekly'?ds:[]}; }
+    else if(f==='weekly'){ it.repeat={freq:'weekly',interval:1,days:[dow]}; }
+    else { it.repeat={freq:f,interval:1}; }
+    if(it.repeat && !it.due) it.due=t;
+    save(); renderTasks();
+  };
+  freqSel.addEventListener('change',()=>{ custom.style.display=freqSel.value==='custom'?'flex':'none'; days.style.display=(freqSel.value==='custom'&&unitSel.value==='weekly')?'flex':'none'; applyRepeat(); });
+  unitSel.addEventListener('change',()=>{ days.style.display=unitSel.value==='weekly'?'flex':'none'; applyRepeat(); });
+  box.querySelector('#ctxN').addEventListener('change',applyRepeat);
+  days.querySelectorAll('.q').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); applyRepeat(); }));
+  box.querySelector('#ctxMove').addEventListener('change',ev=>{ moveItem({listId,itemId:it.id}, ev.target.value, null, true, it.done); closeCtx(); });
+  box.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{ const a=b.dataset.a;
+    if(a==='indent') indentTask(listId,it.id); else if(a==='outdent') outdentTask(listId,it.id);
+    else if(a==='dup'){ const i=l.items.findIndex(x=>x.id===it.id); const c=JSON.parse(JSON.stringify(it)); c.id=uid(); c.done=false; l.items.splice(i+1,0,c); justAdded=[c.id]; commit(); }
+    else if(a==='done') toggleTask(listId,it.id); else if(a==='del') deleteTask(listId,it.id);
+    closeCtx(); }));
+}
+
 /* ================= Drag & drop ================= */
 let dragItem = null;   // {listId, itemId}
 
 function wireItemDrag(li){
   li.addEventListener("dragstart", e => {
     dragItem = { listId: li.dataset.list, itemId: li.dataset.item };
-    li.classList.add("dragging");
+    li.classList.add("dragging"); board.classList.add("isdragging");
     e.dataTransfer.effectAllowed = "move";
     try{ e.dataTransfer.setData("text/plain", li.dataset.item); }catch(_){}
   });
   li.addEventListener("dragend", () => {
-    li.classList.remove("dragging");
+    li.classList.remove("dragging"); board.classList.remove("isdragging");
     board.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before","drop-after"));
     board.querySelectorAll(".dragover").forEach(x => x.classList.remove("dragover"));
     dragItem = null;
