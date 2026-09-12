@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Apex · Tasks</title>
 <style>
-  :root{--bg:#ffffff;--panel:#ffffff;--panel2:#f5f6f8;--line:#e3e6eb;--text:#000000;--muted:#000000;--accent:#16a34a;--accent-dim:#dcfce7;}
+  :root{--bg:#f7f6f2;--panel:#ffffff;--panel2:#f3efe4;--line:#e7e2d6;--text:#2b2a26;--muted:#8c8474;--accent:#1a73e8;--accent-dim:#e8f0fe;--gold:#a9741f;--chip:#f3efe4;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -22,9 +22,9 @@
   .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text)}
   .nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
-  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--panel2);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
-  .nav a.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
-  .nav a:not(.active):hover{background:#eceef2}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--gold);color:var(--gold)}
+  .nav a:not(.active):hover{background:#f0ece1}
   .tasks-wrap{margin-top:8px}
   /* ---- Task board (Google Tasks style) ---- */
   .tasks-wrap{margin-top:28px;}
@@ -46,7 +46,7 @@
   .tlist-count{font-size:12px;font-weight:600;color:#9aa1ad;min-width:14px;text-align:center;flex-shrink:0;}
   .tlist-menu{background:transparent;color:#9aa1ad;padding:3px 7px;font-size:16px;line-height:1;border-radius:6px;flex-shrink:0;}
   .tlist-menu:hover{background:var(--panel2);color:var(--text);}
-  .tadd{display:flex;align-items:center;gap:9px;padding:7px 10px;color:var(--accent);
+  .tadd{display:flex;align-items:center;gap:9px;padding:7px 10px;color:var(--accent);font-weight:600;
     font-size:14px;font-weight:500;cursor:pointer;border-radius:8px;}
   .tadd:hover{background:var(--accent-dim);}
   .tadd .plus{font-size:18px;line-height:1;font-weight:600;}
@@ -57,10 +57,10 @@
   .titem:hover{background:var(--panel2);}
   .titem.dragging{opacity:.4;}
   .titem.drop-before::before,.titem.drop-after::after{content:"";position:absolute;left:10px;right:10px;
-    height:2px;background:var(--accent);border-radius:2px;}
+    height:2px;background:var(--gold);border-radius:2px;}
   .titem.drop-before::before{top:-1px;}
   .titem.drop-after::after{bottom:-1px;}
-  .tcheck{flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1.6px solid #c3cad6;
+  .tcheck{flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1.6px solid #c9c2b2;
     margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
     transition:all .12s;background:#fff;}
   .tcheck:hover{border-color:var(--accent);}
@@ -74,6 +74,19 @@
   .titem.sub .ttext{font-size:13.5px;}
   .titem.done .ttext{color:#9aa1ad;text-decoration:line-through;}
   .ttext:empty:before{content:"New task";color:#b0b7c3;}
+  /* enter / leave animations (Google Tasks feel) */
+  @keyframes tin{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:none;max-height:120px}}
+  @keyframes tout{from{opacity:1;transform:none;max-height:120px}to{opacity:0;transform:translateX(18px);max-height:0;padding-top:0;padding-bottom:0;margin:0}}
+  .titem.enter{animation:tin .28s cubic-bezier(.2,.8,.2,1) both;overflow:hidden}
+  .titem.leaving{animation:tout .24s ease-in both;overflow:hidden;pointer-events:none}
+  .tcheck.pop{animation:pop .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(1)}}
+  .tmain{flex:1;min-width:0}
+  .tdesc{font-size:12.5px;line-height:1.4;color:#8c8474;outline:none;margin-top:2px;white-space:pre-wrap;word-break:break-word;
+    -webkit-user-select:text;user-select:text;}
+  .tdesc:empty:before{content:"Add details";color:#c9c2b2;}
+  .titem:not(:hover):not(:focus-within) .tdesc:empty{display:none}
+  .titem.done .tdesc{color:#b3ab99}
   .titem-actions{flex-shrink:0;display:flex;align-items:center;gap:1px;opacity:0;transition:opacity .1s;}
   .titem:hover .titem-actions{opacity:1;}
   .tind{background:transparent;color:#b3bac6;padding:2px 5px;font-size:13px;line-height:1;border-radius:6px;}
@@ -86,9 +99,9 @@
   .tcompleted-head .caret{transition:transform .15s;font-size:11px;}
   .tlist.collapsed-done .tcompleted-head .caret{transform:rotate(-90deg);}
   .tlist.collapsed-done .titems.done-items{display:none;}
-  .tlist-add{background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:500;
+  .tlist-add{background:var(--accent);color:#fff;font-size:13px;font-weight:600;box-shadow:0 1px 3px rgba(26,115,232,.3);
     padding:8px 14px;border-radius:10px;}
-  .tlist-add:hover{background:#cdeed7;}
+  .tlist-add:hover{background:#1765cc;}
   .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
   .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
@@ -194,6 +207,7 @@ function childrenOf(list, parentId){ return list.items.filter(i => i.parent === 
 
 function renderTasks(){
   board.innerHTML = "";
+  const fresh = justAdded || []; justAdded = null;
   state.taskLists.forEach(list => {
     const col = document.createElement("div");
     col.className = "tlist" + (list.collapsedDone ? " collapsed-done" : "") + (list.collapsed ? " collapsed" : "");
@@ -272,6 +286,7 @@ function renderTasks(){
 
     board.appendChild(col);
   });
+  fresh.forEach(id => { const li = board.querySelector('[data-item="'+id+'"]'); if(li) li.classList.add('enter'); });
 }
 
 function taskRow(listId, it, isSub){
@@ -284,7 +299,7 @@ function taskRow(listId, it, isSub){
   const check = document.createElement("div");
   check.className = "tcheck";
   check.title = it.done ? "Mark not done" : "Mark done";
-  check.addEventListener("click", e => { e.stopPropagation(); toggleTask(listId, it.id); });
+  check.addEventListener("click", e => { e.stopPropagation(); check.classList.add("pop"); li.classList.add("leaving"); setTimeout(()=>toggleTask(listId, it.id), 220); });
 
   const txt = document.createElement("div");
   txt.className = "ttext";
@@ -295,13 +310,32 @@ function taskRow(listId, it, isSub){
     if(!v){ deleteTask(listId, it.id); return; }
     it.text = v; save();
   });
+  txt.addEventListener("paste", e => {
+    const t=(e.clipboardData||window.clipboardData).getData("text/plain")||"";
+    const lines=t.split(/\r?\n/).map(x=>x.replace(/^[\s•\-\*·]+/,"").trim()).filter(Boolean);
+    if(lines.length<=1) return;                       // single line: normal paste
+    e.preventDefault();
+    document.execCommand("insertText", false, lines[0]);
+    it.text = e.target.textContent.trim(); save();
+    addTasks(listId, it.id, lines.slice(1));          // the rest become tasks right below
+  });
   txt.addEventListener("keydown", e => {
-    if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); addTask(listId); }
+    if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); desc.focus(); }
+    else if(e.key === "Enter"){ e.preventDefault(); const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } addTask(listId, v?it.id:null); }
     else if(e.key === "Tab" && !e.shiftKey){ e.preventDefault(); indentTask(listId, it.id, e.target); }
     else if(e.key === "Tab" && e.shiftKey){ e.preventDefault(); outdentTask(listId, it.id, e.target); }
   });
   txt.addEventListener("mousedown", () => { li.draggable = false; });
   txt.addEventListener("blur", () => { li.draggable = true; });
+
+  // description — small grey line under the task, like Google Tasks "details"
+  const desc = document.createElement("div");
+  desc.className = "tdesc"; desc.contentEditable = "true"; desc.spellcheck = false;
+  desc.textContent = it.desc || "";
+  desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = true; });
+  desc.addEventListener("mousedown", () => { li.draggable = false; });
+  desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
+  const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
 
   const actions = document.createElement("div");
   actions.className = "titem-actions";
@@ -317,20 +351,37 @@ function taskRow(listId, it, isSub){
   if(isSub) actions.appendChild(outdentBtn); else actions.appendChild(indentBtn);
   actions.appendChild(del);
 
-  li.appendChild(check); li.appendChild(txt); li.appendChild(actions);
+  li.appendChild(check); li.appendChild(main); li.appendChild(actions);
   wireItemDrag(li);
   return li;
 }
 
 /* ---- mutations ---- */
-function addTask(listId){
+// insert position: top of the list (button) or right after `afterId` (Enter / paste)
+function insertAt(l, afterId){
+  if(!afterId) return { idx: 0, parent: null };
+  const a = findItem(l.id, afterId); if(!a) return { idx: 0, parent: null };
+  let idx = l.items.findIndex(i => i.id === afterId) + 1;
+  if(a.parent === null) while(idx < l.items.length && l.items[idx].parent === a.id) idx++;  // skip its subtasks
+  return { idx, parent: a.parent };
+}
+let justAdded = null;
+function addTask(listId, afterId){
   const l = findList(listId); if(!l) return;
-  const it = { id: uid(), text: "", done: false, parent: null };
-  const firstDone = l.items.findIndex(i => i.done);
-  if(firstDone === -1) l.items.push(it); else l.items.splice(firstDone, 0, it);
-  save(); renderTasks();
+  const pos = insertAt(l, afterId);
+  const it = { id: uid(), text: "", desc: "", done: false, parent: pos.parent };
+  l.items.splice(pos.idx, 0, it);
+  justAdded = [it.id]; save(); renderTasks();
   const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
   if(el) el.focus();
+}
+function addTasks(listId, afterId, texts){
+  const l = findList(listId); if(!l || !texts.length) return;
+  const pos = insertAt(l, afterId);
+  const items = texts.map(t => ({ id: uid(), text: t, desc: "", done: false, parent: pos.parent }));
+  l.items.splice(pos.idx, 0, ...items);
+  justAdded = items.map(i => i.id); save(); renderTasks();
+  const last = board.querySelector('[data-item="'+items[items.length-1].id+'"] .ttext'); if(last) last.focus();
 }
 function toggleTask(listId, itemId){
   const it = findItem(listId, itemId); if(!it) return;

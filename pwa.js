@@ -35,6 +35,13 @@
     document.head.appendChild(st);
   })();
 
+  /* Cloud sync (Supabase) — sync-config.js holds the project keys; sync.js does the work. */
+  (function () {
+    var a = document.createElement('script'); a.src = 'sync-config.js';
+    a.onload = function () { var b = document.createElement('script'); b.src = 'sync.js'; document.head.appendChild(b); };
+    document.head.appendChild(a);
+  })();
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
