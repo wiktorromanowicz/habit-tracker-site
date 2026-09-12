@@ -10,15 +10,16 @@ function makeGrid(mountId, opts){
   const label0 = !!opts.label0;
   const DEFAULT_W = opts.defaultW || 130, FIRST_W = opts.firstW || DEFAULT_W;
   const DEFAULT_H = 34, MINW = 54, MINH = 26, GUT = 42;
-  const S = {key:null, cols:[], rows:[], colW:[], rowH:[], fmt:{}, hideR:[], hideC:[], sel:null, editing:null, editOrig:null, undo:[], redo:[]};
-  let colResize=null, rowResize=null, dragging=false;
+  const S = {key:null, cols:[], rows:[], colW:[], rowH:[], fmt:{}, hideR:[], hideC:[], gopen:{}, sel:null, editing:null, editOrig:null, undo:[], redo:[]};
+  let colResize=null, rowResize=null, dragging=false; // dragging: false | 'cells' | 'cols' | 'rows'
+  const groupsFn = typeof opts.groups==='function' ? opts.groups : null;
 
   /* ---- persistence & undo ---- */
-  function payload(){ return {cols:S.cols, rows:S.rows, colW:S.colW, rowH:S.rowH, fmt:S.fmt, hideR:S.hideR, hideC:S.hideC}; }
+  function payload(){ return {cols:S.cols, rows:S.rows, colW:S.colW, rowH:S.rowH, fmt:S.fmt, hideR:S.hideR, hideC:S.hideC, gopen:S.gopen}; }
   function persist(){ try{ localStorage.setItem(S.key, JSON.stringify(payload())); }catch(e){} }
   function snap(){ return JSON.stringify(payload()); }
   function pushUndo(){ S.undo.push(snap()); if(S.undo.length>150) S.undo.shift(); S.redo.length=0; }
-  function apply(str){ const d=JSON.parse(str); S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; }
+  function apply(str){ const d=JSON.parse(str); S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; S.gopen=d.gopen||{}; }
   function doUndo(){ if(!S.undo.length) return; S.redo.push(snap()); apply(S.undo.pop()); S.editing=null; render(); persist(); }
   function doRedo(){ if(!S.redo.length) return; S.undo.push(snap()); apply(S.redo.pop()); S.editing=null; render(); persist(); }
 
@@ -26,7 +27,15 @@ function makeGrid(mountId, opts){
   const esc = s => (s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const cw = ci => S.colW[ci] || (ci===0&&label0?FIRST_W:DEFAULT_W);
   const fkey = (r,c) => r+','+c;
-  const hiddenC = ci => S.hideC.indexOf(ci)>=0;
+  /* column groups: [{head:ci, members:[ci,...]}] derived by the page from column names; open state kept per head name */
+  let GRP=[], gmem={}, ghead={};
+  function computeGroups(){ GRP = groupsFn ? (groupsFn(S.cols)||[]) : []; gmem={}; ghead={};
+    GRP.forEach(g=>{ ghead[g.head]=g; g.members.forEach(m=>gmem[m]=g); }); }
+  const gOpen = g => !!S.gopen[S.cols[g.head]];
+  const collapsedC = ci => { const g=gmem[ci]; return !!(g && !gOpen(g)); };
+  function toggleGroup(ci){ const g=ghead[ci]; if(!g) return; S.gopen[S.cols[ci]]=!gOpen(g); render(); persist(); }
+  const hiddenC = ci => S.hideC.indexOf(ci)>=0 || collapsedC(ci);
+  const userHiddenC = ci => S.hideC.indexOf(ci)>=0;
   const hiddenR = ri => S.hideR.indexOf(ri)>=0;
   function cstyle(r,c){ const f=S.fmt[fkey(r,c)]; if(!f) return '';
     let s=''; if(f.b)s+='font-weight:700;'; if(f.i)s+='font-style:italic;';
@@ -38,18 +47,25 @@ function makeGrid(mountId, opts){
 
   /* ---- render ---- */
   function render(){
+    computeGroups();
     let h='<table class="gsheet"><colgroup><col style="width:'+GUT+'px">';
     S.cols.forEach((c,ci)=>{ if(hiddenC(ci)) return; h+='<col data-c="'+ci+'" style="width:'+cw(ci)+'px">'; });
     h+='</colgroup><thead><tr><th class="corner"></th>';
     S.cols.forEach((c,ci)=>{ if(hiddenC(ci)) return;
-      h+='<th class="colh" data-c="'+ci+'"><span class="colname">'+esc(c)+'</span><span class="rz-col" data-c="'+ci+'"></span></th>'; });
+      const g=ghead[ci], m=gmem[ci];
+      // columns the user hid right before this one -> a small marker to bring just those back
+      let runStart=-1, nHid=0; for(let k=ci-1;k>=0&&(userHiddenC(k)||collapsedC(k));k--){ if(userHiddenC(k)){ runStart=k; nHid++; } }
+      let ttl=''; if(runStart>=0){ const names=[]; for(let k=runStart;k<ci;k++) if(userHiddenC(k)&&!gmem[k]) names.push(S.cols[k]); ttl = names.length ? 'Show '+(names.length>1? names[0]+' – '+names[names.length-1] : names[0]) : 'Show '+nHid+' hidden columns'; }
+      const unhide = runStart>=0 ? '<span class="unhide" data-c1="'+runStart+'" data-c2="'+(ci-1)+'" title="'+esc(ttl)+'">◂▸</span>' : '';
+      const tog = g ? '<span class="gtog" data-c="'+ci+'" title="'+(gOpen(g)?'Collapse':'Expand')+' weeks">'+(gOpen(g)?'−':'+')+'</span>' : '';
+      h+='<th class="colh'+(g?' ghead':'')+(m?' gmem':'')+(unhide?' hasunhide':'')+'" data-c="'+ci+'">'+unhide+tog+'<span class="colname">'+esc(c)+'</span><span class="rz-col" data-c="'+ci+'"></span></th>'; });
     h+='</tr></thead><tbody>';
     S.rows.forEach((row,ri)=>{ if(hiddenR(ri)) return;
       const hstyle = S.rowH[ri] ? ' style="height:'+S.rowH[ri]+'px"' : '';
       const fixed = S.rowH[ri] ? ' rfix' : '';
       h+='<tr data-r="'+ri+'"'+hstyle+'><td class="rownum" data-r="'+ri+'">'+(ri+1)+'<span class="rz-row" data-r="'+ri+'"></span></td>';
-      S.cols.forEach((c,ci)=>{ if(hiddenC(ci)) return; const lbl=(label0&&ci===0)?' rowlabel':'';
-        h+='<td class="gc'+lbl+fixed+'" tabindex="0" data-r="'+ri+'" data-c="'+ci+'" style="'+cstyle(ri,ci)+'">'+esc(row[ci])+'</td>'; });
+      S.cols.forEach((c,ci)=>{ if(hiddenC(ci)) return; const lbl=(label0&&ci===0)?' rowlabel':''; const mem=gmem[ci]?' gmemc':'';
+        h+='<td class="gc'+lbl+fixed+mem+'" tabindex="0" data-r="'+ri+'" data-c="'+ci+'" style="'+cstyle(ri,ci)+'">'+esc(row[ci])+'</td>'; });
       h+='</tr>';
     });
     h+='</tbody></table>';
@@ -72,8 +88,9 @@ function makeGrid(mountId, opts){
     else { S.sel={r1:r,c1:c,r2:r,c2:c,ar:r,ac:c}; }
     paint();
   }
-  function selCol(ci){ S.sel={r1:0,c1:ci,r2:S.rows.length-1,c2:ci,ar:0,ac:ci}; paint(); }
-  function selRow(ri){ S.sel={r1:ri,c1:0,r2:ri,c2:S.cols.length-1,ar:ri,ac:0}; paint(); }
+  function selCol(ci,extend){ if(extend&&S.sel){ S.sel.r1=0; S.sel.r2=S.rows.length-1; S.sel.c2=ci; } else S.sel={r1:0,c1:ci,r2:S.rows.length-1,c2:ci,ar:0,ac:ci}; paint(); }
+  function selRow(ri,extend){ if(extend&&S.sel){ S.sel.c1=0; S.sel.c2=S.cols.length-1; S.sel.r2=ri; } else S.sel={r1:ri,c1:0,r2:ri,c2:S.cols.length-1,ar:ri,ac:0}; paint(); }
+  function showCols(j1,j2){ pushUndo(); S.hideC=S.hideC.filter(c=>c<j1||c>j2); render(); persist(); }
 
   /* ---- editing ---- */
   function enterEdit(r,c,initial){
@@ -146,7 +163,8 @@ function makeGrid(mountId, opts){
     remapFmt((r,c)=> c<j1?[r,c]:(c>j2?[r,c-n]:null));
     S.hideC=S.hideC.filter(c=>c<j1||c>j2).map(c=>c>j2?c-n:c); render(); persist(); }
   function hideRows(i1,i2){ pushUndo(); for(let r=i1;r<=i2;r++) if(S.hideR.indexOf(r)<0) S.hideR.push(r); render(); persist(); }
-  function hideCols(j1,j2){ pushUndo(); for(let c=j1;c<=j2;c++) if(S.hideC.indexOf(c)<0) S.hideC.push(c); render(); persist(); }
+  function hideCols(j1,j2){ pushUndo(); computeGroups(); const g=ghead[j2]; if(g) j2=Math.max(j2, ...g.members); // hiding a month hides its weeks too
+    for(let c=j1;c<=j2;c++) if(S.hideC.indexOf(c)<0) S.hideC.push(c); render(); persist(); }
   function showAllRows(){ if(!S.hideR.length) return; pushUndo(); S.hideR=[]; render(); persist(); }
   function showAllCols(){ if(!S.hideC.length) return; pushUndo(); S.hideC=[]; render(); persist(); }
 
@@ -169,7 +187,10 @@ function makeGrid(mountId, opts){
     const a=cellEl(s.r1,s.c1), b=cellEl(s.r2,s.c2); if(!a){ fbar.classList.remove('show'); return; }
     const ra=a.getBoundingClientRect(), rb=(b||a).getBoundingClientRect();
     fbar.style.left=Math.round((ra.left+rb.right)/2)+'px';
-    fbar.style.top=Math.max(46,Math.round(ra.top-10))+'px';
+    // a selection that starts on the first row (whole columns) would cover the headers: show the bar under that row instead
+    const below = s.r1===0 || ra.top-10<46;
+    fbar.classList.toggle('below', below);
+    fbar.style.top = below ? Math.round(ra.bottom+8)+'px' : Math.round(ra.top-10)+'px';
     fbar.classList.add('show');
   }
 
@@ -178,7 +199,7 @@ function makeGrid(mountId, opts){
   function hideMenu(){ menu.classList.remove('show'); }
   function buildMenu(){
     const rowN = S.sel ? (norm(S.sel).r2-norm(S.sel).r1+1) : 1;
-    const colN = S.sel ? (norm(S.sel).c2-norm(S.sel).c1+1) : 1;
+    let colN = 1; if(S.sel){ const ns=norm(S.sel); colN=0; for(let c=ns.c1;c<=ns.c2;c++) if(!hiddenC(c)) colN++; colN=colN||1; }
     const rs = rowN>1?' '+rowN+' rows':' row', csv = colN>1?' '+colN+' columns':' column';
     let h='<div class="gm-lbl">Fill</div><div class="gm-row">'+fillSwatches()+'</div>'+
       '<div class="gm-lbl">Text</div><div class="gm-row">'+textSwatches()+
@@ -238,8 +259,8 @@ function makeGrid(mountId, opts){
   });
   mount.addEventListener('contextmenu', e=>{
     const colh=e.target.closest('.colh'), rn=e.target.closest('td.rownum'), gc=e.target.closest('td.gc');
-    if(colh){ const ci=+colh.dataset.c; const s=norm(S.sel); if(!s||s.c1!==s.c2||s.c1!==ci||s.r1!==0) selCol(ci); }
-    else if(rn){ const ri=+rn.dataset.r; const s=norm(S.sel); if(!s||s.r1!==s.r2||s.r1!==ri||s.c1!==0) selRow(ri); }
+    if(colh){ const ci=+colh.dataset.c; const s=norm(S.sel); if(!s||s.r1!==0||s.r2!==S.rows.length-1||ci<s.c1||ci>s.c2) selCol(ci); }
+    else if(rn){ const ri=+rn.dataset.r; const s=norm(S.sel); if(!s||s.c1!==0||s.c2!==S.cols.length-1||ri<s.r1||ri>s.r2) selRow(ri); }
     else if(gc){ const r=+gc.dataset.r,c=+gc.dataset.c; const s=norm(S.sel);
       if(!s || r<s.r1||r>s.r2||c<s.c1||c>s.c2) setSel(r,c,false); }
     else return;
@@ -256,13 +277,15 @@ function makeGrid(mountId, opts){
     if(e.button===2) return;
     const rzc=e.target.closest('.rz-col'); if(rzc){ startColResize(e,+rzc.dataset.c); return; }
     const rzr=e.target.closest('.rz-row'); if(rzr){ startRowResize(e,+rzr.dataset.r); return; }
-    const colh=e.target.closest('.colh'); if(colh){ if(S.editing) commitEdit(); selCol(+colh.dataset.c); e.preventDefault(); return; }
-    const rn=e.target.closest('td.rownum'); if(rn){ if(S.editing) commitEdit(); selRow(+rn.dataset.r); e.preventDefault(); return; }
+    const tg=e.target.closest('.gtog'); if(tg){ e.preventDefault(); toggleGroup(+tg.dataset.c); return; }
+    const uh=e.target.closest('.unhide'); if(uh){ e.preventDefault(); showCols(+uh.dataset.c1,+uh.dataset.c2); return; }
+    const colh=e.target.closest('.colh'); if(colh){ if(S.editing) commitEdit(); selCol(+colh.dataset.c, e.shiftKey); dragging='cols'; e.preventDefault(); return; }
+    const rn=e.target.closest('td.rownum'); if(rn){ if(S.editing) commitEdit(); selRow(+rn.dataset.r, e.shiftKey); dragging='rows'; e.preventDefault(); return; }
     const gc=e.target.closest('td.gc');
     if(gc){ const r=+gc.dataset.r,c=+gc.dataset.c;
       if(S.editing && S.editing.r===r && S.editing.c===c) return;
       if(S.editing) commitEdit();
-      setSel(r,c,e.shiftKey); dragging=true; e.preventDefault();
+      setSel(r,c,e.shiftKey); dragging='cells'; e.preventDefault();
     }
   });
   mount.addEventListener('dblclick', e=>{
@@ -279,7 +302,10 @@ function makeGrid(mountId, opts){
       const col=mount.querySelector('.gsheet colgroup col[data-c="'+colResize.ci+'"]'); if(col) col.style.width=nw+'px'; return; }
     if(rowResize){ const nh=Math.max(MINH,rowResize.h+(e.clientY-rowResize.y)); S.rowH[rowResize.ri]=nh;
       const tr=mount.querySelector('.gsheet tbody tr[data-r="'+rowResize.ri+'"]'); if(tr){ tr.style.height=nh+'px'; tr.querySelectorAll('td.gc').forEach(td=>td.classList.add('rfix')); } return; }
-    if(dragging){ const el=document.elementFromPoint(e.clientX,e.clientY); const gc=el&&el.closest?el.closest('td.gc'):null; if(gc) setSel(+gc.dataset.r,+gc.dataset.c,true); }
+    if(dragging){ const el=document.elementFromPoint(e.clientX,e.clientY); if(!el||!el.closest) return;
+      if(dragging==='cols'){ const th=el.closest('.colh'); if(th) selCol(+th.dataset.c,true); return; }
+      if(dragging==='rows'){ const rn=el.closest('td.rownum'); if(rn) selRow(+rn.dataset.r,true); return; }
+      const gc=el.closest('td.gc'); if(gc) setSel(+gc.dataset.r,+gc.dataset.c,true); }
   });
   document.addEventListener('mouseup', ()=>{ if(colResize){colResize=null;persist();} if(rowResize){rowResize=null;persist();} dragging=false; });
   document.addEventListener('mousedown', e=>{
@@ -322,12 +348,18 @@ function makeGrid(mountId, opts){
   return {
     load(key, cols, rows, minRows){
       S.key=key; let d=null; try{ d=JSON.parse(localStorage.getItem(key)); }catch(e){}
-      if(d&&d.cols&&d.rows){ S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; }
-      else { S.cols=cols.slice(); S.rows=(rows||[]).map(r=>r.slice()); S.colW=[]; S.rowH=[]; S.fmt={}; S.hideR=[]; S.hideC=[]; }
+      if(d&&d.cols&&d.rows){ S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; S.gopen=d.gopen||{}; }
+      else { S.cols=cols.slice(); S.rows=(rows||[]).map(r=>r.slice()); S.colW=[]; S.rowH=[]; S.fmt={}; S.hideR=[]; S.hideC=[]; S.gopen={}; }
       while(S.rows.length<(minRows||0)) S.rows.push(S.cols.map(()=>''));
       S.sel=null; S.editing=null; S.undo=[]; S.redo=[]; render(); persist();
     },
     addRow(){ pushUndo(); S.rows.push(S.cols.map(()=>'')); render(); persist(); },
+    cols(){ return S.cols.slice(); },
+    insertColsAfter(j, names){ names.forEach((n,k)=>{ const at=j+1+k; S.cols.splice(at,0,n); S.rows.forEach(r=>r.splice(at,0,'')); S.colW.splice(at,0,undefined);
+      remapFmt((r,c)=>[r, c>=at?c+1:c]); S.hideC=S.hideC.map(c=>c>=at?c+1:c); }); render(); persist(); },
+    setColWidth(j,w){ S.colW[j]=w; },
+    setGroupsOpen(open){ computeGroups(); GRP.forEach(g=>S.gopen[S.cols[g.head]]=!!open); render(); persist(); },
+    refresh(){ render(); persist(); },
     addCol(){ const n=prompt('Column name:','New'); if(n===null)return; pushUndo(); S.cols.push(n||'New'); S.rows.forEach(r=>r.push('')); render(); persist(); }
   };
 }

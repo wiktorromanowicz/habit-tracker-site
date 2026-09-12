@@ -1,7 +1,7 @@
 /* Apex service worker — instant, offline-first loading.
    Cache-first for everything (served from disk in ~1ms), revalidated in the
    background. Bump CACHE when files change so clients pick up the new version. */
-const CACHE = 'wiktoros-v8';
+const CACHE = 'wiktoros-v9';
 const ASSETS = [
   './', './index.html', './tasks.html', './notes.html', './timer.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
   './grid.js', './grid.css', './pwa.js', './manifest.json',
@@ -50,4 +50,15 @@ self.addEventListener('fetch', e => {
       return cached || net;
     })
   );
+});
+
+/* Timer notification: clicking it (or its Stop button) stops the alarm in the open Apex tab, or opens the timer. */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    list.forEach(c => c.postMessage({ type: 'timer-stop' }));
+    const timerTab = list.find(c => /timer\.html/.test(c.url)) || list[0];
+    if (timerTab && 'focus' in timerTab) return timerTab.focus();
+    return self.clients.openWindow('./timer.html');
+  }));
 });

@@ -71,15 +71,14 @@
 <div class="sheet"><div class="sheet-inner">
   <div class="sheet-head">
     <div>
-      <div class="sheet-eyebrow">Business metrics</div>
       <div class="sheet-title" id="mTitle">Metrics 2026</div>
-      <div class="sheet-sub">Monthly numbers — paste columns straight from your sheet.</div>
+      <div class="sheet-sub">Monthly numbers · press + on a month to see its weeks</div>
     </div>
     <div class="tabs" id="tabs"></div>
   </div>
   <div class="sheet-scroll"><div id="grid"></div></div>
-  <div class="sheet-foot"><button class="ptab" onclick="G.addRow()">+ Add metric</button></div>
-  <div class="sheet-note">Click a cell to select, double-click (or just type) to edit. Drag to select a range, drag column/row borders to resize, Cmd+Z to undo. Select cells and use the toolbar to bold, color, or label them.</div>
+  <div class="sheet-foot"><button class="ptab" onclick="G.addRow()">+ Add metric</button><button class="ptab" onclick="G.setGroupsOpen(true)">Expand all weeks</button><button class="ptab" onclick="G.setGroupsOpen(false)">Collapse all weeks</button></div>
+  <div class="sheet-note">Click a column header to select it, shift-click or drag across headers to select several, then right-click → Hide. A small ◂▸ marker shows where columns are hidden — click it to bring them back. Cmd+Z undoes anything.</div>
 </div></div>
 <script src="grid.js"></script>
 <script>
@@ -89,13 +88,27 @@
   let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
 
 /* ---- Metrics 2026 (rows = metrics, cols = months) ---- */
-const G = makeGrid('grid',{label0:true,firstW:210});
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const isWeek = n => /^\d+-\d+$|^\d+$/.test(n);
+// week labels for a month: 1-7, 8-14, 15-21, 22-28, 29-<last day>
+function weekLabels(y,mi){ const days=new Date(y,mi+1,0).getDate(); const w=["1-7","8-14","15-21","22-28"]; if(days>28) w.push(days===29?"29":"29-"+days); return w; }
+// groups are derived from column names: a month column + the week columns that follow it
+function groupsFromCols(cols){ const out=[]; cols.forEach((c,i)=>{ if(MONTHS.indexOf(c)<0) return; const mem=[]; for(let k=i+1;k<cols.length&&isWeek(cols[k]);k++) mem.push(k); if(mem.length) out.push({head:i,members:mem}); }); return out; }
+const G = makeGrid('grid',{label0:true,firstW:210,groups:groupsFromCols});
 const METRICS=["Ad Spend","Availability of closers","Scheduled Sales Calls","Booked Ratio %","TOF Channels","Nurture Channels","YouTube #","YouTube Views","Instagram #","Instagram Impressions","Live Sales Calls #","Show %","Offers made #","Offer %","Closes (not deposits)","Close %","Price Point","New Contracted Revenue","Rev ROAS","UF Cash #","UF Cash %","Total Cash","Cash ROAS","Net Operating Profit","Labor Expenses","Tech & Admin Expenses","Overhead","Total Expenses","Profit Margin"];
 const MCOLS=["Metric","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","EOY"];
 function seedMetrics(){ return METRICS.map(l=>{ const r=new Array(MCOLS.length).fill(''); r[0]=l; return r; }); }
 const YEARS=[2026,2027]; let curY=2026;
 function loadYear(y){ curY=y; document.getElementById('mTitle').textContent='Metrics '+y;
-  G.load('wiktorMetrics_'+y, MCOLS, seedMetrics(), METRICS.length, true); renderTabs(); }
+  G.load('wiktorMetrics_'+y, MCOLS, seedMetrics(), METRICS.length, true);
+  // one-time upgrade for years saved before weeks existed: add the week columns behind each month
+  const cols=G.cols();
+  if(!cols.some(isWeek)){
+    for(let mi=MONTHS.length-1; mi>=0; mi--){ const at=cols.indexOf(MONTHS[mi]); if(at<0) continue;
+      const w=weekLabels(y,mi); G.insertColsAfter(at, w); w.forEach((_,k)=>G.setColWidth(at+1+k, 78)); }
+    G.refresh();
+  }
+  renderTabs(); }
 function renderTabs(){ document.getElementById('tabs').innerHTML =
   YEARS.map(y=>`<button class="ptab ${y===curY?'dark':''}" onclick="loadYear(${y})">${y}</button>`).join(''); }
 loadYear(2026);

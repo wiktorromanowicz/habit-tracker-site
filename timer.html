@@ -101,7 +101,6 @@
   <div class="sheet-head">
     <div>
       <div class="sheet-title">Timer</div>
-      <div class="sheet-sub" id="sub">Set a time and press Start · keeps running if you switch tabs or reload</div>
     </div>
   </div>
 
@@ -178,8 +177,6 @@ function render(){
   startBtn.className = 'b-start'+(T.state==='running'?' pause':T.state==='done'?' stop':'');
   cancelBtn.classList.toggle('on',T.state!=='idle');
   document.title = T.state==='running' ? short(r)+' · Timer' : T.state==='done' ? '⏰ Time’s up · Timer' : 'Apex · Timer';
-  $('sub').textContent = T.state==='running' ? 'Ends at '+new Date(T.endAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})
-    : T.state==='paused' ? 'Paused' : T.state==='done' ? 'Time’s up — press Stop' : 'Set a time and press Start · keeps running if you switch tabs or reload';
 }
 function loop(){ if(T.state!=='running') return; if(Date.now()>=T.endAt){ finish(); return; } render(); }
 function startTicking(){ clearInterval(tick); tick=setInterval(loop,250); }
@@ -192,12 +189,25 @@ function startTimer(sec){
 }
 function pauseTimer(){ T.remaining=Math.max(0,(T.endAt-Date.now())/1000); T.state='paused'; save(); render(); }
 function resumeTimer(){ T.endAt=Date.now()+T.remaining*1000; T.state='running'; save(); render(); startTicking(); }
-function cancelTimer(){ stopAlarm(); clearInterval(tick); T.state='idle'; save(); show(T.duration); render(); }
+function cancelTimer(){ stopAlarm(); closeDoneNotification(); clearInterval(tick); T.state='idle'; save(); show(T.duration); render(); }
 function finish(){
   clearInterval(tick); T.state='done'; save(); show(0); render(); startAlarm();
-  try{ if('Notification' in window && Notification.permission==='granted') new Notification('⏰ Time’s up', {body:label(T.duration)+' timer finished', tag:'apex-timer'}); }catch(e){}
+  notifyDone();
   try{ navigator.vibrate && navigator.vibrate([300,150,300,150,300]); }catch(e){}
 }
+/* Desktop notification with a Stop button — clicking it (or the notification) turns the alarm off. */
+function notifyDone(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  const opts={ body: label(T.duration)+' timer finished — click to stop', tag:'apex-timer', requireInteraction:true, renotify:true,
+    icon:'icon-192.png', badge:'icon-192.png', data:{url:location.href}, actions:[{action:'stop',title:'Stop'}] };
+  const viaPage=()=>{ try{ const n=new Notification('⏰ Time’s up',{body:opts.body,tag:opts.tag,requireInteraction:true,icon:opts.icon}); n.onclick=()=>{ window.focus(); cancelTimer(); n.close(); }; }catch(e){} };
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.ready.then(reg=>reg.showNotification('⏰ Time’s up',opts)).catch(viaPage);
+  } else viaPage();
+}
+function closeDoneNotification(){ try{ navigator.serviceWorker && navigator.serviceWorker.ready.then(reg=>reg.getNotifications({tag:'apex-timer'}).then(ns=>ns.forEach(n=>n.close()))); }catch(e){} }
+if(navigator.serviceWorker){ navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='timer-stop') cancelTimer(); }); }
+
 function mainAction(){
   if(T.state==='idle') startTimer(readInputs());
   else if(T.state==='running') pauseTimer();
