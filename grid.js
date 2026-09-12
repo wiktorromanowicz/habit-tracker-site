@@ -1,4 +1,4 @@
-/* Wiktor-OS shared spreadsheet grid engine
+/* Apex shared spreadsheet grid engine
    editable cells, column/row resize, multi-cell range selection, undo/redo
    (Cmd/Ctrl+Z / Shift+Z), copy/cut/paste TSV, per-cell formatting, hide/unhide
    rows & columns, insert/delete rows & columns, and a right-click context menu.

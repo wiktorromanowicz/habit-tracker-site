@@ -1,4 +1,4 @@
-/* Wiktor-OS PWA bootstrap — offline support, an offline-ready indicator,
+/* Apex PWA bootstrap — offline support, an offline-ready indicator,
    and focus-bar hardening (so the top goal is always editable, even on the
    spreadsheet pages). Add <script defer src="pwa.js"></script> to each page. */
 (function () {
@@ -10,12 +10,12 @@
     document.head.appendChild(el);
   }
   addTag('link', { rel: 'manifest', href: 'manifest.json' });
-  addTag('meta', { name: 'theme-color', content: '#a9741f' });
+  addTag('meta', { name: 'theme-color', content: '#ffffff' });
   addTag('link', { rel: 'apple-touch-icon', href: 'apple-touch-icon.png' });
   addTag('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' });
   addTag('meta', { name: 'mobile-web-app-capable', content: 'yes' });
   addTag('meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'default' });
-  addTag('meta', { name: 'apple-mobile-web-app-title', content: 'Wiktor-OS' });
+  addTag('meta', { name: 'apple-mobile-web-app-title', content: 'Apex' });
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -61,6 +61,48 @@
           } catch (_) {}
         });
       }
+    }
+
+    /* ---- nav tabs: drag horizontally to reorder; order is remembered on every page ---- */
+    var nav = document.querySelector('.nav');
+    if (nav) {
+      var NK = 'apexNavOrder';
+      var links = function(){ return Array.prototype.slice.call(nav.querySelectorAll('a')); };
+      var keyOf = function(a){ return (a.getAttribute('href')||'').replace(/^\.\//,''); };
+      try {
+        var order = JSON.parse(localStorage.getItem(NK) || 'null');
+        if (Array.isArray(order) && order.length) {
+          var have = links(); var byKey = {}; have.forEach(function(a){ byKey[keyOf(a)] = a; });
+          var placed = {};
+          order.forEach(function(k){ if (byKey[k]) { nav.appendChild(byKey[k]); placed[k] = 1; } });
+          have.forEach(function(a){ if (!placed[keyOf(a)]) nav.appendChild(a); }); // new tabs go to the end
+        }
+      } catch (e) {}
+      var saveOrder = function(){ try { localStorage.setItem(NK, JSON.stringify(links().map(keyOf))); } catch (e) {} };
+      var dragging = null;
+      links().forEach(function(a){
+        a.draggable = true;
+        a.title = 'Drag to reorder';
+        a.addEventListener('dragstart', function(e){ dragging = a; a.style.opacity = '.4'; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', keyOf(a)); } catch (_) {} });
+        a.addEventListener('dragend', function(){ a.style.opacity = ''; dragging = null; links().forEach(function(x){ x.style.boxShadow = ''; }); });
+        a.addEventListener('dragover', function(e){
+          if (!dragging || dragging === a) return;
+          e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+          var r = a.getBoundingClientRect(); var before = e.clientX < r.left + r.width / 2;
+          links().forEach(function(x){ x.style.boxShadow = ''; });
+          a.style.boxShadow = before ? '-3px 0 0 0 #a9741f' : '3px 0 0 0 #a9741f';
+        });
+        a.addEventListener('drop', function(e){
+          if (!dragging || dragging === a) return;
+          e.preventDefault();
+          var r = a.getBoundingClientRect(); var before = e.clientX < r.left + r.width / 2;
+          if (before) nav.insertBefore(dragging, a); else nav.insertBefore(dragging, a.nextSibling);
+          links().forEach(function(x){ x.style.boxShadow = ''; });
+          saveOrder();
+        });
+      });
+      nav.addEventListener('dragover', function(e){ if (dragging) e.preventDefault(); });
+      nav.addEventListener('drop', function(e){ if (dragging && e.target === nav) { e.preventDefault(); nav.appendChild(dragging); saveOrder(); } });
     }
 
     /* ---- subtle "offline ready" indicator next to the brand ---- */

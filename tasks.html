@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apex · Tasks</title>
+<style>
+  :root{--bg:#ffffff;--panel:#ffffff;--panel2:#f5f6f8;--line:#e3e6eb;--text:#000000;--muted:#000000;--accent:#16a34a;--accent-dim:#dcfce7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:28px;min-height:100vh;overflow-x:hidden;}
+  .wrap{max-width:860px;margin:0 auto;}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--panel2);color:var(--text);padding:7px 12px;font-size:13px;transition:background .15s,transform .05s;}
+  button:hover{background:#eceef2}
+  button:active{transform:scale(.97)}
+  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
+    margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
+  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
+  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;-webkit-user-select:text;user-select:text;}
+  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
+  .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text)}
+  .nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--panel2);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+  .nav a:not(.active):hover{background:#eceef2}
+  .tasks-wrap{margin-top:8px}
+  /* ---- Task board (Google Tasks style) ---- */
+  .tasks-wrap{margin-top:28px;}
+  .tasks-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .tasks-head h2{flex:1;font-size:16px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .tasks-board{display:flex;gap:16px;overflow-x:auto;padding-bottom:6px;align-items:flex-start;}
+  .tlist{flex:0 0 320px;max-width:320px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:14px 8px 10px;box-shadow:0 1px 3px rgba(20,22,35,.05);}
+  .tlist-head{display:flex;align-items:center;gap:4px;padding:0 4px 8px;}
+  .tlist-caret{background:transparent;color:#9aa1ad;padding:2px 5px;font-size:12px;line-height:1;
+    border-radius:6px;flex-shrink:0;transition:transform .15s;}
+  .tlist-caret:hover{background:var(--panel2);color:var(--text);}
+  .tlist.collapsed .tlist-caret{transform:rotate(-90deg);}
+  .tlist.collapsed{padding-bottom:14px;}
+  .tlist.collapsed .tlist-head{padding-bottom:0;}
+  .tlist-title{flex:1;font-size:15px;font-weight:600;color:var(--text);outline:none;
+    -webkit-user-select:text;user-select:text;border-radius:6px;padding:2px 4px;min-height:22px;}
+  .tlist-title:focus{background:var(--panel2);}
+  .tlist-count{font-size:12px;font-weight:600;color:#9aa1ad;min-width:14px;text-align:center;flex-shrink:0;}
+  .tlist-menu{background:transparent;color:#9aa1ad;padding:3px 7px;font-size:16px;line-height:1;border-radius:6px;flex-shrink:0;}
+  .tlist-menu:hover{background:var(--panel2);color:var(--text);}
+  .tadd{display:flex;align-items:center;gap:9px;padding:7px 10px;color:var(--accent);
+    font-size:14px;font-weight:500;cursor:pointer;border-radius:8px;}
+  .tadd:hover{background:var(--accent-dim);}
+  .tadd .plus{font-size:18px;line-height:1;font-weight:600;}
+  .titems{list-style:none;margin:2px 0 0;padding:0;min-height:8px;}
+  .titems.dragover{background:var(--accent-dim);border-radius:8px;}
+  .titem{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;
+    cursor:grab;position:relative;transition:background .1s;}
+  .titem:hover{background:var(--panel2);}
+  .titem.dragging{opacity:.4;}
+  .titem.drop-before::before,.titem.drop-after::after{content:"";position:absolute;left:10px;right:10px;
+    height:2px;background:var(--accent);border-radius:2px;}
+  .titem.drop-before::before{top:-1px;}
+  .titem.drop-after::after{bottom:-1px;}
+  .tcheck{flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1.6px solid #c3cad6;
+    margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:all .12s;background:#fff;}
+  .tcheck:hover{border-color:var(--accent);}
+  .titem.done .tcheck{background:var(--accent);border-color:var(--accent);}
+  .titem.done .tcheck::after{content:"";width:5px;height:9px;border:solid #fff;
+    border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px);}
+  .titem.sub{padding-left:34px;}
+  .titem.sub::before{content:"";position:absolute;left:20px;top:15px;width:8px;height:1.5px;background:#cbd2dd;}
+  .ttext{flex:1;font-size:14px;line-height:1.4;color:var(--text);outline:none;word-break:break-word;
+    -webkit-user-select:text;user-select:text;padding-top:1px;}
+  .titem.sub .ttext{font-size:13.5px;}
+  .titem.done .ttext{color:#9aa1ad;text-decoration:line-through;}
+  .ttext:empty:before{content:"New task";color:#b0b7c3;}
+  .titem-actions{flex-shrink:0;display:flex;align-items:center;gap:1px;opacity:0;transition:opacity .1s;}
+  .titem:hover .titem-actions{opacity:1;}
+  .tind{background:transparent;color:#b3bac6;padding:2px 5px;font-size:13px;line-height:1;border-radius:6px;}
+  .tind:hover{color:var(--text);background:var(--panel2);}
+  .tdel{background:transparent;color:#c3cad6;padding:2px 5px;font-size:15px;line-height:1;border-radius:6px;}
+  .tdel:hover{color:#ef4444;background:transparent;}
+  .tcompleted-head{display:flex;align-items:center;gap:6px;padding:8px 10px 4px;color:var(--muted);
+    font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;}
+  .tcompleted-head:hover{background:var(--panel2);}
+  .tcompleted-head .caret{transition:transform .15s;font-size:11px;}
+  .tlist.collapsed-done .tcompleted-head .caret{transform:rotate(-90deg);}
+  .tlist.collapsed-done .titems.done-items{display:none;}
+  .tlist-add{background:var(--accent-dim);color:var(--accent);font-size:13px;font-weight:500;
+    padding:8px 14px;border-radius:10px;}
+  .tlist-add:hover{background:#cdeed7;}
+  .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
+  .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
+    padding:8px 12px;font-size:13px;border-radius:7px;}
+  .tmenu-pop button:hover{background:var(--panel2);}
+  .tmenu-pop button.danger:hover{background:#fdeaea;color:#ef4444;}
+</style>
+<script defer src="pwa.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
+  <div class="brand">⚡ Apex</div>
+  <nav class="nav">
+    <a href="index.html">🎯 Habits</a>
+    <a href="tasks.html" class="active">✅ Tasks</a>
+    <a href="notes.html">📝 Notes</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+
+  <section class="tasks-wrap">
+    <div class="tasks-head">
+      <h2>Tasks</h2>
+      <button class="tlist-add" onclick="addList()">+ New list</button>
+    </div>
+    <div class="tasks-board" id="tasksBoard"></div>
+  </section>
+
+</div>
+
+<script>
+/* ---- focus bar (shared) ---- */
+(function(){const el=document.getElementById('focusBar');const K='wiktorOsFocus';
+  try{const v=localStorage.getItem(K);if(v!=null)el.innerHTML=v;}catch(e){}
+  let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
+
+const KEY="apexTasks";
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+let state; try{ state=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ state={}; }
+
+// Task board seed data (matches the "This week" / "Next" layout from the screenshot)
+const TASK_SEED = {
+  "This week": [
+    "Post about referral contest",
+    "DMs for 1 hour",
+    "Cleaning SOP database template for 20 min to send to CFO of 7th",
+    "Review of their funnel for Ryan for 20 min",
+    "Put better customer journey to Jira",
+    "Planning my week for 30 min",
+    "Writing a new YouTube video about Hormozi's advice for refunds",
+    "Do hiring tasks for 30 min",
+    "Agreement for Alex",
+    "Sending money to dad for mum's phone",
+    "Work on hiring a support person",
+    "Incentive structure for the CSMs of Raj",
+    "Booking an endocrinologist",
+  ],
+  "Next": [
+    "Working on Sandy's visa situation",
+    "Watch videos on how to run B2B ads",
+    "Watch how to run the recruiting ACQ side",
+    "Work on AI for 30 min",
+    "Finding a CSM for front end simplifed",
+    "Setup TrustPilot after onboarding call system",
+  ],
+};
+function seedItems(names){ return names.map(t => ({ id: uid(), text: t, done: false, parent: null })); }
+
+if(!state.taskLists){
+  // migrate lists that were saved inside the Habits page earlier
+  try{ const old=JSON.parse(localStorage.getItem('titan_habits_v1')); if(old&&Array.isArray(old.taskLists)&&old.taskLists.length){ state.taskLists=old.taskLists; save(); } }catch(e){}
+}
+if(!state.taskLists){
+  state.taskLists = Object.keys(TASK_SEED).map(name =>
+    ({ id: uid(), name, collapsed: false, items: seedItems(TASK_SEED[name]) }));
+}
+// migrate older saved lists: ensure flags exist, and backfill the seed into
+// still-empty default lists (so earlier empty "This week"/"Next" get populated once).
+state.taskLists.forEach(l => {
+  if(l.collapsed === undefined) l.collapsed = false;
+  if((!l.items || l.items.length === 0) && !l._seeded && TASK_SEED[l.name]){
+    l.items = seedItems(TASK_SEED[l.name]);
+    l._seeded = true;
+  }
+  l.items.forEach(i => { if(i.parent === undefined) i.parent = null; });
+});
+
+
+/* ================= Task board (Google Tasks style) ================= */
+const board = document.getElementById("tasksBoard");
+
+function findList(id){ return state.taskLists.find(l => l.id === id); }
+function findItem(listId, itemId){
+  const l = findList(listId); if(!l) return null;
+  return l.items.find(i => i.id === itemId) || null;
+}
+function childrenOf(list, parentId){ return list.items.filter(i => i.parent === parentId); }
+
+function renderTasks(){
+  board.innerHTML = "";
+  state.taskLists.forEach(list => {
+    const col = document.createElement("div");
+    col.className = "tlist" + (list.collapsedDone ? " collapsed-done" : "") + (list.collapsed ? " collapsed" : "");
+    col.dataset.list = list.id;
+
+    // header: collapse caret + editable title + count + menu
+    const head = document.createElement("div");
+    head.className = "tlist-head";
+    const caret = document.createElement("button");
+    caret.className = "tlist-caret";
+    caret.title = list.collapsed ? "Show list" : "Hide list";
+    caret.textContent = "▾";
+    caret.addEventListener("click", () => { list.collapsed = !list.collapsed; save(); renderTasks(); });
+    const title = document.createElement("div");
+    title.className = "tlist-title";
+    title.contentEditable = "true"; title.spellcheck = false;
+    title.textContent = list.name;
+    title.addEventListener("blur", e => { list.name = e.target.textContent.trim() || "Untitled list"; save(); });
+    title.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); } });
+    const count = document.createElement("span");
+    count.className = "tlist-count";
+    const openN = list.items.filter(i => !i.done).length;
+    count.textContent = openN ? openN : "";
+    const menu = document.createElement("button");
+    menu.className = "tlist-menu"; menu.title = "List options"; menu.textContent = "⋮";
+    menu.addEventListener("click", e => openListMenu(e, list.id));
+    head.appendChild(caret); head.appendChild(title); head.appendChild(count); head.appendChild(menu);
+    col.appendChild(head);
+
+    // collapsed lists show just the header
+    if(list.collapsed){ board.appendChild(col); return; }
+
+    // add-task affordance
+    const add = document.createElement("div");
+    add.className = "tadd";
+    add.innerHTML = '<span class="plus">+</span><span>Add a task</span>';
+    add.addEventListener("click", () => addTask(list.id));
+    col.appendChild(add);
+
+    // active items (top-level, each followed by its subtasks)
+    const ul = document.createElement("ul");
+    ul.className = "titems"; ul.dataset.list = list.id;
+    childrenOf(list, null).filter(i => !i.done).forEach(top => {
+      ul.appendChild(taskRow(list.id, top, false));
+      childrenOf(list, top.id).forEach(sub => ul.appendChild(taskRow(list.id, sub, true)));
+    });
+    wireListDrop(ul, list.id, false);
+    col.appendChild(ul);
+
+    // completed section (parents whose done, plus done subtasks nested)
+    const doneTop = childrenOf(list, null).filter(i => i.done);
+    const doneSubsOfActive = [];
+    childrenOf(list, null).filter(i => !i.done).forEach(top => {
+      childrenOf(list, top.id).filter(s => s.done).forEach(s => doneSubsOfActive.push({top, s}));
+    });
+    const doneCount = doneTop.reduce((n,t)=> n + 1 + childrenOf(list,t.id).length, 0) + doneSubsOfActive.length;
+    if(doneCount){
+      const ch = document.createElement("div");
+      ch.className = "tcompleted-head";
+      ch.innerHTML = '<span class="caret">▾</span><span>Completed (' + doneCount + ')</span>';
+      ch.addEventListener("click", () => { list.collapsedDone = !list.collapsedDone; save(); renderTasks(); });
+      col.appendChild(ch);
+
+      const dul = document.createElement("ul");
+      dul.className = "titems done-items"; dul.dataset.list = list.id;
+      // done subtasks that still belong to an active parent
+      doneSubsOfActive.forEach(({s}) => dul.appendChild(taskRow(list.id, s, true)));
+      // fully-done parents with their subtasks
+      doneTop.forEach(top => {
+        dul.appendChild(taskRow(list.id, top, false));
+        childrenOf(list, top.id).forEach(sub => dul.appendChild(taskRow(list.id, sub, true)));
+      });
+      wireListDrop(dul, list.id, true);
+      col.appendChild(dul);
+    }
+
+    board.appendChild(col);
+  });
+}
+
+function taskRow(listId, it, isSub){
+  const li = document.createElement("li");
+  li.className = "titem" + (it.done ? " done" : "") + (isSub ? " sub" : "");
+  li.draggable = true;
+  li.dataset.list = listId;
+  li.dataset.item = it.id;
+
+  const check = document.createElement("div");
+  check.className = "tcheck";
+  check.title = it.done ? "Mark not done" : "Mark done";
+  check.addEventListener("click", e => { e.stopPropagation(); toggleTask(listId, it.id); });
+
+  const txt = document.createElement("div");
+  txt.className = "ttext";
+  txt.contentEditable = "true"; txt.spellcheck = false;
+  txt.textContent = it.text;
+  txt.addEventListener("blur", e => {
+    const v = e.target.textContent.trim();
+    if(!v){ deleteTask(listId, it.id); return; }
+    it.text = v; save();
+  });
+  txt.addEventListener("keydown", e => {
+    if(e.key === "Enter"){ e.preventDefault(); e.target.blur(); addTask(listId); }
+    else if(e.key === "Tab" && !e.shiftKey){ e.preventDefault(); indentTask(listId, it.id, e.target); }
+    else if(e.key === "Tab" && e.shiftKey){ e.preventDefault(); outdentTask(listId, it.id, e.target); }
+  });
+  txt.addEventListener("mousedown", () => { li.draggable = false; });
+  txt.addEventListener("blur", () => { li.draggable = true; });
+
+  const actions = document.createElement("div");
+  actions.className = "titem-actions";
+  const indentBtn = document.createElement("button");
+  indentBtn.className = "tind"; indentBtn.textContent = "⇥"; indentBtn.title = "Make subtask (Tab)";
+  indentBtn.addEventListener("click", e => { e.stopPropagation(); indentTask(listId, it.id); });
+  const outdentBtn = document.createElement("button");
+  outdentBtn.className = "tind"; outdentBtn.textContent = "⇤"; outdentBtn.title = "Promote (Shift+Tab)";
+  outdentBtn.addEventListener("click", e => { e.stopPropagation(); outdentTask(listId, it.id); });
+  const del = document.createElement("button");
+  del.className = "tdel"; del.textContent = "✕"; del.title = "Delete task";
+  del.addEventListener("click", e => { e.stopPropagation(); deleteTask(listId, it.id); });
+  if(isSub) actions.appendChild(outdentBtn); else actions.appendChild(indentBtn);
+  actions.appendChild(del);
+
+  li.appendChild(check); li.appendChild(txt); li.appendChild(actions);
+  wireItemDrag(li);
+  return li;
+}
+
+/* ---- mutations ---- */
+function addTask(listId){
+  const l = findList(listId); if(!l) return;
+  const it = { id: uid(), text: "", done: false, parent: null };
+  const firstDone = l.items.findIndex(i => i.done);
+  if(firstDone === -1) l.items.push(it); else l.items.splice(firstDone, 0, it);
+  save(); renderTasks();
+  const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
+  if(el) el.focus();
+}
+function toggleTask(listId, itemId){
+  const it = findItem(listId, itemId); if(!it) return;
+  const l = findList(listId);
+  it.done = !it.done;
+  // completing a parent completes its subtasks too
+  if(it.parent === null) childrenOf(l, it.id).forEach(s => s.done = it.done);
+  save(); renderTasks();
+}
+function deleteTask(listId, itemId){
+  const l = findList(listId); if(!l) return;
+  // deleting a parent deletes its subtasks
+  l.items = l.items.filter(i => i.id !== itemId && i.parent !== itemId);
+  save(); renderTasks();
+}
+function indentTask(listId, itemId, focusEl){
+  const l = findList(listId); if(!l) return;
+  const it = findItem(listId, itemId); if(!it || it.parent !== null) return; // only one level deep
+  // parent = nearest top-level task above it (of the same done-state group order in array)
+  const idx = l.items.findIndex(i => i.id === itemId);
+  let parent = null;
+  for(let k = idx - 1; k >= 0; k--){ if(l.items[k].parent === null){ parent = l.items[k]; break; } }
+  if(!parent) return; // nothing above to nest under
+  if(childrenOf(l, it.id).length) return; // don't nest a task that itself has children
+  it.parent = parent.id;
+  it.done = parent.done;
+  // move it to sit right after the parent's existing children
+  l.items = l.items.filter(i => i.id !== itemId);
+  let insertAt = l.items.findIndex(i => i.id === parent.id) + 1;
+  while(insertAt < l.items.length && l.items[insertAt].parent === parent.id) insertAt++;
+  l.items.splice(insertAt, 0, it);
+  save(); renderTasks();
+  refocus(itemId);
+}
+function outdentTask(listId, itemId){
+  const l = findList(listId); if(!l) return;
+  const it = findItem(listId, itemId); if(!it || it.parent === null) return;
+  const oldParent = it.parent;
+  it.parent = null;
+  // move it just after the last of its former parent's remaining subtasks
+  l.items = l.items.filter(i => i.id !== itemId);
+  let insertAt = l.items.findIndex(i => i.id === oldParent) + 1;
+  while(insertAt < l.items.length && l.items[insertAt].parent === oldParent) insertAt++;
+  l.items.splice(insertAt, 0, it);
+  save(); renderTasks();
+  refocus(itemId);
+}
+function refocus(itemId){
+  const el = board.querySelector('[data-item="'+itemId+'"] .ttext');
+  if(el){ el.focus();
+    try{ const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r); }catch(_){}
+  }
+}
+function addList(){
+  state.taskLists.push({ id: uid(), name: "New list", collapsed: false, items: [] });
+  save(); renderTasks();
+  const cols = board.querySelectorAll(".tlist-title");
+  const last = cols[cols.length-1];
+  if(last){ last.focus();
+    const r = document.createRange(); r.selectNodeContents(last);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+}
+function deleteList(listId){
+  if(state.taskLists.length <= 1){ alert("Keep at least one list."); return; }
+  state.taskLists = state.taskLists.filter(l => l.id !== listId);
+  save(); renderTasks();
+}
+function clearCompleted(listId){
+  const l = findList(listId); if(!l) return;
+  l.items = l.items.filter(i => !i.done);
+  // any subtask whose parent was cleared becomes top-level
+  const ids = new Set(l.items.map(i => i.id));
+  l.items.forEach(i => { if(i.parent && !ids.has(i.parent)) i.parent = null; });
+  save(); renderTasks();
+}
+
+/* ---- list options menu ---- */
+let openMenuEl = null;
+function closeListMenu(){ if(openMenuEl){ openMenuEl.remove(); openMenuEl = null; } }
+document.addEventListener("click", e => {
+  if(openMenuEl && !openMenuEl.contains(e.target) && !e.target.classList.contains("tlist-menu")) closeListMenu();
+});
+function openListMenu(e, listId){
+  e.stopPropagation();
+  closeListMenu();
+  const l = findList(listId);
+  const pop = document.createElement("div");
+  pop.className = "tmenu-pop";
+  pop.innerHTML =
+    '<button data-a="hide">' + (l.collapsed ? "Show list" : "Hide list") + '</button>' +
+    '<button data-a="clear">Clear completed</button>' +
+    '<button data-a="del" class="danger">Delete list</button>';
+  pop.querySelector('[data-a="hide"]').addEventListener("click", () => { l.collapsed = !l.collapsed; save(); renderTasks(); closeListMenu(); });
+  pop.querySelector('[data-a="clear"]').addEventListener("click", () => { clearCompleted(listId); closeListMenu(); });
+  pop.querySelector('[data-a="del"]').addEventListener("click", () => { deleteList(listId); closeListMenu(); });
+  document.body.appendChild(pop);
+  const r = e.target.getBoundingClientRect();
+  pop.style.top = (r.bottom + 4) + "px";
+  pop.style.left = Math.min(r.left, window.innerWidth - 170) + "px";
+  openMenuEl = pop;
+}
+
+/* ================= Drag & drop ================= */
+let dragItem = null;   // {listId, itemId}
+
+function wireItemDrag(li){
+  li.addEventListener("dragstart", e => {
+    dragItem = { listId: li.dataset.list, itemId: li.dataset.item };
+    li.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try{ e.dataTransfer.setData("text/plain", li.dataset.item); }catch(_){}
+  });
+  li.addEventListener("dragend", () => {
+    li.classList.remove("dragging");
+    board.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before","drop-after"));
+    board.querySelectorAll(".dragover").forEach(x => x.classList.remove("dragover"));
+    dragItem = null;
+  });
+  li.addEventListener("dragover", e => {
+    e.preventDefault();
+    if(!dragItem) return;
+    const rect = li.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height/2;
+    li.classList.toggle("drop-after", after);
+    li.classList.toggle("drop-before", !after);
+  });
+  li.addEventListener("dragleave", () => li.classList.remove("drop-before","drop-after"));
+  li.addEventListener("drop", e => {
+    e.preventDefault(); e.stopPropagation();
+    if(!dragItem) return;
+    const rect = li.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height/2;
+    moveItem(dragItem, li.dataset.list, li.dataset.item, after);
+  });
+}
+
+function wireListDrop(ul, listId, doneZone){
+  ul.addEventListener("dragover", e => { e.preventDefault(); if(dragItem) ul.classList.add("dragover"); });
+  ul.addEventListener("dragleave", e => { if(!ul.contains(e.relatedTarget)) ul.classList.remove("dragover"); });
+  ul.addEventListener("drop", e => {
+    e.preventDefault(); ul.classList.remove("dragover");
+    if(!dragItem) return;
+    moveItem(dragItem, listId, null, true, doneZone);
+  });
+}
+
+// move a task (and its subtasks) to a new position / list
+function moveItem(src, destListId, destItemId, after, doneZone){
+  const srcList = findList(src.listId);
+  const destList = findList(destListId);
+  if(!srcList || !destList) return;
+  if(src.itemId === destItemId) return;
+
+  const moved = srcList.items.find(i => i.id === src.itemId);
+  if(!moved) return;
+  // block dropping a parent onto its own subtree
+  const target = destItemId ? destList.items.find(i => i.id === destItemId) : null;
+  if(target && target.parent === moved.id) { /* dropping a parent right by its child: allow, handled below */ }
+
+  // gather the moved task with its subtasks (contiguous block)
+  const subs = moved.parent === null ? childrenOf(srcList, moved.id) : [];
+  const blockIds = new Set([moved.id, ...subs.map(s => s.id)]);
+  const block = srcList.items.filter(i => blockIds.has(i.id));
+  srcList.items = srcList.items.filter(i => !blockIds.has(i.id));
+
+  // decide done-state + parent for the moved (top) item
+  if(target){
+    moved.done = target.done;
+    // if dropping onto a subtask, become a sibling subtask under the same parent (only if moved has no children)
+    moved.parent = (target.parent && subs.length === 0) ? target.parent : null;
+  } else if(typeof doneZone === "boolean"){
+    moved.done = doneZone; moved.parent = null;
+  }
+  if(moved.parent !== null){ subs.length = 0; } // a subtask can't carry children
+  block.forEach(b => { if(b.id !== moved.id) b.done = moved.done; });
+
+  // compute insert index in destList
+  let insertAt;
+  if(destItemId){
+    const di = destList.items.findIndex(i => i.id === destItemId);
+    insertAt = after ? di + 1 : di;
+    // if landing right after a parent that has children, skip past them to keep groups intact
+  } else {
+    if(moved.done) insertAt = destList.items.length;
+    else { const fd = destList.items.findIndex(i => i.done); insertAt = fd === -1 ? destList.items.length : fd; }
+  }
+  destList.items.splice(insertAt, 0, ...block);
+  save(); renderTasks();
+}
+
+renderTasks();
+</script>
+</body>
+</html>
