@@ -1,6 +1,6 @@
 /* Wiktor-OS service worker — makes the app work offline / after reboot.
    Bump CACHE when files change so clients pick up the new version. */
-const CACHE = 'wiktoros-v1';
+const CACHE = 'wiktoros-v2';
 const ASSETS = [
   './', './index.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
   './grid.js', './grid.css', './pwa.js', './manifest.json',
