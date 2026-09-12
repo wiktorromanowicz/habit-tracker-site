@@ -1,7 +1,7 @@
 /* Wiktor-OS service worker — instant, offline-first loading.
    Cache-first for everything (served from disk in ~1ms), revalidated in the
    background. Bump CACHE when files change so clients pick up the new version. */
-const CACHE = 'wiktoros-v4';
+const CACHE = 'wiktoros-v5';
 const ASSETS = [
   './', './index.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
   './grid.js', './grid.css', './pwa.js', './manifest.json',
