@@ -1,0 +1,97 @@
+/* Apex shell — sidebar navigation, command palette, dark theme.
+   Loaded on every page. The page's own .brand/.nav/.goalbar are hidden and rebuilt as a sidebar. */
+:root{--sb:232px;--surface:#fff;--shell-bg:#fbf9f4}
+html[data-sb="min"]{--sb:64px}
+html[data-theme="dark"]{
+  --bg:#141311;--card:#1c1a17;--surface:#1c1a17;--panel:#1c1a17;--panel2:#26231e;--chip:#26231e;--shell-bg:#181613;
+  --line:#2f2b25;--ink:#ece7da;--text:#ece7da;--muted:#9c927f;--accent-dim:#26231e;color-scheme:dark
+}
+html[data-theme="dark"] body{background:var(--bg);color:var(--ink)}
+html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:var(--panel2);color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] img.invertable{filter:invert(1)}
+
+.brand,.nav,.goalbar{display:none!important}
+body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
+@media (max-width:700px){ :root{--sb:0px!important} body{padding-left:14px!important;padding-bottom:78px!important} }
+/* full-bleed sheets (Notes, Habits, Metrics…) span only the area right of the sidebar */
+.sheet{width:calc(100vw - var(--sb))!important;margin-left:calc(-50vw + var(--sb) / 2)!important;margin-right:0!important}
+
+/* ---- sidebar ---- */
+#apexSide{position:fixed;left:0;top:0;bottom:0;width:var(--sb);background:var(--shell-bg);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;z-index:60;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;transition:width .18s;overflow:hidden}
+#apexSide .sb-top{display:flex;align-items:center;gap:8px;padding:16px 14px 10px;min-height:52px}
+#apexSide .sb-brand{font-size:15px;font-weight:700;letter-spacing:.3px;color:var(--ink,#2b2a26);white-space:nowrap;flex:1;overflow:hidden}
+#apexSide .sb-min{border:0;background:transparent;color:var(--muted,#8c8474);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1}
+#apexSide .sb-min:hover{background:var(--chip,#f3efe4);color:var(--ink,#2b2a26)}
+#apexSide nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 10px}
+#apexSide nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;text-decoration:none;color:var(--muted,#8c8474);font-size:13.5px;font-weight:500;white-space:nowrap;margin-bottom:2px;border:1px solid transparent;cursor:pointer}
+#apexSide nav a .em{font-size:17px;width:22px;text-align:center;flex-shrink:0;line-height:1}
+#apexSide nav a .lb{overflow:hidden;text-overflow:ellipsis}
+#apexSide nav a .kb{margin-left:auto;font-size:10.5px;color:var(--muted,#8c8474);opacity:0;background:var(--chip,#f3efe4);border-radius:4px;padding:1px 5px}
+#apexSide nav a:hover{background:var(--chip,#f3efe4);color:var(--ink,#2b2a26)}
+#apexSide nav a:hover .kb{opacity:.9}
+#apexSide nav a.active{background:var(--surface);border-color:var(--line);color:#a9741f;box-shadow:0 1px 2px rgba(20,22,35,.05)}
+#apexSide nav a.dragging{opacity:.4}
+#apexSide nav a.drop-before{box-shadow:0 -2px 0 0 #a9741f}
+#apexSide nav a.drop-after{box-shadow:0 2px 0 0 #a9741f}
+#apexSide .sb-foot{padding:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+#apexSide .sb-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:0}
+#apexSide .sb-chips span{margin-left:0!important}
+#apexSide .sb-row{display:flex;gap:6px}
+#apexSide .sb-btn{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted,#8c8474);border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-family:inherit}
+#apexSide .sb-btn:hover{color:var(--ink,#2b2a26);background:var(--chip,#f3efe4)}
+#apexSide .sb-btn kbd{font:inherit;font-size:10px;color:var(--muted,#8c8474);background:var(--chip,#f3efe4);border-radius:4px;padding:0 4px}
+
+/* timer widget */
+#apexSide .tw{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+#apexSide .tw .tw-time{font-size:20px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums;color:var(--ink,#2b2a26);display:flex;align-items:center;gap:8px}
+#apexSide .tw .tw-time small{font-size:11px;color:var(--muted,#8c8474);font-weight:500}
+#apexSide .tw.done .tw-time{color:#c1362c}
+#apexSide .tw .tw-row{display:flex;gap:5px;margin-top:7px}
+#apexSide .tw button{flex:1;border:1px solid var(--line);background:var(--chip,#f3efe4);color:var(--ink,#2b2a26);border-radius:7px;padding:5px 0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+#apexSide .tw button:hover{border-color:#a9741f;color:#a9741f}
+#apexSide .tw button.stop{background:#c1362c;border-color:#c1362c;color:#fff}
+#apexSide .tw .tw-lbl{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#8c8474);font-weight:600;margin-bottom:4px}
+
+/* collapsed */
+html[data-sb="min"] #apexSide .sb-brand,html[data-sb="min"] #apexSide nav a .lb,html[data-sb="min"] #apexSide nav a .kb,
+html[data-sb="min"] #apexSide .sb-chips,html[data-sb="min"] #apexSide .tw .tw-row,html[data-sb="min"] #apexSide .tw .tw-lbl,html[data-sb="min"] #apexSide .sb-btn span{display:none}
+html[data-sb="min"] #apexSide nav a{justify-content:center;padding:9px 0}
+html[data-sb="min"] #apexSide .sb-top{justify-content:center;padding:14px 0 8px}
+html[data-sb="min"] #apexSide .tw{padding:6px 4px;text-align:center}
+html[data-sb="min"] #apexSide .tw .tw-time{font-size:12px;justify-content:center}
+html[data-sb="min"] #apexSide .sb-row{flex-direction:column}
+html[data-sb="min"] #apexSide .sb-btn{padding:6px 0}
+
+/* ---- phone: bottom bar ---- */
+@media (max-width:700px){
+  #apexSide{top:auto;bottom:0;left:0;right:0;width:auto!important;height:64px;flex-direction:row;border-right:0;border-top:1px solid var(--line);padding:0 6px;padding-bottom:env(safe-area-inset-bottom)}
+  #apexSide .sb-top,#apexSide .sb-foot{display:none}
+  #apexSide nav{display:flex;align-items:center;gap:0;padding:0;overflow-x:auto;flex:1;-webkit-overflow-scrolling:touch}
+  #apexSide nav a{flex-direction:column;gap:2px;padding:6px 10px;min-width:64px;font-size:10px;margin:0;border:0}
+  #apexSide nav a .em{font-size:20px;width:auto}
+  #apexSide nav a .kb{display:none}
+  #apexSide nav a.active{background:transparent;box-shadow:none}
+}
+
+/* ---- command palette & shortcuts overlay ---- */
+.apx-ov{position:fixed;inset:0;z-index:120;background:rgba(30,28,22,.38);display:flex;align-items:flex-start;justify-content:center;padding:90px 16px 16px;backdrop-filter:blur(2px)}
+.apx-pal{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;color:var(--ink,#2b2a26);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.apx-pal input{width:100%;border:0;outline:0;background:transparent;font:inherit;font-size:17px;padding:16px 18px;color:inherit;border-bottom:1px solid var(--line);box-sizing:border-box}
+.apx-pal ul{list-style:none;margin:0;padding:6px;max-height:380px;overflow-y:auto}
+.apx-pal li{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;font-size:14px;cursor:pointer}
+.apx-pal li .em{width:24px;text-align:center;font-size:16px}
+.apx-pal li .sub{color:var(--muted,#8c8474);font-size:12px;margin-left:auto;white-space:nowrap}
+.apx-pal li.on{background:var(--chip,#f3efe4)}
+.apx-pal .grp{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted,#8c8474);padding:8px 12px 3px;font-weight:600}
+.apx-pal .empty{padding:18px;color:var(--muted,#8c8474);font-size:13px;text-align:center}
+.apx-keys{width:100%;max-width:640px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:20px 22px;color:var(--ink,#2b2a26);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.apx-keys h2{margin:0 0 12px;font-size:16px}
+.apx-keys .cols{display:grid;grid-template-columns:1fr 1fr;gap:6px 26px}
+@media (max-width:600px){.apx-keys .cols{grid-template-columns:1fr}}
+.apx-keys h4{margin:10px 0 4px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#8c8474)}
+.apx-keys .k{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0}
+.apx-keys kbd{font:inherit;font-size:11px;background:var(--chip,#f3efe4);border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin-left:3px}
+
+/* the floating timer pill from pwa.js is redundant next to the sidebar widget */
+@media (min-width:701px){ #apexTimerChip{display:none!important} }

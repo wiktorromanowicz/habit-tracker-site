@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apex · Today</title>
+<style>
+  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:28px;min-height:100vh;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  .brand{font-size:15px;font-weight:700;margin-bottom:10px}
+  .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;color:var(--muted);background:var(--surface,#fff);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  a{color:var(--accent)}
+  .hello{display:flex;align-items:flex-end;gap:14px;margin:4px 0 18px;flex-wrap:wrap}
+  .hello h1{font-size:28px;margin:0;letter-spacing:-.4px}
+  .hello .date{color:var(--muted);font-size:14px;padding-bottom:4px}
+  .hello .sp{flex:1}
+  .grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:start}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 1px 3px rgba(20,22,35,.05)}
+  .card h2{margin:0 0 10px;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .card h2 a{margin-left:auto;font-size:11px;font-weight:600;text-decoration:none;letter-spacing:0;text-transform:none}
+  .empty{color:var(--muted);font-size:13px;padding:6px 0}
+  /* brief */
+  .brief h2:not(:first-child){font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+  .brief h3{font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+  .brief ul{margin:0;padding-left:18px}
+  .brief li{margin:3px 0;font-size:14px;line-height:1.45}
+  .brief p{margin:6px 0;font-size:14px;line-height:1.45}
+  .brief > h2:first-child{display:none}
+  /* events */
+  .ev{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px;align-items:flex-start}
+  .ev:first-of-type{border-top:0}
+  .ev .t{width:92px;flex-shrink:0;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px;padding-top:2px}
+  .ev .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+  .ev .n{flex:1}
+  .ev .n small{display:block;color:var(--muted);font-size:12px}
+  .ev.past{opacity:.5}
+  .ev.now .n{font-weight:600}
+  .ev a.join{font-size:12px;text-decoration:none;background:var(--chip);padding:2px 8px;border-radius:999px;white-space:nowrap}
+  /* tasks */
+  .task{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:14px}
+  .task .chk{width:18px;height:18px;border-radius:50%;border:1.6px solid #c9c2b2;flex-shrink:0;margin-top:1px;cursor:pointer;background:var(--surface,#fff)}
+  .task .chk:hover{border-color:var(--accent)}
+  .task .tx{flex:1}
+  .task .due{font-size:11px;color:#9b2b22;background:#fbe9e7;padding:1px 7px;border-radius:999px;margin-left:6px}
+  .task .due.today{color:#7a5200;background:#fff1d6}
+  .task .lst{font-size:11px;color:var(--muted)}
+  /* habits */
+  .hab{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
+  .hab .chk{width:18px;height:18px;border-radius:5px;border:1.6px solid #c9c2b2;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface,#fff)}
+  .hab .chk.on{background:#16a34a;border-color:#16a34a}
+  .hab .chk.on::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
+  .hab .st{margin-left:auto;font-size:12px;color:var(--muted)}
+  /* time */
+  .tbar{height:10px;border-radius:5px;overflow:hidden;display:flex;background:var(--chip);margin:8px 0 6px}
+  .tbar i{display:block;height:100%}
+  .tl{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
+  .tl b{color:var(--ink)}
+  .big{font-size:26px;font-weight:700;letter-spacing:-.4px}
+  .big small{font-size:13px;color:var(--muted);font-weight:500;margin-left:4px}
+  .now-slot{font-size:13px;margin-top:6px}
+  .now-slot input{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;background:var(--surface,#fff);color:var(--ink);outline:none;margin-top:6px}
+  .now-slot input:focus{border-color:var(--accent)}
+  .qa{display:flex;gap:8px;flex-wrap:wrap}
+  .qa a,.qa button{text-decoration:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
+  .qa a:hover,.qa button:hover{border-color:var(--accent);color:var(--accent)}
+  @media (max-width:700px){ body{padding:14px} .hello h1{font-size:22px} }
+</style>
+<link rel="stylesheet" href="shell.css"/>
+<script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">⚡ Apex</div>
+  <nav class="nav">
+    <a href="today.html" class="active">🏠 Today</a>
+    <a href="index.html">🎯 Habits</a>
+    <a href="tasks.html">✅ Tasks</a>
+    <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
+    <a href="notes.html">📝 Notes</a>
+    <a href="timer.html">⏱ Timer</a>
+    <a href="lift.html">🏋️ Lift</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+
+  <div class="hello"><h1 id="greet"></h1><span class="date" id="date"></span><span class="sp"></span>
+    <div class="qa"><a href="tasks.html?new=1">+ Task</a><a href="notes.html?new=1">+ Note</a><a href="calendar.html?new=1">+ Event</a></div>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="card"><h2>Executive summary <a href="notes.html">Open in Notes →</a></h2><div class="brief" id="brief"></div></div>
+      <div class="card"><h2>Tasks <a href="tasks.html">All tasks →</a></h2><div id="tasks"></div></div>
+    </div>
+    <div class="col">
+      <div class="card"><h2>Today’s calendar <a href="calendar.html">Calendar →</a></h2><div id="cal"></div></div>
+      <div class="card"><h2>Right now <a href="time.html">Time log →</a></h2><div id="time"></div></div>
+      <div class="card"><h2>Habits <a href="index.html">Habits →</a></h2><div id="habits"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const ls=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } };
+const pad=n=>String(n).padStart(2,'0');
+const isoDay=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const now=new Date(), today=isoDay(now);
+
+/* greeting */
+(function(){ const h=now.getHours(); const g=h<5?'Still up':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  $('greet').textContent=g+', Wiktor'; $('date').textContent=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}); })();
+
+/* executive summary — from the Notes store */
+(function(){
+  const S=ls('wiktorNotes',null); const n=S&&S.notes&&S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');
+  const m=n&&(n.body||'').match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/);
+  if(!m){ $('brief').innerHTML='<div class="empty">No summary yet — it lands here every morning at 07:00.</div>'; return; }
+  const fresh = m[1]===today;
+  $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+m[2].replace(/<script[\s\S]*?<\/script>/gi,'');
+})();
+
+/* tasks — overdue + due today, then a couple of next-up */
+(function(){
+  const st=ls('apexTasks',null); if(!st||!st.taskLists){ $('tasks').innerHTML='<div class="empty">No tasks yet.</div>'; return; }
+  const rows=[];
+  st.taskLists.forEach(l=>(l.items||[]).forEach(it=>{ if(it.done) return; rows.push({it,l}); }));
+  const dated=rows.filter(r=>r.it.due&&r.it.due<=today).sort((a,b)=>a.it.due<b.it.due?-1:a.it.due>b.it.due?1:0);
+  const soon=rows.filter(r=>r.it.due&&r.it.due>today).sort((a,b)=>a.it.due<b.it.due?-1:1).slice(0,3);
+  const undated=rows.filter(r=>!r.it.due).slice(0,3);
+  const list=dated.concat(soon.length?soon:undated);
+  if(!list.length){ $('tasks').innerHTML='<div class="empty">Nothing due. Nice.</div>'; return; }
+  $('tasks').innerHTML=list.map(r=>{ const d=r.it.due; const tag=!d?'':d<today?'<span class="due">overdue</span>':d===today?'<span class="due today">today</span>':'<span class="due today" style="background:var(--chip);color:var(--muted)">'+esc(new Date(d+'T00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric'}))+'</span>';
+    return '<div class="task"><div class="chk" data-l="'+esc(r.l.id)+'" data-i="'+esc(r.it.id)+'" title="Mark done"></div><div class="tx">'+esc(r.it.text)+tag+'<div class="lst">'+esc(r.l.name)+'</div></div></div>'; }).join('');
+  $('tasks').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return;
+    const s=ls('apexTasks',null); const l=s.taskLists.find(x=>x.id===c.dataset.l); const it=l&&l.items.find(x=>x.id===c.dataset.i); if(!it) return;
+    it.done=true; it.doneAt=Date.now(); localStorage.setItem('apexTasks',JSON.stringify(s)); c.closest('.task').style.opacity='.35'; c.style.background='#16a34a'; c.style.borderColor='#16a34a'; });
+})();
+
+/* calendar — cached week from the Calendar tab, refreshed live when its token is still valid */
+(async function(){
+  const el=$('cal');
+  const cache=ls('apexCal',{events:{},calendars:[]});
+  const paint=evs=>{
+    const list=evs.filter(e=>isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now)).sort((a,b)=>new Date(a.start)-new Date(b.start));
+    if(!list.length){ el.innerHTML='<div class="empty">Nothing on the calendar today.</div>'; return; }
+    el.innerHTML=list.map(e=>{ const s=new Date(e.start), en=new Date(e.end); const past=en<now, cur=s<=now&&en>now;
+      return '<div class="ev'+(past?' past':cur?' now':'')+'"><span class="t">'+(e.allDay?'All day':s.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'–'+en.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}))+'</span><span class="dot" style="background:'+esc(e.color||'#a9741f')+'"></span><span class="n">'+esc(e.title)+(e.location?'<small>'+esc(e.location)+'</small>':'')+'</span>'+(e.meet?'<a class="join" href="'+esc(e.meet)+'" target="_blank" rel="noopener">Join</a>':'')+'</div>'; }).join('');
+  };
+  let shown=false;
+  for(const k in cache.events){ const [a,b]=k.split('_'); if(a<=today&&today<b){ paint(cache.events[k]); shown=true; break; } }
+  if(!shown) el.innerHTML='<div class="empty">Open the Calendar tab once to connect Google Calendar.</div>';
+  // live refresh with the calendar tab's token (same browser)
+  const tok=ls('apexGTok',null); if(!tok||tok.e<Date.now()||!cache.calendars.length) return;
+  try{
+    const s=new Date(now.getFullYear(),now.getMonth(),now.getDate()), e=new Date(s); e.setDate(e.getDate()+1);
+    const out=[];
+    await Promise.all(cache.calendars.map(async c=>{ const q='?singleEvents=true&orderBy=startTime&maxResults=50&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
+      const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(c.id)+'/events'+q,{headers:{Authorization:'Bearer '+tok.t}}); if(!r.ok) return; const j=await r.json();
+      (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled') return; const allDay=!!(ev.start&&ev.start.date);
+        out.push({title:ev.summary||'(no title)',allDay,start:allDay?ev.start.date+'T00:00':ev.start.dateTime,end:allDay?ev.end.date+'T00:00':ev.end.dateTime,color:c.color,location:ev.location||'',meet:ev.hangoutLink||''}); }); }));
+    paint(out);
+  }catch(err){}
+})();
+
+/* right now — time log for today */
+(function(){
+  const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
+  const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
+  const CATS={work:['Deep work','#1a4fa3'],meet:['Meetings','#7c3aed'],content:['Content','#c8850f'],admin:['Admin','#16a34a'],gym:['Gym','#e11d48'],rest:['Rest','#0284c7'],personal:['Personal','#db2777'],waste:['Wasted','#8a8a8a']};
+  const per={}; let logged=0; for(const k in wk){ const [d,r]=k.split('_'); if(+d!==dow||!wk[k].t) continue; logged+=.5; const c=wk[k].c||'other'; per[c]=(per[c]||0)+.5; }
+  const mins=now.getHours()*60+now.getMinutes(); const r=Math.floor((mins-START)/STEP); const cur=wk[dow+'_'+r];
+  const slot=n=>pad(Math.floor(n/60))+':'+pad(n%60);
+  let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today</small></div>';
+  if(logged){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/logged*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
+  if(r>=0&&r<36){ h+='<div class="now-slot">'+slot(START+r*STEP)+' – '+slot(START+r*STEP+STEP)+' · what are you doing?<input id="nowIn" placeholder="e.g. Content research" value="'+esc(cur&&cur.t||'')+'"></div>'; }
+  $('time').innerHTML=h;
+  const inp=$('nowIn'); if(inp){ inp.addEventListener('change',()=>{ const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+r; if(t){ w[k]={t}; const rule=(S2.rules||{})[t.toLowerCase()]; if(rule) w[k].c=rule; } else delete w[k]; localStorage.setItem('apexTime',JSON.stringify(S2)); }); }
+})();
+
+/* habits — today's checkboxes */
+(function(){
+  const st=ls('titan_habits_v1',null); if(!st||!st.habits||!st.habits.length){ $('habits').innerHTML='<div class="empty">No habits set up.</div>'; return; }
+  const hiso=d=>d.toISOString().slice(0,10); const htoday=hiso(now);
+  const streak=h=>{ let s=0; const d=new Date(now); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
+  $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
+  $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{}; if(h.done[htoday]) delete h.done[htoday]; else h.done[htoday]=true; localStorage.setItem('titan_habits_v1',JSON.stringify(s)); c.classList.toggle('on',!!h.done[htoday]); });
+})();
+</script>
+</body>
+</html>
