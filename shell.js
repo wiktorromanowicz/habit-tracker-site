@@ -144,17 +144,17 @@
     var i = 0; for (var c = 0; c < t.length && i < q.length; c++) if (t[c] === q[i]) i++; return i === q.length ? 1 : 0; }
   function openPalette() {
     closeOv(); ov = document.createElement('div'); ov.className = 'apx-ov';
-    ov.innerHTML = '<div class="apx-pal"><input placeholder="Jump to a tab, start a timer, search notes & tasks…" spellcheck="false"><ul></ul></div>';
+    ov.innerHTML = '<div class="apx-pal" role="dialog" aria-label="Command palette"><input placeholder="Jump to a tab, start a timer, search notes & tasks…" spellcheck="false" aria-label="Search commands" role="combobox" aria-expanded="true" aria-controls="apxPalList"><ul id="apxPalList" role="listbox"></ul></div>';
     document.body.appendChild(ov);
     var inp = $('input', ov), list = $('ul', ov), items = [], idx = 0;
     function paint() {
       var q = inp.value.trim().toLowerCase();
       items = actions(q).map(function (it) { return { it: it, s: score(it, q) }; }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; }).map(function (x) { return x.it; }).slice(0, 40);
       idx = 0; var h = '', g = '';
-      items.forEach(function (it, i) { if (it.g !== g) { g = it.g; h += '<div class="grp">' + g + '</div>'; } h += '<li data-i="' + i + '" class="' + (i === 0 ? 'on' : '') + '"><span class="em">' + it.em + '</span><span>' + esc(it.t) + '</span>' + (it.sub ? '<span class="sub">' + esc(it.sub) + '</span>' : '') + '</li>'; });
+      items.forEach(function (it, i) { if (it.g !== g) { g = it.g; h += '<div class="grp">' + g + '</div>'; } h += '<li role="option" aria-selected="' + (i === 0) + '" data-i="' + i + '" class="' + (i === 0 ? 'on' : '') + '"><span class="em">' + it.em + '</span><span>' + esc(it.t) + '</span>' + (it.sub ? '<span class="sub">' + esc(it.sub) + '</span>' : '') + '</li>'; });
       list.innerHTML = h || '<div class="empty">Nothing matches</div>';
     }
-    function mark() { var lis = list.querySelectorAll('li'); lis.forEach(function (li, i) { li.classList.toggle('on', i === idx); }); var on = lis[idx]; if (on) on.scrollIntoView({ block: 'nearest' }); }
+    function mark() { var lis = list.querySelectorAll('li'); lis.forEach(function (li, i) { li.classList.toggle('on', i === idx); li.setAttribute('aria-selected', i === idx); }); var on = lis[idx]; if (on) on.scrollIntoView({ block: 'nearest' }); }
     function go() { var it = items[idx]; if (it) { closeOv(); it.run(); } }
     inp.addEventListener('input', paint);
     inp.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(items.length - 1, idx + 1); mark(); } else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(0, idx - 1); mark(); } else if (e.key === 'Enter') { e.preventDefault(); go(); } else if (e.key === 'Escape') closeOv(); });
@@ -179,8 +179,9 @@
     var glob = [['Command palette', MOD + 'K'], ['Jump to tab 1–9', MOD + '1–9'], ['Previous / next tab', '[ ]'], ['Collapse sidebar', '`'], ['Dark / light', MOD + '⇧L'], ['This overlay', '?'], ['Close', 'Esc']];
     var page = (window.apexShortcuts || PAGE_KEYS[here] || []);
     var row = function (k) { return '<div class="k"><span>' + esc(k[0]) + '</span><span>' + k[1].split(' ').map(function (x) { return '<kbd>' + esc(x) + '</kbd>'; }).join('') + '</span></div>'; };
-    ov.innerHTML = '<div class="apx-keys"><h2>Keyboard shortcuts</h2><div class="cols"><div><h4>Everywhere</h4>' + glob.map(row).join('') + '</div><div><h4>This page</h4>' + (page.length ? page.map(row).join('') : '<div class="k" style="color:var(--muted)">Mouse only here</div>') + '</div></div></div>';
+    ov.innerHTML = '<div class="apx-keys" role="dialog" aria-label="Keyboard shortcuts"><button class="apx-x" aria-label="Close">✕</button><h2>Keyboard shortcuts</h2><div class="cols"><div><h4>Everywhere</h4>' + glob.map(row).join('') + '</div><div><h4>This page</h4>' + (page.length ? page.map(row).join('') : '<div class="k" style="color:var(--muted)">Mouse only here</div>') + '</div></div></div>';
     document.body.appendChild(ov);
+    $('.apx-x', ov).addEventListener('click', closeOv);
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) closeOv(); });
   }
 

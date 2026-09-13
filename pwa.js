@@ -23,8 +23,7 @@
     st.textContent =
       '@media (max-width:700px){' +
       ' body{padding:12px 12px 90px!important}' +
-      ' .goalbar{padding:8px 11px;gap:8px;margin-bottom:10px} .goalbar .gl{font-size:11px} .goalbar .gt{font-size:13px}' +
-      ' .brand{font-size:14px;margin-bottom:8px}' +
+            ' .brand{font-size:14px;margin-bottom:8px}' +
       ' .nav{gap:5px;margin-bottom:12px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}' +
       ' .nav a{padding:7px 11px;font-size:12px;white-space:nowrap;flex-shrink:0}' +
       ' .sheet-inner{padding:0 12px} .sheet-head{padding:14px 0 10px} .sheet-title{font-size:22px}' +
@@ -71,30 +70,6 @@
   function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
 
   ready(function () {
-    /* ---- focus bar: keep it editable on every page ---- */
-    var fb = document.getElementById('focusBar');
-    if (fb) {
-      // Stop the goal's own key/paste events from reaching page-level handlers
-      // (the spreadsheet engine listens on document and would otherwise swallow them).
-      ['keydown', 'keypress', 'keyup', 'beforeinput', 'input', 'paste'].forEach(function (ev) {
-        fb.addEventListener(ev, function (e) { e.stopPropagation(); });
-      });
-      // Click anywhere on the bar to start editing (label / padding included).
-      var bar = fb.closest('.goalbar');
-      if (bar) {
-        bar.style.cursor = 'text';
-        bar.addEventListener('mousedown', function (e) {
-          if (e.target === fb || fb.contains(e.target)) return;
-          e.preventDefault();
-          fb.focus();
-          try {
-            var r = document.createRange(); r.selectNodeContents(fb); r.collapse(false);
-            var s = getSelection(); s.removeAllRanges(); s.addRange(r);
-          } catch (_) {}
-        });
-      }
-    }
-
     /* ---- nav tabs: drag horizontally to reorder; order is remembered on every page ---- */
     var nav = document.querySelector('.nav');
     if (nav) {
@@ -147,7 +122,7 @@
       function paint() {
         var on = ('serviceWorker' in navigator) && !!navigator.serviceWorker.controller;
         chip.textContent = on ? '✓ Offline ready' : '… caching';
-        chip.style.background = on ? '#dff3e6' : '#eee7d8';
+        chip.style.background = on ? '#dff3e6' : 'var(--chip,#eee7d8)';
         chip.style.color = on ? '#12855a' : '#9c8f76';
         chip.title = on ? 'This app is saved on your device and works with no internet.' : 'Caching for offline use…';
       }
@@ -177,7 +152,7 @@
   function ensureChip() {
     if (chip) return chip;
     chip = document.createElement('a'); chip.id = 'apexTimerChip'; chip.href = 'timer.html';
-    chip.style.cssText = 'position:fixed;right:16px;bottom:84px;z-index:94;display:none;align-items:center;gap:8px;background:#fff;color:#2b2a26;border:1px solid #e7e2d6;border-radius:999px;padding:8px 12px 8px 14px;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(20,22,35,.12);font-variant-numeric:tabular-nums;';
+    chip.style.cssText = 'position:fixed;right:16px;bottom:84px;z-index:94;display:none;align-items:center;gap:8px;background:#fff;color:#2b2a26;border:1px solid var(--line,#e7e2d6);border-radius:999px;padding:8px 12px 8px 14px;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(20,22,35,.12);font-variant-numeric:tabular-nums;';
     var t = document.createElement('span'); t.className = 'tt';
     var b = document.createElement('button'); b.textContent = 'Stop'; b.style.cssText = 'display:none;border:0;background:#c1362c;color:#fff;border-radius:999px;padding:4px 10px;font:600 12px inherit;cursor:pointer;font-family:inherit;';
     b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); stopAll(); });
