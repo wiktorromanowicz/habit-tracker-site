@@ -151,9 +151,13 @@ const now=new Date(), today=isoDay(now);
 /* calendar — cached week from the Calendar tab, refreshed live when its token is still valid */
 (async function(){
   const el=$('cal');
-  const cache=ls('apexCal',{events:{},calendars:[]});
+  const cache=ls('apexCal',{events:{},calendars:[]}); const prefs=ls('apexCalPrefs',{hidden:{}});
+  // only your own calendars: the primary one plus calendars that aren't another person's account,
+  // and nothing you've hidden in the Calendar tab
+  const mine=c=>!(prefs.hidden&&prefs.hidden[c.id]) && (c.primary || !(/@/.test(c.id) && !/group\.calendar\.google\.com$|holiday|import\.calendar/.test(c.id)));
+  const myCals=(cache.calendars||[]).filter(mine); const myIds=new Set(myCals.map(c=>c.id));
   const paint=evs=>{
-    const list=evs.filter(e=>isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now)).sort((a,b)=>new Date(a.start)-new Date(b.start));
+    const list=evs.filter(e=>(!e.calId||myIds.has(e.calId)) && (isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now))).sort((a,b)=>new Date(a.start)-new Date(b.start));
     if(!list.length){ el.innerHTML='<div class="empty">Nothing on the calendar today.</div>'; return; }
     el.innerHTML=list.map(e=>{ const s=new Date(e.start), en=new Date(e.end); const past=en<now, cur=s<=now&&en>now;
       return '<div class="ev'+(past?' past':cur?' now':'')+'"><span class="t">'+(e.allDay?'All day':s.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'–'+en.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}))+'</span><span class="dot" style="background:'+esc(e.color||'#a9741f')+'"></span><span class="n">'+esc(e.title)+(e.location?'<small>'+esc(e.location)+'</small>':'')+'</span>'+(e.meet?'<a class="join" href="'+esc(e.meet)+'" target="_blank" rel="noopener">Join</a>':'')+'</div>'; }).join('');
@@ -162,14 +166,14 @@ const now=new Date(), today=isoDay(now);
   for(const k in cache.events){ const [a,b]=k.split('_'); if(a<=today&&today<b){ paint(cache.events[k]); shown=true; break; } }
   if(!shown) el.innerHTML='<div class="empty">Open the Calendar tab once to connect Google Calendar.</div>';
   // live refresh with the calendar tab's token (same browser)
-  const tok=ls('apexGTok',null); if(!tok||tok.e<Date.now()||!cache.calendars.length) return;
+  const tok=ls('apexGTok',null); if(!tok||tok.e<Date.now()||!myCals.length) return;
   try{
     const s=new Date(now.getFullYear(),now.getMonth(),now.getDate()), e=new Date(s); e.setDate(e.getDate()+1);
     const out=[];
-    await Promise.all(cache.calendars.map(async c=>{ const q='?singleEvents=true&orderBy=startTime&maxResults=50&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
+    await Promise.all(myCals.map(async c=>{ const q='?singleEvents=true&orderBy=startTime&maxResults=50&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
       const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(c.id)+'/events'+q,{headers:{Authorization:'Bearer '+tok.t}}); if(!r.ok) return; const j=await r.json();
       (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled') return; const allDay=!!(ev.start&&ev.start.date);
-        out.push({title:ev.summary||'(no title)',allDay,start:allDay?ev.start.date+'T00:00':ev.start.dateTime,end:allDay?ev.end.date+'T00:00':ev.end.dateTime,color:c.color,location:ev.location||'',meet:ev.hangoutLink||''}); }); }));
+        out.push({calId:c.id,title:ev.summary||'(no title)',allDay,start:allDay?ev.start.date+'T00:00':ev.start.dateTime,end:allDay?ev.end.date+'T00:00':ev.end.dateTime,color:c.color,location:ev.location||'',meet:ev.hangoutLink||''}); }); }));
     paint(out);
   }catch(err){}
 })();

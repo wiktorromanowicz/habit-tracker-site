@@ -53,12 +53,12 @@
   td.c-work .in{background:#e8f0fe;color:#1a4fa3}
   td.c-meet .in{background:#efe4ff;color:#5b21b6}
   td.c-content .in{background:#fff1d6;color:#8a5a0d}
-  td.c-admin .in{background:#e6f4ea;color:#166534}
-  td.c-gym .in{background:#ffe4e6;color:#9f1239}
-  td.c-rest .in{background:#e0f2fe;color:#075985}
-  td.c-personal .in{background:#fce7f3;color:#9d174d}
+  td.c-life .in{background:#e6f4ea;color:#166534}
+  td.c-sleep .in{background:#e0f2fe;color:#075985;opacity:.75}
   td.c-waste .in{background:#f1f1f1;color:#6b6b6b;text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25)}
-
+  thead th .wake{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:12px;color:var(--muted);cursor:pointer;vertical-align:middle;text-transform:none;letter-spacing:0}
+  thead th .wake input{border:0;background:transparent;font:inherit;font-size:11px;color:var(--muted);width:62px;padding:0;outline:none;cursor:pointer}
+  thead th .wake input:focus,thead th .wake input:not(:placeholder-shown){color:var(--ink)}
   .panel{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 1px 3px rgba(20,22,35,.05);position:sticky;top:28px}
   .panel h3{margin:0 0 10px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
   .stat{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
@@ -126,19 +126,20 @@
 /* ---------- config ---------- */
 const START=5*60, END=23*60, STEP=30;                      // 05:00 → 23:00, half-hour rows
 const CATS=[
-  {id:'work',    name:'Deep work', color:'#1a4fa3', key:'1'},
-  {id:'meet',    name:'Meetings',  color:'#7c3aed', key:'2'},
-  {id:'content', name:'Content',   color:'#c8850f', key:'3'},
-  {id:'admin',   name:'Admin',     color:'#16a34a', key:'4'},
-  {id:'gym',     name:'Gym',       color:'#e11d48', key:'5'},
-  {id:'rest',    name:'Rest',      color:'#0284c7', key:'6'},
-  {id:'personal',name:'Personal',  color:'#db2777', key:'7'},
-  {id:'waste',   name:'Wasted',    color:'#8a8a8a', key:'8'},
+  {id:'work',    name:'Work',     color:'#1a4fa3', key:'1'},
+  {id:'meet',    name:'Meetings', color:'#7c3aed', key:'2'},
+  {id:'content', name:'Content',  color:'#c8850f', key:'3'},
+  {id:'life',    name:'Life',     color:'#16a34a', key:'4'},
+  {id:'sleep',   name:'Sleep',    color:'#0284c7', key:'5'},
+  {id:'waste',   name:'Wasted',   color:'#8a8a8a', key:'6'},
 ];
+// older entries used a longer list — fold them into the new one
+const LEGACY={admin:'work',gym:'life',rest:'life',personal:'life'};
 const KEY='apexTime';
 let S; try{ S=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
 if(!S||typeof S!=='object') S={};
 S.weeks=S.weeks||{}; S.rules=S.rules||{};
+(function(){ let ch=false; for(const wk in S.weeks) for(const k in S.weeks[wk]){ const v=S.weeks[wk][k]; if(v&&LEGACY[v.c]){ v.c=LEGACY[v.c]; ch=true; } if(v&&v.c==='life'&&/\b(sleep|sleeping|nap)\b/i.test(v.t||'')){ v.c='sleep'; ch=true; } } for(const t in S.rules){ if(LEGACY[S.rules[t]]){ S.rules[t]=LEGACY[S.rules[t]]; ch=true; } } if(ch) save(); })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
@@ -152,6 +153,9 @@ function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on')
 let monday=mondayOf(new Date());
 const ROWS=(END-START)/STEP;
 function week(){ const k=iso(monday); return S.weeks[k]||(S.weeks[k]={}); }
+function setWake(d,val){ const w=week(); if(!val){ delete w['wake_'+d]; save(); return; } w['wake_'+d]=val; const [hh,mm]=val.split(':').map(Number); const until=hh*60+mm;
+  for(let r=0;r<ROWS;r++){ const m=START+r*STEP; const k=d+'_'+r; if(m+STEP<=until){ if(!w[k]||!w[k].t||w[k].c==='sleep') w[k]={t:'Sleep',c:'sleep'}; } else if(w[k]&&w[k].c==='sleep'&&w[k].t==='Sleep'){ delete w[k]; } }
+  save(); render(); toast('Slept until '+val); }
 function cellData(d,r){ return week()[d+'_'+r]; }
 function setCell(d,r,t,c){
   const w=week(), k=d+'_'+r;
@@ -160,25 +164,35 @@ function setCell(d,r,t,c){
   if(!t && w[k]) delete w[k].c;
   save();
 }
-function guessCat(text){ const t=(text||'').trim().toLowerCase(); if(!t) return null; if(S.rules[t]) return S.rules[t];
-  // longest learned prefix / keyword match
-  let best=null,bl=0; for(const k in S.rules){ if(k.length>bl && (t.startsWith(k)||t.includes(k))){ best=S.rules[k]; bl=k.length; } }
+/* Auto-categorisation: your own corrections win (S.rules, matched as substrings, longest first),
+   then a weighted keyword lexicon. Every correction you make teaches it. */
+const LEX={
+  sleep:  ['sleep','sleeping','nap','asleep','in bed','bed'],
+  waste:  ['wast','scroll','doomscroll','tiktok','instagram','reels','netflix','procrast','nothing','watching youtube','youtube shorts','phone','browsing','random','distracted','twitter','x feed'],
+  meet:   ['talk','talking','call','meeting','sync','1:1','1-1','standup','stand-up','interview','zoom','google meet','discussion','onboarding call','coaching','with the team','csm team','ftf team','q&a','demo','sales call','client call','catch up','catching up','chat with'],
+  content:['content','video','script','research','writing','write','editing','edit','post','youtube','thumbnail','film','filming','record','recording','podcast','newsletter','blog','tweet','hook','title','outline','b-roll','shooting','skool post','carousel'],
+  work:   ['working','work','build','building','coding','dev','apex','design','funnel','ads','campaign','planning','plan','strategy','review','analysis','analys','sop','hiring','recruit','cfo','finance','emails','email','messages','dms','slack','admin','invoice','organiz','responding','outreach','sales','offer','proposal','deck','spreadsheet','notion','crm','pipeline','context switching','deep work','focus'],
+  life:   ['wake','waking','morning routine','routine','eating','eat','lunch','dinner','breakfast','coffee','break','coming back','commute','preparing','prepare','shower','gym','workout','training','run','running','walk','lift','stretch','sauna','family','friends','date','partner','home','travel','driving','shopping','groceries','cleaning','cooking','reading','relax','chill','doctor','errand','church','massage','haircut','nap','rest'],
+};
+const PRIORITY=['sleep','waste','meet','content','work','life'];
+function guessCat(text){
+  const t=(text||'').trim().toLowerCase(); if(!t) return null;
+  if(S.rules[t]) return S.rules[t];
+  let best=null,bl=0; for(const k in S.rules){ if(k.length>bl && k.length>=3 && t.includes(k)){ best=S.rules[k]; bl=k.length; } }
   if(best) return best;
-  if(/gym|workout|run|lift/.test(t)) return 'gym';
-  if(/wast|scroll|youtube|tiktok|instagram|doom/.test(t)) return 'waste';
-  if(/talk|call|meeting|sync|1:1|standup|interview/.test(t)) return 'meet';
-  if(/content|video|script|research|writing|edit|post/.test(t)) return 'content';
-  if(/email|messages|slack|admin|invoice|planning|organiz|responding/.test(t)) return 'admin';
-  if(/sleep|wake|morning routine|eating|lunch|dinner|break|coming back|prepar/.test(t)) return 'rest';
-  return null;
+  const score={}; for(const c of PRIORITY){ score[c]=0; for(const w of LEX[c]){ if(t.includes(w)) score[c]+=w.length>=6?2:1; } }
+  // "video editing" beats generic "working"; "watching youtube" is waste, "youtube video" is content
+  if(score.waste&&score.content&&/watch/.test(t)) score.content=0;
+  let top=null,ts=0; for(const c of PRIORITY){ if(score[c]>ts){ ts=score[c]; top=c; } }
+  return top;
 }
-
 /* ---------- render ---------- */
 function render(){
   const today=iso(new Date());
   const days=[...Array(7)].map((_,i)=>addDays(monday,i));
   $('range').textContent=days[0].toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+days[6].toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-  $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map(d=>'<th class="'+(iso(d)===today?'today':'')+'">'+d.toLocaleDateString(undefined,{weekday:'short'})+'<b>'+d.getDate()+'</b></th>').join('')+'</tr>';
+  $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map((d,i)=>{ const wk=week()['wake_'+i]||''; return '<th class="'+(iso(d)===today?'today':'')+'">'+d.toLocaleDateString(undefined,{weekday:'short'})+'<b>'+d.getDate()+'</b><label class="wake" title="Woke up at — fills the morning with Sleep">😴<input type="time" data-d="'+i+'" value="'+wk+'"></label></th>'; }).join('')+'</tr>';
+  $('thead').querySelectorAll('input.wake, .wake input').forEach(inp=>inp.addEventListener('change',()=>setWake(+inp.dataset.d, inp.value)));
   const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
   let h='';
   for(let r=0;r<ROWS;r++){
@@ -197,17 +211,17 @@ function render(){
 }
 function renderPanel(){
   const w=week(); const per={}; let logged=0; const perDay=[0,0,0,0,0,0,0];
-  for(const k in w){ const v=w[k]; if(!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
+  for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')) continue; const v=w[k]; if(!v||!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
   const total=ROWS*7*.5;
   const rows=CATS.map(c=>({...c,h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
-  const waste=per.waste||0, focus=(per.work||0)+(per.content||0);
+  const waste=per.waste||0, focus=(per.work||0)+(per.content||0), awake=logged-(per.sleep||0);
   $('panel').innerHTML=
     '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged of '+total+' h</small></div>'+
     '<div class="days">'+['M','T','W','T','F','S','S'].map((l,i)=>'<div>'+l+'<b>'+(perDay[i]?fmtH(perDay[i]):'–')+'</b></div>').join('')+'</div>'+
     '<h3 style="margin-top:16px">By category</h3>'+
     (rows.length?rows.map(r=>'<div class="stat"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+r.color+';margin-right:7px"></i>'+r.name+'</span><b>'+fmtH(r.h)+'</b></div><div class="bar"><i style="width:'+Math.round(r.h/Math.max(logged,1)*100)+'%;background:'+r.color+'"></i></div>').join(''):'<div class="stat" style="color:var(--muted)">Nothing logged yet</div>')+
-    (logged?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/logged*100)+'%</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/logged*100)+'%</b></div>':'')+
-    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · drag the corner handle to fill down · right-click or <kbd>⌘1–8</kbd> to set a category (remembered for that text) · <kbd>⌘⌫</kbd> clears</div>';
+    (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(per.sleep?'<div class="stat"><span>Sleep in grid</span><b>'+fmtH(per.sleep)+'</b></div>':'')+
+    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · drag the corner handle to fill down · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 😴 in a day header fills the morning with Sleep · <kbd>⌘⌫</kbd> clears</div>';
 }
 function fmtH(h){ return (Math.round(h*10)/10).toString().replace(/\.0$/,'')+' h'; }
 
@@ -233,7 +247,7 @@ function paint(td){
 function focusCell(d,r){ const td=tdAt(d,r); if(!td) return; const inp=td.querySelector('.in'); inp.focus(); const range=document.createRange(); range.selectNodeContents(inp); range.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(range); td.scrollIntoView({block:'nearest',inline:'nearest'}); }
 tbody.addEventListener('keydown',e=>{
   const td=tdOf(e.target); if(!td) return; const {d,r}=pos(td); const meta=e.metaKey||e.ctrlKey;
-  if(meta && /^[1-8]$/.test(e.key)){ e.preventDefault(); applyCat(td, CATS[+e.key-1].id); return; }
+  if(meta && /^[1-6]$/.test(e.key)){ e.preventDefault(); applyCat(td, CATS[+e.key-1].id); return; }
   if(meta && e.key==='0'){ e.preventDefault(); applyCat(td,null); return; }
   if(meta && e.key==='Backspace'){ e.preventDefault(); td.querySelector('.in').textContent=''; setCell(d,r,'',null); paint(td); renderPanel(); return; }
   if(e.key==='Enter'){ e.preventDefault(); commit(td); if(e.shiftKey) focusCell(d,Math.max(0,r-1)); else focusCell(d,Math.min(ROWS-1,r+1)); }
@@ -278,7 +292,7 @@ tbody.addEventListener('contextmenu',e=>{
   const cur=(cellData(...Object.values(pos(td)))||{}).c;
   ctx=document.createElement('div'); ctx.className='ctx';
   ctx.innerHTML=CATS.map(c=>'<button data-c="'+c.id+'"><i style="background:'+c.color+'"></i>'+c.name+(cur===c.id?' ✓':'')+'<span class="k">⌘'+c.key+'</span></button>').join('')+'<hr><button data-c=""><i style="background:#ddd"></i>No category<span class="k">⌘0</span></button><button data-a="clear">Clear slot<span class="k">⌘⌫</span></button>';
-  ctx.style.left=Math.min(e.clientX,innerWidth-210)+'px'; ctx.style.top=Math.min(e.clientY,innerHeight-360)+'px';
+  ctx.style.left=Math.min(e.clientX,innerWidth-210)+'px'; ctx.style.top=Math.min(e.clientY,innerHeight-300)+'px';
   ctx.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return; if(b.dataset.a==='clear'){ const {d,r}=pos(td); td.querySelector('.in').textContent=''; setCell(d,r,'',null); paint(td); renderPanel(); } else applyCat(td,b.dataset.c||null); closeCtx(); });
   document.body.appendChild(ctx);
 });
