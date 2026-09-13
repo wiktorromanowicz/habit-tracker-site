@@ -6,9 +6,9 @@
 <title>Apex · Net worth</title>
 <style>
   :root{
-    --bg:#f7f8fb; --card:#ffffff; --ink:#1a1c23; --muted:#6b7280; --line:#e7e9ef;
-    --accent:#4f46e5; --green:#12855a; --amber:#c2660a; --red:#c1362c;
-    --chip:#eef0f8;
+    --bg:#f7f6f2; --card:#ffffff; --ink:#2b2a26; --muted:#8c8474; --line:#e7e2d6;
+    --accent:#a9741f; --green:#12855a; --amber:#c2660a; --red:#c1362c;
+    --chip:#f3efe4;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -30,7 +30,7 @@
   .row label{font-size:14px;flex:1}
   .row .cur{font-size:11px;color:var(--muted);background:var(--chip);border-radius:6px;padding:1px 6px;margin-left:6px}
   input[type=number]{font:inherit;font-size:14px;text-align:right;width:110px;border:1px solid var(--line);
-    border-radius:8px;padding:5px 8px;background:#fff;color:var(--ink)}
+    border-radius:8px;padding:5px 8px;background:var(--surface,#fff);color:var(--ink)}
   input:focus{outline:none;border-color:var(--accent)}
   .usd{font-size:12px;color:var(--muted);width:96px;text-align:right}
   .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:12px;border-top:2px solid var(--line)}
@@ -79,7 +79,9 @@
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
   .nav a:not(.active):hover{background:#f0f1f6}
 </style>
+<link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
 <script defer src="import.js"></script>
 </head>
 <body>
@@ -90,9 +92,11 @@
   </div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
+    <a href="today.html">🏠 Today</a>
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
     <a href="notes.html">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
     <a href="lift.html">🏋️ Lift</a>

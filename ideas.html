@@ -19,7 +19,7 @@
   .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
   .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
-  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);
     padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
   .nav a:not(.active):hover{background:#f0ece1}
@@ -30,7 +30,7 @@
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
   .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
-  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:#fff;color:#4a463d;cursor:pointer;}
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .ptab:hover{background:#f3efe4}
   .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
   table.grid{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1150px;}
@@ -41,21 +41,25 @@
     font-size:13px;color:#2b2a26;vertical-align:top;outline:none;white-space:pre-wrap;word-break:break-word;}
   table.grid td:last-child{border-right:none}
   table.grid tbody tr:nth-child(even){background:#f8f5ee}
-  table.grid td:focus,table.grid th:focus{background:#fff;box-shadow:inset 0 0 0 2px var(--accent);position:relative;z-index:1;}
+  table.grid td:focus,table.grid th:focus{background:var(--surface,#fff);box-shadow:inset 0 0 0 2px var(--accent);position:relative;z-index:1;}
   .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
   .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
 </style>
 <link rel="stylesheet" href="grid.css"/>
+<link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
 </head>
 <body>
 <div class="wrap">
   <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
+    <a href="today.html">🏠 Today</a>
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
     <a href="notes.html">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
     <a href="lift.html">🏋️ Lift</a>
