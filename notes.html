@@ -82,6 +82,7 @@
   .ntitle{font-size:28px;font-weight:700;letter-spacing:-.01em;outline:none;color:var(--ink);margin-bottom:8px;min-height:36px;}
   .ntitle:empty:before{content:"Title";color:#c9c2b2;}
   .nbody{font-size:15px;line-height:1.75;outline:none;color:var(--ink);min-height:300px;overflow-wrap:anywhere;}
+  .nbody *{font-family:inherit!important}   /* pasted text (Apple Notes, web) carries its own font — the editor's font always wins */
   .nbody:empty:before{content:"Start writing…  ( - for a list, @date for a date, ⌘/ for shortcuts )";color:#c9c2b2;}
   .nbody h1{font-size:24px;margin:18px 0 6px}
   .nbody h2{font-size:19px;margin:16px 0 6px}
