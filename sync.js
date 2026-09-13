@@ -10,6 +10,14 @@
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
               'wiktorOsFocus', 'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin', 'apexNotesFont'];
   var isYearKey = function (k) { return /^wiktorMetrics_\d{4}$/.test(k); };
+  // keys that pages can apply without a reload (timer, theme, sidebar, nav order, fonts)
+  var LIVE = ['apexTimer', 'apexTheme', 'apexSideMin', 'apexNavOrder', 'apexNotesFont'];
+  function liveApply(k) {
+    try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k) })); } catch (e) {}
+    if (k === 'apexTimer') { try { window.dispatchEvent(new Event('apex-timer-change')); } catch (e) {} }
+    if (k === 'apexTheme') { var t = JSON.parse(localStorage.getItem(k) || '"light"'); if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme'); }
+    if (k === 'apexSideMin') { if (JSON.parse(localStorage.getItem(k) || 'false')) document.documentElement.setAttribute('data-sb', 'min'); else document.documentElement.removeAttribute('data-sb'); }
+  }
   var synced = function (k) { return KEYS.indexOf(k) >= 0 || isYearKey(k); };
 
   var META_KEY = 'apexSyncMeta';                    // { key: { ts } } local write timestamps
@@ -65,7 +73,7 @@
     return sb.from('apex_state').select('key,value,updated_at').eq('user_id', user.id).then(function (r) {
       if (r.error) { console.warn('[apex sync] pull failed', r.error.message); setChip('error'); return; }
       var changed = false, have = {};
-      (r.data || []).forEach(function (row) { have[row.key] = 1; if (applyRemote(row)) changed = true; });
+      (r.data || []).forEach(function (row) { have[row.key] = 1; if (applyRemote(row)) { if (LIVE.indexOf(row.key) >= 0) liveApply(row.key); else changed = true; } });
       // keys we have locally that the cloud has never seen → upload
       KEYS.forEach(function (k) { if (!have[k] && localStorage.getItem(k) != null) push(k); });
       for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isYearKey(k) && !have[k]) push(k); }
@@ -97,7 +105,7 @@
     if (!sb || !user || channel) return;
     channel = sb.channel('apex-state-' + user.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'apex_state', filter: 'user_id=eq.' + user.id },
-        function (payload) { var row = payload.new; if (row && applyRemote(row)) refreshPage(); })
+        function (payload) { var row = payload.new; if (row && applyRemote(row)) { if (LIVE.indexOf(row.key) >= 0) liveApply(row.key); else refreshPage(); } })
       .subscribe();
   }
 

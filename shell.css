@@ -95,3 +95,12 @@ html[data-sb="min"] #apexSide .sb-btn{padding:6px 0}
 
 /* the floating timer pill from pwa.js is redundant next to the sidebar widget */
 @media (min-width:701px){ #apexTimerChip{display:none!important} }
+
+/* ---- phone top bar (sync chip, search, theme) ---- */
+#apexPhoneBar{display:none}
+@media (max-width:700px){
+  #apexPhoneBar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--shell-bg);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:59}
+  #apexPhoneBar .pb-chips{flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:20px}
+  #apexPhoneBar .pb-chips span{margin-left:0!important}
+  #apexPhoneBar .sb-btn{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted,#8c8474);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;font-family:inherit}
+}

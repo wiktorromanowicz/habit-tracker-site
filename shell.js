@@ -53,10 +53,17 @@
     $('#apexThemeBtn', side).addEventListener('click', toggleTheme);
     $('#apexKeysBtn', side).addEventListener('click', openKeys);
     paintFoot();
-    // chips that other scripts mount into the (hidden) .brand move down here
+    // phone: the sidebar footer is hidden, so sync chips / theme / search get a slim bar above the page
+    var phone = document.createElement('div'); phone.id = 'apexPhoneBar';
+    phone.innerHTML = '<div class="pb-chips" id="apexPhoneChips"></div><button class="sb-btn" id="apexPhonePal">Search</button><button class="sb-btn" id="apexPhoneTheme">' + (theme === 'dark' ? '☀︎' : '☾') + '</button>';
+    document.body.insertBefore(phone, document.body.firstChild);
+    $('#apexPhonePal', phone).addEventListener('click', openPalette);
+    $('#apexPhoneTheme', phone).addEventListener('click', function () { toggleTheme(); this.textContent = theme === 'dark' ? '☀︎' : '☾'; });
+    // chips that other scripts mount into the (hidden) .brand move down here (and into the phone bar)
     var brand = $('.brand');
     if (brand) {
-      var move = function () { Array.prototype.slice.call(brand.querySelectorAll('span')).forEach(function (s) { $('#apexChips', side).appendChild(s); }); };
+      var isPhone = function () { return window.matchMedia('(max-width:700px)').matches; };
+      var move = function () { Array.prototype.slice.call(brand.querySelectorAll('span')).forEach(function (s) { (isPhone() ? $('#apexPhoneChips', phone) : $('#apexChips', side)).appendChild(s); }); };
       move(); new MutationObserver(move).observe(brand, { childList: true });
     }
   }
@@ -104,6 +111,7 @@
     else h = '<div class="tw-lbl">Timer</div><div class="tw-row">' + [25, 5, 45, 15].map(function (m) { return '<button data-m="' + m + '" title="Start ' + m + ' min">' + m + '</button>'; }).join('') + '</div>';
     if (h !== lastTw) { tw.innerHTML = h; lastTw = h; tw.classList.toggle('done', T.state === 'done'); }
   }
+  window.addEventListener('apex-timer-change', paintTw);
   document.addEventListener('click', function (e) {
     var b = e.target.closest('#apexTw button'); if (!b) return;
     if (b.dataset.m) startTimer(+b.dataset.m); else if (b.dataset.a === 'pause') pauseTimer(); else if (b.dataset.a === 'stop') stopTimer();
@@ -168,7 +176,7 @@
   };
   function openKeys() {
     closeOv(); ov = document.createElement('div'); ov.className = 'apx-ov';
-    var glob = [['Command palette', MOD + 'K'], ['Jump to tab 1–9', MOD + '1–9'], ['Previous / next tab', '[ ]'], ['Collapse sidebar', '`'], ['Dark / light', MOD + '⇧D'], ['This overlay', '?'], ['Close', 'Esc']];
+    var glob = [['Command palette', MOD + 'K'], ['Jump to tab 1–9', MOD + '1–9'], ['Previous / next tab', '[ ]'], ['Collapse sidebar', '`'], ['Dark / light', MOD + '⇧L'], ['This overlay', '?'], ['Close', 'Esc']];
     var page = (window.apexShortcuts || PAGE_KEYS[here] || []);
     var row = function (k) { return '<div class="k"><span>' + esc(k[0]) + '</span><span>' + k[1].split(' ').map(function (x) { return '<kbd>' + esc(x) + '</kbd>'; }).join('') + '</span></div>'; };
     ov.innerHTML = '<div class="apx-keys"><h2>Keyboard shortcuts</h2><div class="cols"><div><h4>Everywhere</h4>' + glob.map(row).join('') + '</div><div><h4>This page</h4>' + (page.length ? page.map(row).join('') : '<div class="k" style="color:var(--muted)">Mouse only here</div>') + '</div></div></div>';
@@ -179,14 +187,15 @@
   /* ---- global keys ---- */
   document.addEventListener('keydown', function (e) {
     var mod = isMac ? e.metaKey : e.ctrlKey;
-    if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (ov && $('.apx-pal', ov)) closeOv(); else openPalette(); return; }
-    if (e.key === 'Escape' && ov) { closeOv(); return; }
+    if (mod && !e.shiftKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); e.stopPropagation(); if (ov && $('.apx-pal', ov)) closeOv(); else openPalette(); return; }
+    if (e.key === 'Escape' && ov) { e.stopPropagation(); closeOv(); return; }
+    if (ov) return;   // palette / overlay open: page shortcuts stay quiet
     var editing = e.target.closest && e.target.closest('input,textarea,select,[contenteditable="true"],[contenteditable=""]');
-    if (mod && e.shiftKey && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); toggleTheme(); return; }
+    if (mod && e.shiftKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); e.stopPropagation(); toggleTheme(); return; }
     if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key) && !editing) { var l = links[+e.key - 1]; if (l) { e.preventDefault(); location.href = l.href; } return; }
     if (editing || mod || e.altKey) return;
-    if (e.key === '?') { e.preventDefault(); if (ov && $('.apx-keys', ov)) closeOv(); else openKeys(); }
-    else if (e.key === '`') { e.preventDefault(); toggleSide(); }
+    if (e.key === '?') { e.preventDefault(); e.stopPropagation(); openKeys(); }
+    else if (e.key === '`') { e.preventDefault(); e.stopPropagation(); toggleSide(); }
     else if (e.key === '[' || e.key === ']') { var i = links.findIndex(function (l) { return l.active; }); if (i < 0) return; var n = (i + (e.key === ']' ? 1 : -1) + links.length) % links.length; location.href = links[n].href; }
   }, true);
 

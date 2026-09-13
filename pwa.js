@@ -22,7 +22,7 @@
     var st = document.createElement('style');
     st.textContent =
       '@media (max-width:700px){' +
-      ' body{padding:12px 12px 24px!important}' +
+      ' body{padding:12px 12px 90px!important}' +
       ' .goalbar{padding:8px 11px;gap:8px;margin-bottom:10px} .goalbar .gl{font-size:11px} .goalbar .gt{font-size:13px}' +
       ' .brand{font-size:14px;margin-bottom:8px}' +
       ' .nav{gap:5px;margin-bottom:12px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}' +
@@ -177,7 +177,7 @@
   function ensureChip() {
     if (chip) return chip;
     chip = document.createElement('a'); chip.id = 'apexTimerChip'; chip.href = 'timer.html';
-    chip.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:94;display:none;align-items:center;gap:8px;background:#fff;color:#2b2a26;border:1px solid #e7e2d6;border-radius:999px;padding:8px 12px 8px 14px;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(20,22,35,.12);font-variant-numeric:tabular-nums;';
+    chip.style.cssText = 'position:fixed;right:16px;bottom:84px;z-index:94;display:none;align-items:center;gap:8px;background:#fff;color:#2b2a26;border:1px solid #e7e2d6;border-radius:999px;padding:8px 12px 8px 14px;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(20,22,35,.12);font-variant-numeric:tabular-nums;';
     var t = document.createElement('span'); t.className = 'tt';
     var b = document.createElement('button'); b.textContent = 'Stop'; b.style.cssText = 'display:none;border:0;background:#c1362c;color:#fff;border-radius:999px;padding:4px 10px;font:600 12px inherit;cursor:pointer;font-family:inherit;';
     b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); stopAll(); });
@@ -211,6 +211,7 @@
   function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; delete T.rang; T.stoppedAt = Date.now(); write(T); silence(); closeNotification(); rang = false; tick(); }
   function tick() {
     var T = read(), c = ensureChip(), tt = c.querySelector('.tt'), btn = c.querySelector('button');
+    if (T.state !== 'done' && rang) { rang = false; silence(); closeNotification(); }   // a new/stopped timer ends the ringing
     if (T.state === 'running' && T.endAt && Date.now() >= T.endAt) { T.state = 'done'; write(T); }
     if (T.state === 'running') {
       c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; c.style.color = '#2b2a26';
@@ -271,4 +272,27 @@
     e.preventDefault();
     try { native.postMessage('drag'); } catch (err) {}
   }, true);
+})();
+
+/* ---- Cross-tab freshness ------------------------------------------------------------------
+   Pages keep their data in memory and write the whole store back on each edit. If another tab
+   (Today ticking a task, the sidebar, …) changes this page's store, reload it here as soon as
+   the user isn't typing — otherwise the next edit would overwrite the other tab's change. */
+(function () {
+  var PAGE_KEYS = { 'index.html': ['titan_habits_v1'], 'tasks.html': ['apexTasks'], 'notes.html': ['wiktorNotes'], 'finances.html': ['finState', 'finRules'],
+                    'assets.html': ['wiktorAssets'], 'ideas.html': ['wiktorIdeas'], 'time.html': ['apexTime'], 'lift.html': ['apexLift'], 'today.html': ['apexTasks', 'titan_habits_v1', 'apexTime', 'wiktorNotes'] };
+  var here = location.pathname.split('/').pop() || 'index.html';
+  var keys = PAGE_KEYS[here] || (/^metrics/.test(here) ? ['wiktorMetrics_'] : []);
+  if (!keys.length) return;
+  var pending = false;
+  window.addEventListener('storage', function (e) {
+    if (!e.key || !keys.some(function (k) { return e.key === k || (k.slice(-1) === '_' && e.key.indexOf(k) === 0); })) return;
+    if (pending) return; pending = true;
+    var tryReload = function () {
+      var ae = document.activeElement, typing = ae && (ae.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(ae.tagName));
+      if (typing || document.querySelector('.apx-ov')) { setTimeout(tryReload, 1500); return; }
+      location.reload();
+    };
+    setTimeout(tryReload, 300);
+  });
 })();
