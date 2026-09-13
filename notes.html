@@ -357,7 +357,6 @@ function deleteNote(){
   undoBuf={note:n,idx};
   if(!S.notes.length){ S.notes.push({id:uid(),title:'',body:'',pinned:false,created:Date.now(),updated:Date.now()}); }
   S.active=sorted()[0].id; save(); open(S.active);
-(function(){ const q=new URLSearchParams(location.search); if(q.get('new')) newNote(); else if(q.get('open') && S.notes.some(x=>x.id===q.get('open'))) open(q.get('open')); if(q.get('new')||q.get('open')) history.replaceState(null,'',location.pathname); })();
   toast('Note deleted', 'Undo', ()=>{ if(!undoBuf) return; S.notes.splice(Math.min(undoBuf.idx,S.notes.length),0,undoBuf.note); S.active=undoBuf.note.id; undoBuf=null; save(); open(S.active); });
 }
 function togglePin(){ const n=cur(); if(!n) return; n.pinned=!n.pinned; save(); renderList(); renderMeta(); }
@@ -581,6 +580,7 @@ setTimeout(pullBrief,1500); setInterval(pullBrief,5*60000); document.addEventLis
 /* ---- boot ---- */
 if(!cur()) S.active=(sorted()[0]||{}).id;
 open(S.active);
+(function(){ const q=new URLSearchParams(location.search); if(q.get('new')) newNote(); else if(q.get('open') && S.notes.some(x=>x.id===q.get('open'))) open(q.get('open')); if(q.get('new')||q.get('open')) history.replaceState(null,'',location.pathname); })();
 // refresh relative times + chip colours once a minute
 setInterval(()=>{ renderList(); renderMeta(); decorateChips(); },60000);
 </script>

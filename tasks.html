@@ -467,7 +467,6 @@ function addTask(listId, afterId){
   const it = { id: uid(), text: "", desc: "", done: false, parent: pos.parent };
   l.items.splice(pos.idx, 0, it);
   justAdded = [it.id]; save(); renderTasks();
-(function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
   const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
   if(el) el.focus();
 }
@@ -752,6 +751,7 @@ function moveItem(src, destListId, destItemId, after, doneZone){
 }
 
 renderTasks();
+(function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
 </script>
 </body>
 </html>

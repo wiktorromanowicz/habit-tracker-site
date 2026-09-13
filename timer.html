@@ -239,7 +239,8 @@ function notifyDone(){
 function closeDoneNotification(){ try{ navigator.serviceWorker && navigator.serviceWorker.ready.then(reg=>reg.getNotifications({tag:'apex-timer'}).then(ns=>ns.forEach(n=>n.close()))); }catch(e){} }
 if(navigator.serviceWorker){ navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='timer-stop') cancelTimer(); }); }
 window.apexTimerStop = cancelTimer;
-window.addEventListener('apex-timer-change',()=>{ try{ T=JSON.parse(localStorage.getItem(KEY))||T; }catch(e){} clearInterval(tick); clearTimeout(endTO); if(T.state==='running'){ primeAudio(); startTicking(); } show(T.state==='idle'?T.duration:remaining()); renderPresets(); render(); });   // used by the menu-bar helper's Stop
+window.addEventListener('storage',e=>{ if(e.key===KEY) window.dispatchEvent(new Event('apex-timer-change')); });
+window.addEventListener('apex-timer-change',()=>{ try{ T=JSON.parse(localStorage.getItem(KEY))||T; }catch(e){} T.presets=Array.isArray(T.presets)&&T.presets.length?T.presets:[25*60,5*60,45*60,15*60]; T.state=T.state||'idle'; T.duration=T.duration||15*60; clearInterval(tick); clearTimeout(endTO); if(T.state==='running'){ primeAudio(); startTicking(); } show(T.state==='idle'?T.duration:remaining()); renderPresets(); render(); });   // used by the menu-bar helper's Stop
 
 function mainAction(){
   if(T.state==='idle') startTimer(readInputs());
@@ -273,6 +274,8 @@ function renderPresets(){
 });
 document.addEventListener('keydown',e=>{
   if($('focusBar').contains(e.target)) return;
+  if(e.target.closest && e.target.closest('.apx-ov,select,textarea,[contenteditable="true"]')) return;   // palette / overlays / editors own their keys
+  if(e.target.tagName==='INPUT' && e.target.type!=='number') return;
   const typing = e.target.tagName==='INPUT' && e.target.type==='number';
   if(e.key===' '&&!typing){ e.preventDefault(); mainAction(); }
   else if(e.key==='Escape'){ e.preventDefault(); if(typing) e.target.blur(); else cancelTimer(); }

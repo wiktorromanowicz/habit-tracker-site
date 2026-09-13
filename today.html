@@ -182,11 +182,11 @@ const now=new Date(), today=isoDay(now);
 (function(){
   const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
   const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
-  const CATS={work:['Deep work','#1a4fa3'],meet:['Meetings','#7c3aed'],content:['Content','#c8850f'],admin:['Admin','#16a34a'],gym:['Gym','#e11d48'],rest:['Rest','#0284c7'],personal:['Personal','#db2777'],waste:['Wasted','#8a8a8a']};
-  const per={}; let logged=0; for(const k in wk){ const [d,r]=k.split('_'); if(+d!==dow||!wk[k].t) continue; logged+=.5; const c=wk[k].c||'other'; per[c]=(per[c]||0)+.5; }
+  const CATS={work:['Work','#1a4fa3'],meet:['Meetings','#7c3aed'],content:['Content','#c8850f'],life:['Life','#16a34a'],sleep:['Sleep','#0284c7'],waste:['Wasted','#8a8a8a'],admin:['Work','#1a4fa3'],gym:['Life','#16a34a'],rest:['Life','#16a34a'],personal:['Life','#16a34a']};
+  const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; const c=wk[k].c||'other'; if(c==='sleep'){ slept+=.5; continue; } logged+=.5; per[c]=(per[c]||0)+.5; }
   const mins=now.getHours()*60+now.getMinutes(); const r=Math.floor((mins-START)/STEP); const cur=wk[dow+'_'+r];
   const slot=n=>pad(Math.floor(n/60))+':'+pad(n%60);
-  let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today</small></div>';
+  let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · slept '+(Math.round(slept*10)/10)+' h':'')+'</small></div>';
   if(logged){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/logged*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
   if(r>=0&&r<36){ h+='<div class="now-slot">'+slot(START+r*STEP)+' – '+slot(START+r*STEP+STEP)+' · what are you doing?<input id="nowIn" placeholder="e.g. Content research" value="'+esc(cur&&cur.t||'')+'"></div>'; }
   $('time').innerHTML=h;
