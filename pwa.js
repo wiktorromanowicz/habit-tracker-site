@@ -256,3 +256,23 @@
   }
   if (location.protocol === 'https:' || location.hostname === 'localhost') post();
 })();
+
+/* ---- Drag the window by its header --------------------------------------------------------
+   Inside Apex.app (and Chrome app windows that honour app-region) the goal bar, the brand line
+   and the empty space between nav tabs act as a title bar: press and drag there to move the
+   window. Text fields, tabs and buttons keep working normally. */
+(function () {
+  var css = '.goalbar,.brand,.nav{-webkit-app-region:drag;app-region:drag}' +
+            '.goalbar #focusBar,.goalbar [contenteditable],.nav a,.nav button,.brand a,.brand button,.brand span{-webkit-app-region:no-drag;app-region:no-drag}';
+  var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  var native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.apexDrag;
+  if (!native) return;
+  document.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    var t = e.target;
+    if (t.closest('a,button,input,textarea,select,[contenteditable],#apexTimerChip')) return;
+    if (!t.closest('.goalbar,.brand,.nav')) return;
+    e.preventDefault();
+    try { native.postMessage('drag'); } catch (err) {}
+  }, true);
+})();
