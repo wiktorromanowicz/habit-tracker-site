@@ -79,6 +79,8 @@
   .ntitle:empty:before{content:"Title";color:#c9c2b2;}
   .nbody{font-size:15px;line-height:1.75;outline:none;color:var(--ink);min-height:300px;overflow-wrap:anywhere;}
   .nbody *{font-family:inherit!important}   /* pasted text (Apple Notes, web) carries its own font — the editor's font always wins */
+  .nbody *:not(a):not(.dchip):not(.dchip *):not(.brief h3):not(mark){color:inherit!important;background-color:transparent!important}   /* …and its own colours, which go invisible in dark mode */
+  .nbody .brief{background:var(--chip)!important}
   .nbody:empty:before{content:"Start writing…  ( - for a list, @date for a date, ⌘/ for shortcuts )";color:#c9c2b2;}
   .nbody h1{font-size:24px;margin:18px 0 6px}
   .nbody h2{font-size:19px;margin:16px 0 6px}
