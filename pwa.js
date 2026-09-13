@@ -208,7 +208,7 @@
   function closeNotification() { try { navigator.serviceWorker && navigator.serviceWorker.ready.then(function (r) { return r.getNotifications({ tag: 'apex-timer' }); }).then(function (ns) { ns.forEach(function (n) { n.close(); }); }); } catch (e) {} }
   var rang = false;
   window.apexTimerStop = function () { stopAll(); };
-  function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; write(T); silence(); closeNotification(); rang = false; tick(); }
+  function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; delete T.rang; write(T); silence(); closeNotification(); rang = false; tick(); }
   function tick() {
     var T = read(), c = ensureChip(), tt = c.querySelector('.tt'), btn = c.querySelector('button');
     if (T.state === 'running' && T.endAt && Date.now() >= T.endAt) { T.state = 'done'; write(T); }
@@ -219,8 +219,11 @@
     } else if (T.state === 'paused') {
       c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; tt.textContent = '⏸ ' + fmt(T.remaining || 0);
     } else if (T.state === 'done') {
+      // A finished timer that nobody stopped for 10+ minutes is stale — clear it quietly instead of ringing on every page load.
+      if (T.endAt && Date.now() - T.endAt > 10 * 60000) { T.state = 'idle'; delete T.endAt; delete T.rang; write(T); c.style.display = 'none'; return; }
       c.style.display = 'flex'; btn.style.display = 'inline-block'; c.style.background = '#fbe9e7'; c.style.color = '#9b2b22'; tt.textContent = '⏰ Time’s up';
-      if (!rang) { rang = true; ring(T); notify(T); }
+      // Ring only once per finished timer (T.rang is shared through localStorage), and only if it just finished.
+      if (!rang) { rang = true; if (!T.rang && T.endAt && Date.now() - T.endAt < 2 * 60000) { T.rang = true; write(T); ring(T); notify(T); } }
     } else { c.style.display = 'none'; if (rang) { rang = false; silence(); } }
   }
   // Warm up audio on the first user gesture on this page so the alarm can autoplay later.
