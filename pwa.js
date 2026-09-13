@@ -46,6 +46,13 @@
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
     });
+    // When an update has been installed, reload once so the page runs the new code right away
+    // (cache-first otherwise serves the previous version until the next visit).
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      hadController = true;
+    });
   }
 
   /* Prerender the tab you're about to click (Chrome Speculation Rules) so
