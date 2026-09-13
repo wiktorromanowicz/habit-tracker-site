@@ -111,6 +111,7 @@
     <button onclick="shift(-1)" title="Previous week">‹</button>
     <button onclick="shift(1)" title="Next week">›</button>
     <span class="range" id="range"></span>
+    <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import from calendar</button>
     <span class="sp"></span>
     <div class="legend" id="legend"></div>
   </div>
@@ -298,6 +299,26 @@ tbody.addEventListener('contextmenu',e=>{
 });
 document.addEventListener('click',e=>{ if(ctx&&!ctx.contains(e.target)) closeCtx(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCtx(); });
+
+/* ---------- import this week's events from Google Calendar (own calendars only) ---------- */
+async function importCal(){
+  const ls=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } };
+  const tok=ls('apexGTok',null), cache=ls('apexCal',{calendars:[]}), prefs=ls('apexCalPrefs',{hidden:{}});
+  if(!tok||tok.e<Date.now()){ toast('Open the Calendar tab first so Google is connected'); return; }
+  const mine=c=>!(prefs.hidden&&prefs.hidden[c.id]) && (c.primary || !(/@/.test(c.id) && !/group\.calendar\.google\.com$|holiday|import\.calendar/.test(c.id)));
+  const cals=(cache.calendars||[]).filter(mine); if(!cals.length){ toast('No calendars cached yet — open the Calendar tab once'); return; }
+  const s0=new Date(monday), e0=addDays(monday,7); const out=[];
+  toast('Importing…');
+  await Promise.all(cals.map(async c=>{ try{ const q='?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(s0.toISOString())+'&timeMax='+encodeURIComponent(e0.toISOString());
+    const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(c.id)+'/events'+q,{headers:{Authorization:'Bearer '+tok.t}}); if(!r.ok) return; const j=await r.json();
+    (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled'||!ev.start||!ev.start.dateTime) return; const me=(ev.attendees||[]).find(a=>a.self); if(me&&me.responseStatus==='declined') return; out.push({t:ev.summary||'(no title)',s:new Date(ev.start.dateTime),e:new Date(ev.end.dateTime)}); }); }catch(err){} }));
+  const w=week(); let filled=0, skipped=0;
+  out.forEach(ev=>{ const d=(ev.s.getDay()+6)%7; const sm=ev.s.getHours()*60+ev.s.getMinutes(), em=ev.e.getHours()*60+ev.e.getMinutes()+(ev.e.getDate()!==ev.s.getDate()?24*60:0);
+    const r0=Math.max(0,Math.floor((sm-START)/STEP)), r1=Math.min(ROWS,Math.ceil((em-START)/STEP));
+    for(let r=r0;r<r1;r++){ const k=d+'_'+r; if(w[k]&&w[k].t){ skipped++; continue; } w[k]={t:ev.t}; const c=guessCat(ev.t); if(c) w[k].c=c; filled++; } });
+  save(); render();
+  toast(out.length? ('Imported '+out.length+' events → '+filled+' slots filled'+(skipped?', '+skipped+' kept as you had them':'')) : 'No events found for this week');
+}
 
 /* ---------- navigation ---------- */
 function shift(n){ monday=addDays(monday,7*n); render(); }

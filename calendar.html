@@ -8,7 +8,7 @@
   :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;--today:#a9741f;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:28px;min-height:100vh;overflow-x:hidden;-webkit-user-select:none;user-select:none;}
-  .wrap{max-width:860px;margin:0 auto;}
+  .wrap{max-width:1500px;margin:0 auto;}
   .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
   .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
   .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;-webkit-user-select:text;user-select:text;}
@@ -82,11 +82,11 @@
   .col.wknd{background:#fcfaf5}
   .col .hl{position:absolute;left:0;right:0;border-top:1px solid #f0ebe0;pointer-events:none}
   .col .hl.half{border-top:1px dashed #f5f1e8}
-  .ev{position:absolute;left:2px;right:4px;border-radius:7px;padding:4px 7px;font-size:12px;line-height:1.25;color:#fff;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.12);border-left:3px solid rgba(0,0,0,.18);transition:box-shadow .1s}
+  .ev{position:absolute;left:3px;right:5px;border-radius:8px;padding:5px 9px;font-size:13.5px;line-height:1.28;color:#fff;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.18);border-left:4px solid rgba(0,0,0,.28);transition:box-shadow .1s;text-shadow:0 1px 1px rgba(0,0,0,.18)}
   .ev:hover{box-shadow:0 3px 10px rgba(0,0,0,.22);z-index:5}
   .ev .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev .m{opacity:.9;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev.short{padding:2px 7px}
+  .ev .m{opacity:.95;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  .ev.short{padding:2px 8px;font-size:12.5px}
   .ev.short .m{display:none}
   .ev.dragging{opacity:.55;z-index:9;pointer-events:none}
   .ev.tentative{opacity:.7;border-style:dashed}
@@ -218,7 +218,7 @@ const $=id=>document.getElementById(id);
 const CFG=window.APEX_GCAL||{};
 const MOCK=/[?&]mock=1/.test(location.search);
 const SCOPE='https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
-const HPX=56;                                        // px per hour
+const HPX=76;                                        // px per hour
 const PREFS_KEY='apexCalPrefs', CACHE_KEY='apexCal';
 let prefs={}; try{ prefs=JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')||{}; }catch(e){}
 prefs.hidden=prefs.hidden||{}; prefs.view=prefs.view||'week';
@@ -236,7 +236,7 @@ const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const sod=d=>{ const x=new Date(d); x.setHours(0,0,0,0); return x; };
 const addD=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
 const mondayOf=d=>{ const x=sod(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
-const fmtT=d=>d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+const fmtT=d=>d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false});
 const fmtD=(d,o)=>d.toLocaleDateString(undefined,o||{weekday:'short',day:'numeric',month:'short'});
 const sameDay=(a,b)=>iso(a)===iso(b);
 const todayIso=()=>iso(new Date());
@@ -325,6 +325,10 @@ async function loadCalendars(){
   const j=await api('/users/me/calendarList?minAccessRole=reader');
   calendars=(j.items||[]).filter(c=>!c.deleted).map(c=>({id:c.id,summary:c.summaryOverride||c.summary,color:c.backgroundColor||'#a9741f',primary:!!c.primary,writable:/owner|writer/.test(c.accessRole)}));
   calendars.sort((a,b)=>(b.primary-a.primary)||a.summary.localeCompare(b.summary));
+  // other people's accounts start hidden (you can switch any of them on in the list); done once per calendar
+  prefs.seen=prefs.seen||{};
+  calendars.forEach(cal=>{ if(prefs.seen[cal.id]) return; prefs.seen[cal.id]=1; const other=/@/.test(cal.id)&&!cal.primary&&!/group\.calendar\.google\.com$|holiday|import\.calendar/.test(cal.id); if(other) prefs.hidden[cal.id]=1; });
+  savePrefs();
   cache.calendars=calendars; saveCache(); renderCals();
 }
 let loadSeq=0;
@@ -392,8 +396,8 @@ function renderGrid(cols){
     const items=vis.filter(ev=>!ev.allDay&&ev.start<de&&ev.end>ds);
     const laid=layoutColumns(items);
     h+='<div class="col'+([0,6].includes(d.getDay())?' wknd':'')+'" data-d="'+iso(d)+'">'+[...Array(24)].map((_,i)=>'<div class="hl" style="top:'+(i*HPX)+'px"></div><div class="hl half" style="top:'+(i*HPX+HPX/2)+'px"></div>').join('');
-    laid.forEach(({ev,c,n})=>{ const st=Math.max(ev.start,ds), en=Math.min(ev.end,de); const top=((st-ds)/36e5)*HPX, hgt=Math.max(18,((en-st)/36e5)*HPX-2); const w=100/n; 
-      h+='<div class="ev'+(hgt<36?' short':'')+(ev.status==='tentative'||ev.status==='needsAction'?' tentative':'')+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'" style="top:'+top+'px;height:'+hgt+'px;background:'+ev.color+';left:calc('+(c*w)+'% + 2px);width:calc('+w+'% - 6px)"><div class="t">'+esc(ev.title)+'</div><div class="m">'+fmtT(ev.start)+' – '+fmtT(ev.end)+(ev.location?' · '+esc(ev.location):'')+'</div><div class="rz"></div></div>'; });
+    laid.forEach(({ev,c,n})=>{ const st=Math.max(ev.start,ds), en=Math.min(ev.end,de); const top=((st-ds)/36e5)*HPX, hgt=Math.max(22,((en-st)/36e5)*HPX-2); const w=100/n; 
+      h+='<div class="ev'+(hgt<40?' short':'')+(ev.status==='tentative'||ev.status==='needsAction'?' tentative':'')+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'" style="top:'+top+'px;height:'+hgt+'px;background:'+ev.color+';left:calc('+(c*w)+'% + 2px);width:calc('+w+'% - 6px)"><div class="t">'+esc(ev.title)+'</div><div class="m">'+fmtT(ev.start)+' – '+fmtT(ev.end)+(ev.location?' · '+esc(ev.location):'')+'</div><div class="rz"></div></div>'; });
     if(sameDay(d,new Date())){ const now=new Date(); h+='<div class="nowline" style="top:'+(((now-ds)/36e5)*HPX)+'px"></div>'; }
     h+='</div>';
   });
