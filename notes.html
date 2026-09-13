@@ -19,7 +19,7 @@
   .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
   .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
-  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);
     padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
   .nav a:not(.active):hover{background:#f0ece1}
@@ -34,7 +34,7 @@
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
   .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
-  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:#fff;color:#4a463d;cursor:pointer;}
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .ptab:hover{background:#f3efe4}
   .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26}
   .ptab.dark:hover{background:#3a382f}
@@ -42,7 +42,7 @@
 
   /* ---- two-pane notepad ---- */
   .np{display:grid;grid-template-columns:290px 1fr;gap:0;border:1px solid var(--line);border-radius:14px;
-    background:#fff;overflow:hidden;margin-bottom:26px;height:calc(100vh - 250px);min-height:520px;}
+    background:var(--surface,#fff);overflow:hidden;margin-bottom:26px;height:calc(100vh - 250px);min-height:520px;}
   @media (max-width:820px){ .np{grid-template-columns:1fr;height:auto} .side{height:280px} }
   .side{border-right:1px solid var(--line);display:flex;flex-direction:column;background:#faf8f2;min-height:0;}
   .np.side-hidden{grid-template-columns:1fr}
@@ -53,14 +53,14 @@
   .np.side-hidden #showSide{display:inline-block}
   .side-top{padding:12px 12px 8px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--line);}
   .search{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;
-    background:#fff;color:var(--ink);outline:none;}
+    background:var(--surface,#fff);color:var(--ink);outline:none;}
   .search:focus{border-color:var(--accent)}
   .newbtn{background:var(--accent);color:#fff;font-weight:600;padding:7px 11px;white-space:nowrap;}
   .newbtn:hover{background:#946417}
   .nlist{flex:1;overflow:auto;padding:6px;}
   .nitem{padding:10px 11px;border-radius:10px;cursor:pointer;margin-bottom:2px;border:1px solid transparent;}
   .nitem:hover{background:#f1ece0}
-  .nitem.active{background:#fff;border-color:var(--line);box-shadow:0 1px 3px rgba(60,50,30,.08);}
+  .nitem.active{background:var(--surface,#fff);border-color:var(--line);box-shadow:0 1px 3px rgba(60,50,30,.08);}
   .nitem .t{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .nitem .t .pin{color:var(--accent);margin-right:4px;font-size:12px}
   .nitem .m{display:flex;gap:8px;margin-top:3px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;}
@@ -94,7 +94,7 @@
   .nbody hr{border:none;border-top:1px solid var(--line);margin:14px 0}
   .nbody ul.chk{list-style:none;padding-left:4px}
   .nbody ul.chk li{position:relative;padding-left:26px;cursor:default}
-  .nbody ul.chk li::before{content:"";position:absolute;left:0;top:6px;width:16px;height:16px;border:1.6px solid #c3b99f;border-radius:5px;background:#fff;cursor:pointer;}
+  .nbody ul.chk li::before{content:"";position:absolute;left:0;top:6px;width:16px;height:16px;border:1.6px solid #c3b99f;border-radius:5px;background:var(--surface,#fff);cursor:pointer;}
   .nbody ul.chk li.done::before{background:var(--green);border-color:var(--green)}
   .nbody ul.chk li.done::after{content:"";position:absolute;left:5.5px;top:8px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
   .nbody ul.chk li.done{color:#a39b89;text-decoration:line-through}
@@ -110,7 +110,7 @@
   .ed-foot .sp{flex:1}
 
   /* ---- floating toolbar ---- */
-  .fbar{position:fixed;left:0;top:0;z-index:60;display:flex;gap:3px;background:#fff;border:1px solid var(--line);
+  .fbar{position:fixed;left:0;top:0;z-index:60;display:flex;gap:3px;background:var(--surface,#fff);border:1px solid var(--line);
     border-radius:10px;padding:5px 7px;box-shadow:0 6px 22px rgba(20,22,35,.16);opacity:0;pointer-events:none;
     transform:translate(-50%,-100%) scale(.96);transition:opacity .1s,transform .1s;}
   .fbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1)}
@@ -125,23 +125,27 @@
   .toast button{background:#a9741f;color:#fff;padding:5px 10px;font-weight:600}
   .help{position:fixed;inset:0;z-index:95;background:rgba(30,28,22,.35);display:none;align-items:center;justify-content:center;padding:20px;}
   .help.show{display:flex}
-  .help .card{background:#fff;border-radius:14px;padding:22px 24px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:85vh;overflow:auto;}
+  .help .card{background:var(--surface,#fff);border-radius:14px;padding:22px 24px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:85vh;overflow:auto;}
   .help h3{margin:0 0 12px;font-size:16px}
   .help table{width:100%;border-collapse:collapse;font-size:13px}
   .help td{padding:5px 4px;border-bottom:1px solid #f0ece2}
   .help td:first-child{width:150px;color:#6f6858}
   kbd{display:inline-block;padding:1px 6px;border:1px solid #d9d2c2;border-bottom-width:2px;border-radius:5px;background:#faf8f2;font-family:inherit;font-size:12px;margin-right:2px}
 </style>
+<link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
 </head>
 <body>
 <div class="wrap">
   <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
+    <a href="today.html">🏠 Today</a>
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
     <a href="notes.html" class="active">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
     <a href="lift.html">🏋️ Lift</a>
@@ -345,6 +349,7 @@ function deleteNote(){
   undoBuf={note:n,idx};
   if(!S.notes.length){ S.notes.push({id:uid(),title:'',body:'',pinned:false,created:Date.now(),updated:Date.now()}); }
   S.active=sorted()[0].id; save(); open(S.active);
+(function(){ const q=new URLSearchParams(location.search); if(q.get('new')) newNote(); else if(q.get('open') && S.notes.some(x=>x.id===q.get('open'))) open(q.get('open')); if(q.get('new')||q.get('open')) history.replaceState(null,'',location.pathname); })();
   toast('Note deleted', 'Undo', ()=>{ if(!undoBuf) return; S.notes.splice(Math.min(undoBuf.idx,S.notes.length),0,undoBuf.note); S.active=undoBuf.note.id; undoBuf=null; save(); open(S.active); });
 }
 function togglePin(){ const n=cur(); if(!n) return; n.pinned=!n.pinned; save(); renderList(); renderMeta(); }

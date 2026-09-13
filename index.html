@@ -6,9 +6,9 @@
 <title>Apex · Habits</title>
 <style>
   :root{
-    --bg:#ffffff; --panel:#ffffff; --panel2:#f5f6f8; --line:#e3e6eb;
-    --text:#000000; --muted:#000000; --accent:#16a34a; --accent-dim:#dcfce7;
-    --today:#2563eb;
+    --bg:#f7f6f2; --panel:#ffffff; --panel2:#f3efe4; --line:#e7e2d6;
+    --text:#2b2a26; --muted:#8c8474; --accent:#16a34a; --accent-dim:#dcfce7;
+    --today:#a9741f;
   }
   *{box-sizing:border-box;-webkit-user-select:none;user-select:none;}
   body{margin:0;background:var(--bg);color:var(--text);
@@ -103,7 +103,7 @@
   .editor a{color:var(--today);}
 
   /* ---- Spreadsheet-style habit sheet (full-width month view) ---- */
-  .sheet{background:#fbf9f4;border-top:1px solid #e7e2d6;border-bottom:1px solid #e7e2d6;
+  .sheet{background:var(--card,#fbf9f4);border-top:1px solid #e7e2d6;border-bottom:1px solid #e7e2d6;
     box-shadow:0 1px 3px rgba(60,50,30,.06);
     position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
   .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
@@ -114,7 +114,7 @@
   .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
   .periodtabs{display:flex;gap:6px;flex-wrap:wrap;}
   .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;
-    background:#fff;color:#4a463d;cursor:pointer;}
+    background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .ptab:hover{background:#f3efe4;}
   .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26;}
   .ptab.dark:hover{background:#3a382f;}
@@ -147,7 +147,9 @@
     padding:13px 0 20px;font-size:13px;color:#9c9484;flex-wrap:wrap;}
 
 </style>
+<link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
 </head>
 <body>
 <canvas id="fx"></canvas>
@@ -158,9 +160,11 @@
   </div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
+    <a href="today.html">🏠 Today</a>
     <a href="index.html" class="active">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
     <a href="notes.html">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
     <a href="lift.html">🏋️ Lift</a>

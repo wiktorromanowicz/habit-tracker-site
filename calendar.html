@@ -15,26 +15,26 @@
   .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--ink)}
   .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
-  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:#fff;padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
   .nav a:not(.active):hover{background:#f0ece1}
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--chip);color:var(--ink);padding:7px 12px;font-size:13px;}
   button:hover{background:#ece6d7}
-  input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 9px;outline:none}
+  input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface,#fff);border:1px solid var(--line);border-radius:8px;padding:7px 9px;outline:none}
   input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 
   .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(60,50,30,.06);position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
   .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
   .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 0 12px;flex-wrap:wrap;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;color:var(--ink);}
-  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:#fff;color:#4a463d;cursor:pointer;}
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .ptab:hover{background:#f3efe4}
   .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26}
   .ptab.gold{background:var(--accent);color:#fff;border-color:var(--accent)}
   .ptab.gold:hover{background:#946417}
   .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .toolbar .range{font-size:17px;font-weight:700;min-width:190px;text-align:center}
-  .seg{display:inline-flex;border:1px solid #e0dacb;border-radius:20px;overflow:hidden;background:#fff}
+  .seg{display:inline-flex;border:1px solid #e0dacb;border-radius:20px;overflow:hidden;background:var(--surface,#fff)}
   .seg button{border-radius:0;background:transparent;padding:7px 13px;font-weight:500;color:#4a463d}
   .seg button.on{background:#2b2a26;color:#fff}
   .status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
@@ -43,7 +43,7 @@
 
   /* layout: sidebar + view */
   .cal{display:grid;grid-template-columns:220px 1fr;gap:14px;padding-bottom:26px;}
-  .side{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;align-self:start;position:sticky;top:64px}
+  .side{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:12px;align-self:start;position:sticky;top:64px}
   .side h4{margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
   .mini{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;table-layout:fixed}
   .mini th{color:var(--muted);font-weight:600;padding:2px 0}
@@ -62,9 +62,9 @@
   .cals li.off{color:var(--muted)}
   .cals .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .view{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:520px;position:relative}
+  .view{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:520px;position:relative}
   /* week / day */
-  .wk-head{display:grid;grid-template-columns:56px repeat(var(--cols),1fr);border-bottom:1px solid var(--line);background:#fbf9f4}
+  .wk-head{display:grid;grid-template-columns:56px repeat(var(--cols),1fr);border-bottom:1px solid var(--line);background:var(--card,#fbf9f4)}
   .wk-head .dh{padding:8px 6px 6px;text-align:center;border-left:1px solid #f0ebe0;cursor:pointer}
   .wk-head .dh .dw{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
   .wk-head .dh .dn{font-size:22px;font-weight:600;line-height:1.1;margin-top:2px;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
@@ -95,7 +95,7 @@
   .nowline{position:absolute;left:0;right:0;height:2px;background:#c1362c;z-index:6;pointer-events:none}
   .nowline::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:#c1362c}
   /* month */
-  .mo-head{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line);background:#fbf9f4}
+  .mo-head{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line);background:var(--card,#fbf9f4)}
   .mo-head div{padding:8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
   .mo{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(108px,1fr)}
   .mo .cell{border-right:1px solid #f0ebe0;border-bottom:1px solid #f0ebe0;padding:4px;cursor:pointer;min-width:0}
@@ -121,7 +121,7 @@
   .empty{padding:60px 20px;text-align:center;color:var(--muted)}
   .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
   /* popover */
-  .pop{position:fixed;z-index:80;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(20,22,35,.22);width:340px;max-width:calc(100vw - 20px);padding:14px;font-size:13px;-webkit-user-select:text;user-select:text}
+  .pop{position:fixed;z-index:80;background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(20,22,35,.22);width:340px;max-width:calc(100vw - 20px);padding:14px;font-size:13px;-webkit-user-select:text;user-select:text}
   .pop .hd{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
   .pop .hd .sw{width:14px;height:14px;border-radius:4px;margin-top:4px;flex-shrink:0}
   .pop .hd .tt{font-size:17px;font-weight:700;flex:1;line-height:1.25}
@@ -152,7 +152,9 @@
   .hint{font-size:12px;color:#a99f8c;padding:6px 0 22px}
   @media (max-width:820px){ .cal{grid-template-columns:1fr} .side{position:static;display:none} .side.open{display:block} .toolbar .range{min-width:0;font-size:15px} .grid-scroll{max-height:calc(100vh - 250px)} .pop{left:10px!important;right:10px;width:auto;top:auto!important;bottom:10px} }
 </style>
+<link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
 <script src="cal-config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -161,9 +163,11 @@
   <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
+    <a href="today.html">🏠 Today</a>
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html">✅ Tasks</a>
     <a href="calendar.html" class="active">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
     <a href="notes.html">📝 Notes</a>
     <a href="timer.html">⏱ Timer</a>
     <a href="lift.html">🏋️ Lift</a>
@@ -555,7 +559,7 @@ function mockApi(path,opts){
 
 /* ---- boot ---- */
 render();
-initAuth().then(()=>refresh(true));
+initAuth().then(()=>refresh(true)).then(()=>{ if(/[?&]new=1/.test(location.search)){ history.replaceState(null,'',location.pathname); setTimeout(newEventNow,300); } });
 </script>
 </body>
 </html>
