@@ -71,6 +71,18 @@
   function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
 
   ready(function () {
+    /* ---- header: no focus bar; nav tabs show just their emoji (label on hover) ---- */
+    (function () {
+      var st = document.createElement('style');
+      st.textContent = '.goalbar{display:none!important}.nav a{padding:8px 12px!important;font-size:18px!important;line-height:1!important;min-width:0!important}.nav a .tab-emoji{display:inline-block}';
+      document.head.appendChild(st);
+      document.querySelectorAll('.nav a').forEach(function (a) {
+        var txt = a.textContent.trim(); var m = txt.match(/^(\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*)\s*(.*)$/u);
+        if (!m) return;
+        a.title = m[2] || txt; a.setAttribute('aria-label', a.title);
+        a.textContent = ''; var e = document.createElement('span'); e.className = 'tab-emoji'; e.textContent = m[1]; a.appendChild(e);
+      });
+    })();
     /* ---- focus bar: keep it editable on every page ---- */
     var fb = document.getElementById('focusBar');
     if (fb) {
@@ -114,7 +126,7 @@
       var dragging = null;
       links().forEach(function(a){
         a.draggable = true;
-        a.title = 'Drag to reorder';
+        if (!a.title) a.title = 'Drag to reorder';
         a.addEventListener('dragstart', function(e){ dragging = a; a.style.opacity = '.4'; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', keyOf(a)); } catch (_) {} });
         a.addEventListener('dragend', function(){ a.style.opacity = ''; dragging = null; links().forEach(function(x){ x.style.boxShadow = ''; }); });
         a.addEventListener('dragover', function(e){
@@ -215,7 +227,6 @@
     if (T.state === 'running') {
       c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; c.style.color = '#2b2a26';
       tt.textContent = '⏱ ' + fmt((T.endAt - Date.now()) / 1000);
-      if (!primed && audio) { /* keep audio element warm after first gesture */ }
     } else if (T.state === 'paused') {
       c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; tt.textContent = '⏸ ' + fmt(T.remaining || 0);
     } else if (T.state === 'done') {
@@ -226,9 +237,6 @@
       if (!rang) { rang = true; if (!T.rang && T.endAt && Date.now() - T.endAt < 2 * 60000) { T.rang = true; write(T); ring(T); notify(T); } }
     } else { c.style.display = 'none'; if (rang) { rang = false; silence(); } }
   }
-  // Warm up audio on the first user gesture on this page so the alarm can autoplay later.
-  function prime() { var T = read(); if (T.state === 'running' || T.state === 'paused') { try { var name = { classic: 'alarm-classic.wav', chime: 'alarm-chime.wav', marimba: 'alarm-marimba.wav' }[T.sound] || 'alarm-classic.wav'; audio = new Audio(name); audio.loop = true; audio.setAttribute('data-src', name); audio.volume = 0; var p = audio.play(); if (p && p.then) p.then(function () { audio.pause(); audio.currentTime = 0; audio.volume = 1; primed = true; }).catch(function () {}); } catch (e) {} } }
-  ['pointerdown', 'keydown'].forEach(function (ev) { document.addEventListener(ev, prime, { once: true, capture: true }); });
   var endTO = null;
   function schedule() { clearTimeout(endTO); var T = read(); if (T.state === 'running') endTO = setTimeout(tick, Math.max(0, T.endAt - Date.now()) + 30); }
   window.addEventListener('storage', function (e) { if (e.key === KEY) { var T = read(); if (T.state !== 'done') { silence(); rang = false; } tick(); schedule(); } });
