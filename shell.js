@@ -27,6 +27,8 @@
   }
   var links = pageLinks();
   (function () { var order = ls.get('apexNavOrder', null); if (!Array.isArray(order)) return; var by = {}; links.forEach(function (l) { by[l.href] = l; }); var out = []; order.forEach(function (h) { if (by[h]) { out.push(by[h]); delete by[h]; } }); links.forEach(function (l) { if (by[l.href]) out.push(l); }); links = out; })();
+  // Today is the home screen: it always sits first
+  (function () { var i = links.findIndex(function (l) { return l.href === 'today.html'; }); if (i > 0) links.unshift(links.splice(i, 1)[0]); })();
 
   /* ---- sidebar ---- */
   var side, navEl, foot, tw;
