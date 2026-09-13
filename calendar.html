@@ -253,24 +253,53 @@ function rangeLabel(){
 /* ---- Google auth (token client: no backend, no stored refresh tokens) ---- */
 function setStatus(kind,txt){ const d=$('status').querySelector('.dot'); d.className='dot'+(kind?' '+kind:''); $('statusTxt').textContent=txt; }
 function gisReady(){ return !!(window.google&&google.accounts&&google.accounts.oauth2); }
+/* Token handling: the access token (valid ~1 h) is kept in localStorage so reloads, new tabs and app
+   updates don't ask you to reconnect. Before it expires, and whenever it's missing, a silent refresh
+   is attempted — first on load, then again on your first click/keypress (browsers only let the
+   auto-closing Google popup open from a user gesture). The big "Connect" screen is a last resort. */
+const TOK_KEY='apexGTok';
+function saveTok(){ try{ localStorage.setItem(TOK_KEY,JSON.stringify({t:token,e:tokenExp})); }catch(e){} }
+function loadTok(){ try{ const s=JSON.parse(localStorage.getItem(TOK_KEY)||localStorage.getItem('apexGTok')||'null'); if(s&&s.e>Date.now()+30000){ token=s.t; tokenExp=s.e; return true; } }catch(e){} return false; }
+let authBusy=false, lastSilent=0, silentWaiters=[];
+function gotToken(r){ token=r.access_token; tokenExp=Date.now()+(r.expires_in||3600)*1000-60000; connected=true; saveTok(); setStatus('ok','Connected'); }
+function silentRefresh(){                       // resolves true/false, never throws, never prompts
+  if(!tokenClient||authBusy) return Promise.resolve(false);
+  authBusy=true; lastSilent=Date.now();
+  return new Promise(res=>{
+    const done=v=>{ authBusy=false; res(v); silentWaiters.splice(0).forEach(f=>f(v)); };
+    const prevCb=tokenClient.callback, prevErr=tokenClient.error_callback;
+    tokenClient.callback=r=>{ tokenClient.callback=prevCb; tokenClient.error_callback=prevErr; if(r&&r.access_token){ gotToken(r); done(true); } else done(false); };
+    tokenClient.error_callback=()=>{ tokenClient.callback=prevCb; tokenClient.error_callback=prevErr; done(false); };
+    try{ tokenClient.requestAccessToken({prompt:''}); }catch(e){ done(false); }
+    setTimeout(()=>{ if(authBusy) done(false); }, 8000);
+  });
+}
 function initAuth(){
   if(MOCK){ connected=true; setStatus('ok','Demo data'); return Promise.resolve(); }
   if(!CFG.clientId){ setStatus('','Calendar not configured'); return Promise.resolve(); }
   return new Promise(res=>{
     const tryInit=()=>{ if(!gisReady()){ setTimeout(tryInit,120); return; }
-      tokenClient=google.accounts.oauth2.initTokenClient({ client_id:CFG.clientId, scope:SCOPE, prompt:'', callback:r=>{
-        if(r&&r.access_token){ token=r.access_token; tokenExp=Date.now()+(r.expires_in||3600)*1000-60000; connected=true; try{ sessionStorage.setItem('apexGTok',JSON.stringify({t:token,e:tokenExp})); }catch(e){} setStatus('ok','Connected'); refresh(true); }
-        else { connected=false; setStatus('','Not connected'); renderConnect(); }
-        res(); } });
-      try{ const s=JSON.parse(sessionStorage.getItem('apexGTok')||'null'); if(s&&s.e>Date.now()){ token=s.t; tokenExp=s.e; connected=true; setStatus('ok','Connected'); res(); return; } }catch(e){}
-      // silent attempt first (works when you're signed in to Google and have consented before)
-      try{ tokenClient.requestAccessToken({prompt:''}); }catch(e){ res(); }
-      setTimeout(res, 2500);
+      tokenClient=google.accounts.oauth2.initTokenClient({ client_id:CFG.clientId, scope:SCOPE, prompt:'',
+        callback:r=>{ if(r&&r.access_token){ gotToken(r); refresh(true); } else { connected=false; setStatus('','Not connected'); renderConnect(); } },
+        error_callback:()=>{ if(!connected){ setStatus('','Not connected'); renderConnect(); } } });
+      if(loadTok()){ connected=true; setStatus('ok','Connected'); res(); return; }
+      silentRefresh().then(ok=>{ if(ok){ refresh(true); } else { connected=false; setStatus('','Not connected'); renderConnect(); } res(); });
     }; tryInit(); });
 }
+// Your first click/keypress after a failed silent attempt retries it (gesture-backed popups aren't blocked).
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{
+  if(MOCK||!tokenClient||authBusy) return;
+  const expiring = token && tokenExp-Date.now() < 5*60000;
+  if((!connected||expiring) && Date.now()-lastSilent>20000){ silentRefresh().then(ok=>{ if(ok&&!calendars.length) refresh(true); }); }
+},true));
+// Proactive renewal a few minutes before expiry (works without a gesture when the popup is allowed).
+setInterval(()=>{ if(!MOCK&&tokenClient&&connected&&token&&tokenExp-Date.now()<5*60000&&!authBusy&&Date.now()-lastSilent>60000) silentRefresh(); }, 60000);
 function connect(){ if(!tokenClient){ toast('Google sign-in is still loading — try again in a second'); return; } tokenClient.requestAccessToken({prompt: connected?'':'consent'}); }
 async function ensureToken(){ if(MOCK) return true; if(token&&tokenExp>Date.now()) return true; if(!tokenClient) return false;
-  return new Promise(res=>{ const prev=tokenClient.callback; tokenClient.callback=r=>{ if(r&&r.access_token){ token=r.access_token; tokenExp=Date.now()+(r.expires_in||3600)*1000-60000; connected=true; try{ sessionStorage.setItem('apexGTok',JSON.stringify({t:token,e:tokenExp})); }catch(e){} setStatus('ok','Connected'); res(true); } else res(false); tokenClient.callback=prev; }; try{ tokenClient.requestAccessToken({prompt:''}); }catch(e){ res(false); } }); }
+  if(loadTok()) return true;
+  if(authBusy) return new Promise(res=>silentWaiters.push(res));
+  return silentRefresh();
+}
 async function api(path,opts){
   if(MOCK) return mockApi(path,opts);
   if(!(await ensureToken())) throw new Error('not signed in');

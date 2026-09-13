@@ -200,6 +200,7 @@
   }
   function closeNotification() { try { navigator.serviceWorker && navigator.serviceWorker.ready.then(function (r) { return r.getNotifications({ tag: 'apex-timer' }); }).then(function (ns) { ns.forEach(function (n) { n.close(); }); }); } catch (e) {} }
   var rang = false;
+  window.apexTimerStop = function () { stopAll(); };
   function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; write(T); silence(); closeNotification(); rang = false; tick(); }
   function tick() {
     var T = read(), c = ensureChip(), tt = c.querySelector('.tt'), btn = c.querySelector('button');
@@ -225,4 +226,23 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
   function boot() { tick(); setInterval(tick, 500); schedule(); }
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+})();
+
+/* ---- Mirror the timer into the macOS menu bar --------------------------------------------
+   If the "Apex Timer" helper app is running on this Mac (see the apex-menubar folder), every
+   Apex tab posts the timer state to it on 127.0.0.1 so the countdown shows next to the clock.
+   When the helper isn't running the request simply fails and we back off. Loopback only. */
+(function () {
+  var URL_ = 'http://127.0.0.1:47831/state', KEY = 'apexTimer', delay = 1000, last = '';
+  function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+  function post() {
+    var T = read(), payload = JSON.stringify({ state: T.state || 'idle', endAt: T.endAt || 0, remaining: T.remaining || 0 });
+    if (T.state !== 'running' && payload === last) { delay = 3000; return setTimeout(post, delay); }   // nothing changed while idle
+    fetch(URL_, { method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, mode: 'cors', keepalive: true })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { last = payload; delay = 1000; if (j && j.stop && window.apexTimerStop) window.apexTimerStop(); })
+      .catch(function () { delay = Math.min(30000, delay * 2); })
+      .then(function () { setTimeout(post, delay); });
+  }
+  if (location.protocol === 'https:' || location.hostname === 'localhost') post();
 })();

@@ -234,6 +234,7 @@ function notifyDone(){
 }
 function closeDoneNotification(){ try{ navigator.serviceWorker && navigator.serviceWorker.ready.then(reg=>reg.getNotifications({tag:'apex-timer'}).then(ns=>ns.forEach(n=>n.close()))); }catch(e){} }
 if(navigator.serviceWorker){ navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='timer-stop') cancelTimer(); }); }
+window.apexTimerStop = cancelTimer;   // used by the menu-bar helper's Stop
 
 function mainAction(){
   if(T.state==='idle') startTimer(readInputs());
