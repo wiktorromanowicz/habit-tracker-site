@@ -14,17 +14,13 @@
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--panel2);color:var(--text);padding:7px 12px;font-size:13px;transition:background .15s,transform .05s;}
   button:hover{background:#eceef2}
   button:active{transform:scale(.97)}
-  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
     background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
     margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
-  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0}
-  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;-webkit-user-select:text;user-select:text;}
-  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text)}
   .nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
   .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--gold);color:var(--gold)}
-  .nav a:not(.active):hover{background:#f0ece1}
+  .nav a:not(.active):hover{background:var(--chip,#f0ece1)}
   .tasks-wrap{margin-top:8px}
   /* ---- Task board (Google Tasks style) ---- */
   .tasks-wrap{margin-top:28px;}
@@ -114,7 +110,7 @@
   .tlist-add{background:var(--accent);color:#fff;font-size:13px;font-weight:600;box-shadow:0 1px 3px rgba(26,115,232,.3);
     padding:8px 14px;border-radius:10px;}
   .tlist-add:hover{background:#1765cc;}
-  .tdue{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:4px;cursor:pointer;background:#f3efe4;color:#6f6858;border:1px solid #e7e2d6}
+  .tdue{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:4px;cursor:pointer;background:var(--chip,#f3efe4);color:#6f6858;border:1px solid var(--line,#e7e2d6)}
   .tdue.today{background:#fff3d6;color:#8a5a0f;border-color:#f0d79a} .tdue.over{background:#fdeaea;color:#c1362c;border-color:#f5c6c6} .tdue.soon{background:#e8f6ee;color:#15803d;border-color:#c8ead6}
   .tdue .rep{opacity:.8}
   .titem.done .tdue{opacity:.5}
@@ -122,16 +118,16 @@
   .tctx .sec{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a99f8c;padding:6px 6px 4px}
   .tctx .quick{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 6px}
   .tctx .q{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600}
-  .tctx .q:hover{background:#ece6d7} .tctx .q.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .tctx .q:hover{background:var(--chip2,#ece6d7)} .tctx .q.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .tctx .line{display:flex;align-items:center;gap:6px;padding:4px 4px 6px}
   .tctx .line input,.tctx .line select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface,#fff);color:var(--text)}
   .tctx .line input[type=date]{flex:1} .tctx .line input[type=time]{width:104px}
-  .tctx .sep{height:1px;background:#eee6d6;margin:6px 2px}
+  .tctx .sep{height:1px;background:var(--chip2,#eee6d6);margin:6px 2px}
   .tctx .it{display:block;width:100%;text-align:left;background:transparent;color:var(--text);padding:7px 8px;border-radius:8px;font-size:13px}
   .tctx .it:hover{background:var(--panel2)} .tctx .it.danger{color:#c1362c} .tctx .it.danger:hover{background:#fdeaea}
   .tctx .it .k{float:right;color:#a99f8c;font-size:11px;margin-top:1px}
   .tctx .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 4px 4px}
-  .tctx .row2 .it{text-align:center;background:var(--panel2)} .tctx .row2 .it:hover{background:#ece6d7}
+  .tctx .row2 .it{text-align:center;background:var(--panel2)} .tctx .row2 .it:hover{background:var(--chip2,#ece6d7)}
   .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
   .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
@@ -139,13 +135,13 @@
   .tmenu-pop button:hover{background:var(--panel2);}
   .tmenu-pop button.danger:hover{background:#fdeaea;color:#ef4444;}
 </style>
+<script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
 </head>
 <body>
 <div class="wrap">
-  <div class="goalbar"><span class="gl">🎯 FOCUS</span><div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div></div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
     <a href="today.html">🏠 Today</a>
@@ -174,9 +170,6 @@
 
 <script>
 /* ---- focus bar (shared) ---- */
-(function(){const el=document.getElementById('focusBar');const K='wiktorOsFocus';
-  try{const v=localStorage.getItem(K);if(v!=null)el.innerHTML=v;}catch(e){}
-  let t;el.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(K,el.innerHTML);}catch(e){}},250);});})();
 
 const KEY="apexTasks";
 function uid(){ return Math.random().toString(36).slice(2,9); }
@@ -387,7 +380,8 @@ function taskRow(listId, it, isSub){
   li.dataset.item = it.id;
 
   const check = document.createElement("div");
-  check.className = "tcheck";
+  check.className = "tcheck"; check.setAttribute("role","checkbox"); check.setAttribute("aria-checked", it.done?"true":"false"); check.tabIndex = 0;
+  check.addEventListener("keydown", e => { if(e.key===" "||e.key==="Enter"){ e.preventDefault(); check.click(); } });
   check.title = it.done ? "Mark not done" : "Mark done";
   check.addEventListener("click", e => { e.stopPropagation(); check.classList.add("pop"); li.classList.add("leaving"); setTimeout(()=>toggleTask(listId, it.id), 220); });
 
@@ -395,6 +389,7 @@ function taskRow(listId, it, isSub){
   txt.className = "ttext";
   txt.contentEditable = "true"; txt.spellcheck = false;
   txt.textContent = it.text;
+  let _tt=null; txt.addEventListener("input", e => { clearTimeout(_tt); _tt=setTimeout(()=>{ const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } },400); });
   txt.addEventListener("blur", e => {
     const v = e.target.textContent.trim();
     if(!v){ deleteTask(listId, it.id); return; }
@@ -422,6 +417,7 @@ function taskRow(listId, it, isSub){
   const desc = document.createElement("div");
   desc.className = "tdesc"; desc.contentEditable = "true"; desc.spellcheck = false;
   desc.textContent = it.desc || "";
+  let _td=null; desc.addEventListener("input", e => { clearTimeout(_td); _td=setTimeout(()=>{ it.desc = e.target.textContent.trim(); save(); },400); });
   desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = true; });
   desc.addEventListener("focus", () => { li.draggable = false; });
   desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
@@ -750,6 +746,7 @@ function moveItem(src, destListId, destItemId, after, doneZone){
   save(); renderTasks();
 }
 
+window.addEventListener('beforeunload',()=>{ const ae=document.activeElement; if(ae&&ae.isContentEditable) ae.blur(); });
 renderTasks();
 (function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
 </script>

@@ -31,13 +31,8 @@
   .nav a.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
   .nav a:not(.active):hover{background:#eceef2;}
   .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;color:var(--text);}
-  .goalbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
     background:linear-gradient(90deg,#a9741f,#d4a24a);color:#fff;padding:9px 15px;border-radius:10px;
     margin-bottom:14px;box-shadow:0 2px 10px rgba(169,116,31,.30);}
-  .goalbar .gl{font-size:12px;font-weight:700;letter-spacing:.4px;opacity:.92;flex-shrink:0;}
-  .goalbar .gt{flex:1;font-size:14px;font-weight:600;color:#fff;outline:none;min-height:20px;
-    -webkit-user-select:text;user-select:text;}
-  .goalbar .gt:empty:before{content:attr(data-ph);color:rgba(255,255,255,.65);font-weight:500;}
   .ghost:hover{background:#eef0f3;color:var(--text);}
   table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line);}
   th,td{padding:0;text-align:center;border-bottom:1px solid var(--line);border-right:1px solid var(--line);}
@@ -103,25 +98,25 @@
   .editor a{color:var(--today);}
 
   /* ---- Spreadsheet-style habit sheet (full-width month view) ---- */
-  .sheet{background:var(--card,#fbf9f4);border-top:1px solid #e7e2d6;border-bottom:1px solid #e7e2d6;
+  .sheet{background:var(--card,var(--card,#fbf9f4));border-top:1px solid var(--line,#e7e2d6);border-bottom:1px solid var(--line,#e7e2d6);
     box-shadow:0 1px 3px rgba(60,50,30,.06);
     position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
   .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
     padding:22px 0 16px;flex-wrap:wrap;}
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:#a99f8c;text-transform:uppercase;}
-  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:#2b2a26;}
+  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink,#2b2a26);}
   .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
   .periodtabs{display:flex;gap:6px;flex-wrap:wrap;}
-  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid #e0dacb;
+  .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid var(--line,#e0dacb);
     background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
-  .ptab:hover{background:#f3efe4;}
-  .ptab.dark{background:#2b2a26;color:#fff;border-color:#2b2a26;}
+  .ptab:hover{background:var(--chip,#f3efe4);}
+  .ptab.dark{background:#2b2a26;color:#fff;border-color:var(--ink,#2b2a26);}
   .ptab.dark:hover{background:#3a382f;}
   .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
   .sheet table{width:100%;border-collapse:collapse;background:transparent;border:none;border-radius:0;
     table-layout:fixed;min-width:1160px;}
-  .sheet thead th{background:#f3efe4;border-bottom:1px solid #e2dccd;border-right:1px solid #ece7da;
+  .sheet thead th{background:var(--chip,#f3efe4);border-bottom:1px solid var(--line,#e2dccd);border-right:1px solid #ece7da;
     padding:7px 2px;font-weight:600;color:#8c8474;}
   .sheet thead th:last-child{border-right:none;}
   .sheet .dnum{display:block;font-size:13px;font-weight:700;color:#6b6355;line-height:1.1;}
@@ -129,17 +124,17 @@
   .sheet thead th.today .dnum{color:#b4802a;}
   .sheet th.habit-col,.sheet td.habit-col{text-align:left;padding:12px 16px;width:180px;background:transparent;}
   .sheet th.habit-col{text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
-  .sheet tbody td{border-bottom:1px solid #efeadd;border-right:1px solid #f3eee2;}
+  .sheet tbody td{border-bottom:1px solid var(--chip,#efeadd);border-right:1px solid var(--chip,#f3eee2);}
   .sheet tbody td:last-child{border-right:none;}
-  .sheet tbody tr:nth-child(even){background:#f8f5ee;}
+  .sheet tbody tr:nth-child(even){background:var(--soft2,#f8f5ee);}
   .sheet tbody tr:hover{background:#f3efe3;}
   .sheet tbody tr:last-child td{border-bottom:none;}
-  .sheet th.wend,.sheet td.wend{background:#f6f1e6;}
+  .sheet th.wend,.sheet td.wend{background:var(--soft2,#f6f1e6);}
   .sheet tbody tr:nth-child(even) td.wend{background:#f2ecde;}
   .sheet td.day{height:38px;cursor:pointer;padding:0;}
-  .sheet td.day:hover{background:#ece5d5;}
+  .sheet td.day:hover{background:var(--chip2,#ece5d5);}
   .sheet td.today-cell{background:rgba(180,128,42,.12)!important;}
-  .sheet .hname{font-weight:600;color:#2b2a26;font-size:15px;}
+  .sheet .hname{font-weight:600;color:var(--ink,#2b2a26);font-size:15px;}
   .sheet .hmeta{color:#a99f8c;font-size:12px;}
   .sheet .dot{width:15px;height:15px;border:1.5px solid #d4ccbb;}
   .sheet td.done .dot::after{width:4px;height:7px;transform:rotate(45deg) translate(-1px,-1px);}
@@ -147,6 +142,7 @@
     padding:13px 0 20px;font-size:13px;color:#9c9484;flex-wrap:wrap;}
 
 </style>
+<script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
@@ -154,10 +150,6 @@
 <body>
 <canvas id="fx"></canvas>
 <div class="wrap">
-  <div class="goalbar">
-    <span class="gl">🎯 FOCUS</span>
-    <div class="gt" id="focusBar" contenteditable="true" spellcheck="true" data-ph="Set your #1 goal — pinned here at all times"></div>
-  </div>
   <div class="brand">⚡ Apex</div>
   <nav class="nav">
     <a href="today.html">🏠 Today</a>
@@ -277,7 +269,13 @@ function mondayOf(d){
   d = new Date(d); const day = (d.getDay()+6)%7;
   d.setHours(0,0,0,0); d.setDate(d.getDate()-day); return d;
 }
-function iso(d){ return d.toISOString().slice(0,10); }
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// one-time migration: keys used to be toISOString() of local midnight (UTC date), which is a day early east of UTC
+(function(){ if(state.dateKeysLocal) return; const off=new Date(); off.setHours(0,0,0,0); const utcKey=off.toISOString().slice(0,10), localKey=iso(off);
+  if(utcKey!==localKey){ state.habits.forEach(h=>{ const nd={}; Object.keys(h.done||{}).forEach(k=>{ const [y,m,d]=k.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d)); // the UTC date the old key came from…
+      const local=new Date(dt.getTime()+24*3600*1000); // …was local-midnight minus the offset → add a day back
+      nd[iso(local)]=h.done[k]; }); h.done=nd; }); }
+  state.dateKeysLocal=true; save(); })();
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDay(a,b){ return iso(a)===iso(b); }
 
@@ -580,13 +578,6 @@ updateWeekInfo();
 
 
 /* ---- sticky focus bar (shared across pages) ---- */
-(function focusBar(){
-  const el=document.getElementById('focusBar'); if(!el) return;
-  const KEY='wiktorOsFocus';
-  try{ const v=localStorage.getItem(KEY); if(v!=null) el.innerHTML=v; }catch(e){}
-  let t; el.addEventListener('input',()=>{ clearTimeout(t);
-    t=setTimeout(()=>{ try{ localStorage.setItem(KEY, el.innerHTML); }catch(e){} },250); });
-})();
 </script>
 </body>
 </html>
