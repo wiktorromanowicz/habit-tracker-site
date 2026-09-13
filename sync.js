@@ -189,6 +189,7 @@
   function boot() {
     if (!window.supabase || !window.supabase.createClient) { setTimeout(boot, 100); return; }
     sb = window.supabase.createClient(cfg.url, cfg.key);
+    window.apexSync = { client: function () { return sb; }, user: function () { return user; } };
     sb.auth.getSession().then(function (r) {
       user = r.data && r.data.session ? r.data.session.user : null;
       mountChip();

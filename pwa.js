@@ -154,3 +154,75 @@
     }
   });
 })();
+
+/* ---- Timer keeps running on every Apex page ----------------------------------------------
+   The Timer tab stores its state in localStorage ("apexTimer"). When you switch to another tab
+   (Tasks, Notes…) the timer page unloads, so this watcher — loaded on every page — takes over:
+   it shows a live countdown chip, rings the chosen sound when time is up, and fires the
+   desktop notification with its Stop button. Stopping anywhere stops everywhere (storage event). */
+(function () {
+  if (/timer\.html$/.test(location.pathname)) return;           // the Timer page handles itself
+  var KEY = 'apexTimer', chip = null, audio = null, ctx = null, beepTimer = null, primed = false;
+  function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+  function write(T) { try { localStorage.setItem(KEY, JSON.stringify(T)); } catch (e) {} }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmt(sec) { sec = Math.max(0, Math.round(sec)); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? pad(h) + ':' : '') + pad(m) + ':' + pad(s); }
+  function ensureChip() {
+    if (chip) return chip;
+    chip = document.createElement('a'); chip.id = 'apexTimerChip'; chip.href = 'timer.html';
+    chip.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:94;display:none;align-items:center;gap:8px;background:#fff;color:#2b2a26;border:1px solid #e7e2d6;border-radius:999px;padding:8px 12px 8px 14px;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;box-shadow:0 4px 18px rgba(20,22,35,.12);font-variant-numeric:tabular-nums;';
+    var t = document.createElement('span'); t.className = 'tt';
+    var b = document.createElement('button'); b.textContent = 'Stop'; b.style.cssText = 'display:none;border:0;background:#c1362c;color:#fff;border-radius:999px;padding:4px 10px;font:600 12px inherit;cursor:pointer;font-family:inherit;';
+    b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); stopAll(); });
+    chip.appendChild(t); chip.appendChild(b); document.body.appendChild(chip); return chip;
+  }
+  function beep() {
+    try {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      var t0 = ctx.currentTime + .02;
+      for (var i = 0; i < 4; i++) { [880, 1320].forEach(function (f) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0, t0 + i * .19); g.gain.linearRampToValueAtTime(.4, t0 + i * .19 + .01); g.gain.linearRampToValueAtTime(0, t0 + i * .19 + .12); o.connect(g); g.connect(ctx.destination); o.start(t0 + i * .19); o.stop(t0 + i * .19 + .14); }); }
+    } catch (e) {}
+  }
+  function ring(T) {
+    var name = { classic: 'alarm-classic.wav', chime: 'alarm-chime.wav', marimba: 'alarm-marimba.wav' }[T.sound] || 'alarm-classic.wav';
+    if (!audio || audio.getAttribute('data-src') !== name) { silence(); audio = new Audio(name); audio.loop = true; audio.setAttribute('data-src', name); }
+    var p = audio.play();
+    if (p && p.catch) p.catch(function () { beep(); beepTimer = setInterval(beep, 1400); });   // autoplay blocked → WebAudio beeps
+    try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch (e) {}
+  }
+  function silence() { if (beepTimer) { clearInterval(beepTimer); beepTimer = null; } if (audio) { try { audio.pause(); audio.currentTime = 0; } catch (e) {} } }
+  function notify(T) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    var opts = { body: 'Timer finished — click to stop', tag: 'apex-timer', requireInteraction: true, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: location.href }, actions: [{ action: 'stop', title: 'Stop' }] };
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(function (r) { r.showNotification('⏰ Time’s up', opts); }).catch(function () {});
+    else try { var n = new Notification('⏰ Time’s up', { body: opts.body, tag: opts.tag, requireInteraction: true, icon: opts.icon }); n.onclick = function () { stopAll(); n.close(); }; } catch (e) {}
+  }
+  function closeNotification() { try { navigator.serviceWorker && navigator.serviceWorker.ready.then(function (r) { return r.getNotifications({ tag: 'apex-timer' }); }).then(function (ns) { ns.forEach(function (n) { n.close(); }); }); } catch (e) {} }
+  var rang = false;
+  function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; write(T); silence(); closeNotification(); rang = false; tick(); }
+  function tick() {
+    var T = read(), c = ensureChip(), tt = c.querySelector('.tt'), btn = c.querySelector('button');
+    if (T.state === 'running' && T.endAt && Date.now() >= T.endAt) { T.state = 'done'; write(T); }
+    if (T.state === 'running') {
+      c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; c.style.color = '#2b2a26';
+      tt.textContent = '⏱ ' + fmt((T.endAt - Date.now()) / 1000);
+      if (!primed && audio) { /* keep audio element warm after first gesture */ }
+    } else if (T.state === 'paused') {
+      c.style.display = 'flex'; btn.style.display = 'none'; c.style.background = '#fff'; tt.textContent = '⏸ ' + fmt(T.remaining || 0);
+    } else if (T.state === 'done') {
+      c.style.display = 'flex'; btn.style.display = 'inline-block'; c.style.background = '#fbe9e7'; c.style.color = '#9b2b22'; tt.textContent = '⏰ Time’s up';
+      if (!rang) { rang = true; ring(T); notify(T); }
+    } else { c.style.display = 'none'; if (rang) { rang = false; silence(); } }
+  }
+  // Warm up audio on the first user gesture on this page so the alarm can autoplay later.
+  function prime() { var T = read(); if (T.state === 'running' || T.state === 'paused') { try { var name = { classic: 'alarm-classic.wav', chime: 'alarm-chime.wav', marimba: 'alarm-marimba.wav' }[T.sound] || 'alarm-classic.wav'; audio = new Audio(name); audio.loop = true; audio.setAttribute('data-src', name); audio.volume = 0; var p = audio.play(); if (p && p.then) p.then(function () { audio.pause(); audio.currentTime = 0; audio.volume = 1; primed = true; }).catch(function () {}); } catch (e) {} } }
+  ['pointerdown', 'keydown'].forEach(function (ev) { document.addEventListener(ev, prime, { once: true, capture: true }); });
+  var endTO = null;
+  function schedule() { clearTimeout(endTO); var T = read(); if (T.state === 'running') endTO = setTimeout(tick, Math.max(0, T.endAt - Date.now()) + 30); }
+  window.addEventListener('storage', function (e) { if (e.key === KEY) { var T = read(); if (T.state !== 'done') { silence(); rang = false; } tick(); schedule(); } });
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'timer-stop') stopAll(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+  function boot() { tick(); setInterval(tick, 500); schedule(); }
+  if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+})();

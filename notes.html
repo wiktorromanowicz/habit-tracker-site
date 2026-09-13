@@ -541,21 +541,24 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('help').clas
 searchEl.addEventListener('input',renderList);
 searchEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.nitem'); if(f) open(f.dataset.id,true); } });
 
-/* ---- Executive brief: a scheduled task publishes brief.json; it lands at the top of the "Executive brief" note ---- */
+/* ---- Executive summary: pulled from the private Supabase table apex_brief into the note 'Executive summary' ---- */
 async function pullBrief(){
-  let b=null; try{ const r=await fetch('brief.json?_='+Date.now(),{cache:'no-store'}); if(r.ok) b=await r.json(); }catch(e){ return; }
-  if(!b||!b.date||!b.html) return;
-  let n=S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive brief');
-  if(!n){ n={id:uid(),title:'Executive brief',pinned:true,created:Date.now(),updated:Date.now(),body:''}; S.notes.unshift(n); }
+  /* The daily executive summary lands in the private Supabase table apex_brief (RLS: only your own rows).
+     It goes into the note titled "Executive summary" — nothing is ever published to the site. */
+  const sy=window.apexSync; if(!sy||!sy.user()) return;
+  let b=null; try{ const r=await sy.client().from('apex_brief').select('brief_date,html').eq('user_id',sy.user().id).order('brief_date',{ascending:false}).limit(1); b=r.data&&r.data[0]; }catch(e){ return; }
+  if(!b||!b.brief_date||!b.html) return;
+  let n=S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');
+  if(!n){ n={id:uid(),title:'Executive summary',pinned:true,created:Date.now(),updated:Date.now(),body:''}; S.notes.unshift(n); }
   const cur=n.body||''; const m=cur.match(/<div class="brief" data-brief="([^"]*)"/);
-  if(m&&m[1]===b.date) return;
+  if(m&&m[1]===b.brief_date) return;
   const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
-  n.body='<div class="brief" data-brief="'+b.date+'">'+b.html+'</div><hr class="brief-end">'+rest;
+  n.body='<div class="brief" data-brief="'+b.brief_date+'">'+b.html+'</div><hr class="brief-end">'+rest;
   n.updated=Date.now(); n.pinned=true; save();
   if(S.active===n.id){ loading=true; bodyEl.innerHTML=n.body; loading=false; decorateChips(); }
   renderList(); renderMeta();
 }
-pullBrief(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullBrief(); });
+setTimeout(pullBrief,1500); setInterval(pullBrief,5*60000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullBrief(); });
 
 /* ---- boot ---- */
 if(!cur()) S.active=(sorted()[0]||{}).id;
