@@ -69,6 +69,10 @@
   .nempty{padding:30px 14px;text-align:center;color:var(--muted);font-size:13px;}
 
   .ed{display:flex;flex-direction:column;min-height:0;}
+  html[data-font="inter"] .ntitle,html[data-font="inter"] .nbody{font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif}
+  html[data-font="roboto"] .ntitle,html[data-font="roboto"] .nbody{font-family:"Roboto",-apple-system,BlinkMacSystemFont,sans-serif}
+  html[data-font="lora"] .ntitle,html[data-font="lora"] .nbody{font-family:"Lora",Georgia,"Times New Roman",serif;font-size:1.04em;line-height:1.6}
+  html[data-font="mono"] .ntitle,html[data-font="mono"] .nbody{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.94em}
   .ed-top{display:flex;align-items:center;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px;}
   .ed-top .sp{flex:1}
   .ed-top button{padding:5px 10px;font-size:12px;background:transparent;color:var(--muted)}
@@ -133,6 +137,8 @@
   kbd{display:inline-block;padding:1px 6px;border:1px solid #d9d2c2;border-bottom-width:2px;border-radius:5px;background:#faf8f2;font-family:inherit;font-size:12px;margin-right:2px}
 </style>
 <link rel="stylesheet" href="shell.css"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Lora:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap"/>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
 </head>
@@ -163,6 +169,7 @@
       <div class="sheet-sub" id="noteCount"></div>
     </div>
     <div class="headbtns">
+      <select class="ptab" id="fontPick" title="Editor font" style="appearance:none;-webkit-appearance:none;padding-right:26px;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%276%27%3E%3Cpath d=%27M1 1l4 4 4-4%27 fill=%27none%27 stroke=%27%238c8474%27 stroke-width=%271.5%27/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center"><option value="system">System</option><option value="inter">Inter</option><option value="roboto">Roboto</option><option value="lora">Lora (serif)</option><option value="mono">Mono</option></select>
       <button class="ptab" onclick="toggleHelp()">⌘/ Shortcuts</button>
       <button class="ptab dark" onclick="newNote()">+ New note <span style="opacity:.6;font-size:11px;margin-left:4px">⌘N</span></button>
     </div>
@@ -564,6 +571,11 @@ async function pullBrief(){
   renderList(); renderMeta();
 }
 setTimeout(pullBrief,1500); setInterval(pullBrief,5*60000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullBrief(); });
+
+/* ---- editor font ---- */
+(function(){ const sel=$('fontPick'); const K='apexNotesFont'; const apply=v=>{ if(v&&v!=='system') document.documentElement.setAttribute('data-font',v); else document.documentElement.removeAttribute('data-font'); };
+  let v='system'; try{ v=JSON.parse(localStorage.getItem(K))||'system'; }catch(e){} sel.value=v; apply(v);
+  sel.addEventListener('change',()=>{ apply(sel.value); try{ localStorage.setItem(K,JSON.stringify(sel.value)); }catch(e){} }); })();
 
 /* ---- boot ---- */
 if(!cur()) S.active=(sorted()[0]||{}).id;
