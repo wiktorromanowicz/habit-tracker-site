@@ -216,7 +216,7 @@ function startTimer(sec){
 }
 function pauseTimer(){ clearTimeout(endTO); T.remaining=Math.max(0,(T.endAt-Date.now())/1000); T.state='paused'; save(); render(); }
 function resumeTimer(){ T.endAt=Date.now()+T.remaining*1000; T.state='running'; save(); render(); startTicking(); }
-function cancelTimer(){ stopAlarm(); closeDoneNotification(); clearInterval(tick); clearTimeout(endTO); T.state='idle'; delete T.rang; save(); show(T.duration); render(); }
+function cancelTimer(){ stopAlarm(); closeDoneNotification(); clearInterval(tick); clearTimeout(endTO); T.state='idle'; delete T.rang; T.stoppedAt=Date.now(); save(); show(T.duration); render(); }
 function finish(){
   clearInterval(tick); clearTimeout(endTO); T.state='done'; T.rang=true; save(); show(0); render(); startAlarm();
   notifyDone();

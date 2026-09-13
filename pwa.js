@@ -220,7 +220,7 @@
   function closeNotification() { try { navigator.serviceWorker && navigator.serviceWorker.ready.then(function (r) { return r.getNotifications({ tag: 'apex-timer' }); }).then(function (ns) { ns.forEach(function (n) { n.close(); }); }); } catch (e) {} }
   var rang = false;
   window.apexTimerStop = function () { stopAll(); };
-  function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; delete T.rang; write(T); silence(); closeNotification(); rang = false; tick(); }
+  function stopAll() { var T = read(); T.state = 'idle'; delete T.endAt; delete T.remaining; delete T.rang; T.stoppedAt = Date.now(); write(T); silence(); closeNotification(); rang = false; tick(); }
   function tick() {
     var T = read(), c = ensureChip(), tt = c.querySelector('.tt'), btn = c.querySelector('button');
     if (T.state === 'running' && T.endAt && Date.now() >= T.endAt) { T.state = 'done'; write(T); }
@@ -254,7 +254,7 @@
   var URL_ = 'http://127.0.0.1:47831/state', KEY = 'apexTimer', delay = 1000, last = '';
   function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
   function post() {
-    var T = read(), payload = JSON.stringify({ state: T.state || 'idle', endAt: T.endAt || 0, remaining: T.remaining || 0 });
+    var T = read(), payload = JSON.stringify({ state: T.state || 'idle', endAt: T.endAt || 0, remaining: T.remaining || 0, stoppedAt: T.stoppedAt || 0 });
     if (T.state !== 'running' && payload === last) { delay = 3000; return setTimeout(post, delay); }   // nothing changed while idle
     fetch(URL_, { method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, mode: 'cors', keepalive: true })
       .then(function (r) { return r.json(); })
