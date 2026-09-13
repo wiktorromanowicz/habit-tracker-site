@@ -236,6 +236,16 @@ function findItem(listId, itemId){
   return l.items.find(i => i.id === itemId) || null;
 }
 function childrenOf(list, parentId){ return list.items.filter(i => i.parent === parentId); }
+// Default order: dated tasks first, soonest deadline on top (overdue → today → tomorrow …); undated keep their manual order at the bottom.
+function ordered(list, parentId){
+  const arr = childrenOf(list, parentId);
+  if(list.manualOrder) return arr;
+  return arr.map((it,i)=>({it,i})).sort((a,b)=>{
+    const da=a.it.due||'', db=b.it.due||'';
+    if(da&&db){ if(da!==db) return da<db?-1:1; const ta=a.it.time||'', tb=b.it.time||''; if(ta!==tb) return ta<tb?-1:1; return a.i-b.i; }
+    if(da) return -1; if(db) return 1; return a.i-b.i;
+  }).map(x=>x.it);
+}
 
 function renderTasks(){
   board.innerHTML = "";
@@ -291,9 +301,9 @@ function renderTasks(){
     // active items (top-level, each followed by its subtasks)
     const ul = document.createElement("ul");
     ul.className = "titems"; ul.dataset.list = list.id;
-    childrenOf(list, null).filter(i => !i.done).forEach(top => {
+    ordered(list, null).filter(i => !i.done).forEach(top => {
       ul.appendChild(taskRow(list.id, top, false));
-      childrenOf(list, top.id).forEach(sub => ul.appendChild(taskRow(list.id, sub, true)));
+      ordered(list, top.id).forEach(sub => ul.appendChild(taskRow(list.id, sub, true)));
     });
     wireListDrop(ul, list.id, false);
     col.appendChild(ul);
@@ -559,9 +569,11 @@ function openListMenu(e, listId){
   pop.className = "tmenu-pop";
   pop.innerHTML =
     '<button data-a="hide">' + (l.collapsed ? "Show list" : "Hide list") + '</button>' +
+    '<button data-a="order">' + (l.manualOrder ? "Sort by deadline" : "Manual order") + '</button>' +
     '<button data-a="clear">Clear completed</button>' +
     '<button data-a="del" class="danger">Delete list</button>';
   pop.querySelector('[data-a="hide"]').addEventListener("click", () => { l.collapsed = !l.collapsed; save(); renderTasks(); closeListMenu(); });
+  pop.querySelector('[data-a="order"]').addEventListener("click", () => { l.manualOrder = !l.manualOrder; save(); renderTasks(); closeListMenu(); });
   pop.querySelector('[data-a="clear"]').addEventListener("click", () => { clearCompleted(listId); closeListMenu(); });
   pop.querySelector('[data-a="del"]').addEventListener("click", () => { deleteList(listId); closeListMenu(); });
   document.body.appendChild(pop);
