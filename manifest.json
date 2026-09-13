@@ -1,7 +1,7 @@
 {
   "name": "Apex",
   "short_name": "Apex",
-  "start_url": "./index.html",
+  "start_url": "./today.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

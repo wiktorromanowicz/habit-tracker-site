@@ -8,7 +8,7 @@
 
   /* localStorage keys that hold Apex data (per tab) */
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
-              'wiktorOsFocus', 'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs'];
+              'wiktorOsFocus', 'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin'];
   var isYearKey = function (k) { return /^wiktorMetrics_\d{4}$/.test(k); };
   var synced = function (k) { return KEYS.indexOf(k) >= 0 || isYearKey(k); };
 

@@ -71,18 +71,6 @@
   function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
 
   ready(function () {
-    /* ---- header: no focus bar; nav tabs show just their emoji (label on hover) ---- */
-    (function () {
-      var st = document.createElement('style');
-      st.textContent = '.goalbar{display:none!important}.nav a{padding:8px 12px!important;font-size:18px!important;line-height:1!important;min-width:0!important}.nav a .tab-emoji{display:inline-block}';
-      document.head.appendChild(st);
-      document.querySelectorAll('.nav a').forEach(function (a) {
-        var txt = a.textContent.trim(); var m = txt.match(/^(\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*)\s*(.*)$/u);
-        if (!m) return;
-        a.title = m[2] || txt; a.setAttribute('aria-label', a.title);
-        a.textContent = ''; var e = document.createElement('span'); e.className = 'tab-emoji'; e.textContent = m[1]; a.appendChild(e);
-      });
-    })();
     /* ---- focus bar: keep it editable on every page ---- */
     var fb = document.getElementById('focusBar');
     if (fb) {
