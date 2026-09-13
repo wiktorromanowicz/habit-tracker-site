@@ -31,7 +31,9 @@
   .brief ul{margin:0;padding-left:18px}
   .brief li{margin:3px 0;font-size:14px;line-height:1.45}
   .brief p{margin:6px 0;font-size:14px;line-height:1.45}
-  .brief > h2:first-child{display:none}
+  .brief .brief-edit{outline:none;border-radius:8px;padding:2px 4px;margin:-2px -4px}
+  .brief .brief-edit:focus{background:var(--chip)}
+  .brief .brief-edit > h2:first-child{display:none}
   /* events */
   .ev{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px;align-items:flex-start}
   .ev:first-of-type{border-top:0}
@@ -71,7 +73,9 @@
   .qa a:hover,.qa button:hover{border-color:var(--accent);color:var(--accent)}
   @media (max-width:700px){ body{padding:14px} .hello h1{font-size:22px} }
 </style>
+<script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
+<script src="timecats.js"></script>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
 </head>
@@ -128,7 +132,11 @@ const now=new Date(), today=isoDay(now);
   const m=n&&(n.body||'').match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/);
   if(!m){ $('brief').innerHTML='<div class="empty">No summary yet — it lands here every morning at 07:00.</div>'; return; }
   const fresh = m[1]===today;
-  $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+m[2].replace(/<script[\s\S]*?<\/script>/gi,'');
+  $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px" contenteditable="false">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+'<div class="brief-edit" contenteditable="true" spellcheck="true">'+m[2].replace(/<script[\s\S]*?<\/script>/gi,'')+'</div>';
+  // edits here flow straight back into the note (debounced)
+  const ed=$('brief').querySelector('.brief-edit'); let t0=null;
+  ed.addEventListener('input',()=>{ clearTimeout(t0); t0=setTimeout(()=>{ const S2=ls('wiktorNotes',null); const n2=S2&&S2.notes&&S2.notes.find(x=>x.id===n.id); if(!n2) return;
+    n2.body=(n2.body||'').replace(/(<div class="brief" data-brief="[^"]*">)[\s\S]*?(<\/div><hr class="brief-end">)/, (_,a,b)=>a+ed.innerHTML+b); n2.updated=Date.now(); localStorage.setItem('wiktorNotes',JSON.stringify(S2)); },500); });
 })();
 
 /* tasks — overdue + due today, then a couple of next-up */
@@ -142,7 +150,7 @@ const now=new Date(), today=isoDay(now);
   const list=dated.concat(soon.length?soon:undated);
   if(!list.length){ $('tasks').innerHTML='<div class="empty">Nothing due. Nice.</div>'; return; }
   $('tasks').innerHTML=list.map(r=>{ const d=r.it.due; const tag=!d?'':d<today?'<span class="due">overdue</span>':d===today?'<span class="due today">today</span>':'<span class="due today" style="background:var(--chip);color:var(--muted)">'+esc(new Date(d+'T00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric'}))+'</span>';
-    return '<div class="task"><div class="chk" data-l="'+esc(r.l.id)+'" data-i="'+esc(r.it.id)+'" title="Mark done"></div><div class="tx">'+esc(r.it.text)+tag+'<div class="lst">'+esc(r.l.name)+'</div></div></div>'; }).join('');
+    return '<div class="task"><div class="chk" role="checkbox" aria-checked="false" tabindex="0" data-l="'+esc(r.l.id)+'" data-i="'+esc(r.it.id)+'" title="Mark done"></div><div class="tx">'+esc(r.it.text)+tag+'<div class="lst">'+esc(r.l.name)+'</div></div></div>'; }).join('');
   $('tasks').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return;
     const s=ls('apexTasks',null); const l=s.taskLists.find(x=>x.id===c.dataset.l); const it=l&&l.items.find(x=>x.id===c.dataset.i); if(!it) return;
     it.done=true; it.doneAt=Date.now(); localStorage.setItem('apexTasks',JSON.stringify(s)); c.closest('.task').style.opacity='.35'; c.style.background='#16a34a'; c.style.borderColor='#16a34a'; });
@@ -182,25 +190,27 @@ const now=new Date(), today=isoDay(now);
 (function(){
   const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
   const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
-  const CATS={work:['Work','#1a4fa3'],meet:['Meetings','#7c3aed'],content:['Content','#c8850f'],life:['Life','#16a34a'],sleep:['Sleep','#0284c7'],waste:['Wasted','#8a8a8a'],admin:['Work','#1a4fa3'],gym:['Life','#16a34a'],rest:['Life','#16a34a'],personal:['Life','#16a34a']};
-  const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; const c=wk[k].c||'other'; if(c==='sleep'){ slept+=.5; continue; } logged+=.5; per[c]=(per[c]||0)+.5; }
+  const CATS={}; (window.ApexTime?window.ApexTime.CATS:[]).forEach(c=>CATS[c.id]=[c.name,c.color]); const LEG=(window.ApexTime&&window.ApexTime.LEGACY)||{};
+  const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; let c=wk[k].c||'other'; if(LEG[c]) c=LEG[c]; logged+=.5; if(c==='sleep'){ slept+=.5; continue; } per[c]=(per[c]||0)+.5; }
   const mins=now.getHours()*60+now.getMinutes(); const r=Math.floor((mins-START)/STEP); const cur=wk[dow+'_'+r];
   const slot=n=>pad(Math.floor(n/60))+':'+pad(n%60);
-  let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · slept '+(Math.round(slept*10)/10)+' h':'')+'</small></div>';
-  if(logged){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/logged*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
+  let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · incl. '+(Math.round(slept*10)/10)+' h sleep':'')+'</small></div>';
+  const awake=logged-slept; if(awake>0){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/awake*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
   if(r>=0&&r<36){ h+='<div class="now-slot">'+slot(START+r*STEP)+' – '+slot(START+r*STEP+STEP)+' · what are you doing?<input id="nowIn" placeholder="e.g. Content research" value="'+esc(cur&&cur.t||'')+'"></div>'; }
   $('time').innerHTML=h;
-  const inp=$('nowIn'); if(inp){ inp.addEventListener('change',()=>{ const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+r; if(t){ w[k]={t}; const rule=(S2.rules||{})[t.toLowerCase()]; if(rule) w[k].c=rule; } else delete w[k]; localStorage.setItem('apexTime',JSON.stringify(S2)); }); }
+  const inp=$('nowIn'); if(inp){ inp.addEventListener('change',()=>{ const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+r; if(t){ w[k]={t}; const c=window.ApexTime?window.ApexTime.guessCat(t,S2.rules||{}):null; if(c) w[k].c=c; } else delete w[k]; localStorage.setItem('apexTime',JSON.stringify(S2)); }); }
 })();
 
 /* habits — today's checkboxes */
 (function(){
   const st=ls('titan_habits_v1',null); if(!st||!st.habits||!st.habits.length){ $('habits').innerHTML='<div class="empty">No habits set up.</div>'; return; }
-  const hiso=d=>d.toISOString().slice(0,10); const htoday=(()=>{ const d=new Date(now); d.setHours(0,0,0,0); return hiso(d); })();   // same day-key convention as the Habits page (local midnight → ISO)
+  const hiso=d=>isoDay(d); const htoday=today;   // Habits now stores plain local dates (migrated on the Habits page)
   const streak=h=>{ let s=0; const d=new Date(now); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
-  $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
+  $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" role="checkbox" aria-checked="'+(h.done&&h.done[htoday]?'true':'false')+'" tabindex="0" aria-label="'+esc(h.name)+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
   $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{}; if(h.done[htoday]) delete h.done[htoday]; else h.done[htoday]=true; localStorage.setItem('titan_habits_v1',JSON.stringify(s)); c.classList.toggle('on',!!h.done[htoday]); });
 })();
+// keyboard: Space/Enter on any checkbox-like control acts like a click
+document.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter') && e.target.getAttribute && e.target.getAttribute('role')==='checkbox'){ e.preventDefault(); e.target.click(); e.target.setAttribute('aria-checked', e.target.classList.contains('on')||e.target.style.background?'true':'false'); } });
 </script>
 </body>
 </html>
