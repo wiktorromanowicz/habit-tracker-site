@@ -47,7 +47,8 @@
   td.cell.focus .in{display:block;-webkit-line-clamp:unset;overflow:visible;background:var(--surface,#fff);position:relative;z-index:2;box-shadow:0 6px 18px rgba(20,22,35,.12)}
   td.cell.sel{box-shadow:inset 0 0 0 2px rgba(169,116,31,.45)}
   td.cell .fh{position:absolute;right:-4px;bottom:-4px;width:8px;height:8px;background:var(--accent);border:1px solid #fff;border-radius:2px;cursor:crosshair;display:none;z-index:3}
-  td.cell.focus .fh{display:block}
+  td.cell.focus .fh,td.cell:not(.empty):hover .fh{display:block}
+  body.filling,body.filling *{user-select:none!important;cursor:ns-resize!important}
   td.cell.now{box-shadow:inset 3px 0 0 var(--accent)}
   /* categories */
   td.c-work .in{background:#e8f0fe;color:#1a4fa3}
@@ -188,15 +189,21 @@ function renderPanel(){
   const w=week(); const per={}; let logged=0; const perDay=[0,0,0,0,0,0,0];
   for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')) continue; const v=w[k]; if(!v||!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
   const total=ROWS*7*.5;
+  // completeness of the elapsed part of this week (only meaningful for the current/past weeks)
+  const nowT=new Date(); const curMon=iso(mondayOf(nowT)), thisMon=iso(monday); let elapsed=0, filledSoFar=0;
+  if(thisMon<curMon) elapsed=ROWS*7; else if(thisMon===curMon){ const dow=(nowT.getDay()+6)%7, rNow=Math.floor((nowT.getHours()*60+nowT.getMinutes()-START)/STEP); elapsed=dow*ROWS+Math.max(0,Math.min(ROWS,rNow+1)); for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')||!w[k]||!w[k].t) continue; const [d,r]=k.split('_').map(Number); if(d<dow||(d===dow&&r<=rNow)) filledSoFar++; } }
+  if(thisMon<curMon) filledSoFar=logged*2;
+  const pct=elapsed?Math.min(100,Math.round(filledSoFar/elapsed*100)):null;
   const rows=CATS.map(c=>({...c,h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
   const waste=per.waste||0, focus=(per.work||0)+(per.content||0), awake=logged-(per.sleep||0);
   $('panel').innerHTML=
     '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged of '+total+' h</small></div>'+
+    (pct!==null?'<div class="stat" style="margin-top:-4px"><span>Filled in so far</span><b>'+pct+'%</b></div><div class="bar"><i style="width:'+pct+'%;background:var(--accent)"></i></div>':'')+
     '<div class="days">'+['M','T','W','T','F','S','S'].map((l,i)=>'<div>'+l+'<b>'+(perDay[i]?fmtH(perDay[i]):'–')+'</b></div>').join('')+'</div>'+
     '<h3 style="margin-top:16px">By category</h3>'+
     (rows.length?rows.map(r=>'<div class="stat"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+r.color+';margin-right:7px"></i>'+r.name+'</span><b>'+fmtH(r.h)+'</b></div><div class="bar"><i style="width:'+Math.round(r.h/Math.max(logged,1)*100)+'%;background:'+r.color+'"></i></div>').join(''):'<div class="stat" style="color:var(--muted)">Nothing logged yet</div>')+
     (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(per.sleep?'<div class="stat"><span>Sleep in grid</span><b>'+fmtH(per.sleep)+'</b></div>':'')+
-    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · drag the corner handle to fill down · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 😴 in a day header fills the morning with Sleep · <kbd>⌘⌫</kbd> clears</div>';
+    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · press and drag a slot up or down to stretch it over more hours (or drag over empty slots, then type once) · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 😴 in a day header fills the morning with Sleep · <kbd>⌘⌫</kbd> clears</div>';
 }
 function fmtH(h){ return (Math.round(h*10)/10).toString().replace(/\.0$/,'')+' h'; }
 
@@ -206,12 +213,14 @@ function tdOf(el){ return el&&el.closest? el.closest('td.cell'):null; }
 function pos(td){ return {d:+td.dataset.d, r:+td.dataset.r}; }
 function tdAt(d,r){ return tbody.querySelector('td.cell[data-d="'+d+'"][data-r="'+r+'"]'); }
 let focused=null;
-tbody.addEventListener('focusin',e=>{ const td=tdOf(e.target); if(!td) return; tbody.querySelectorAll('td.focus').forEach(x=>x.classList.remove('focus')); td.classList.add('focus'); focused=td; });
+tbody.addEventListener('focusin',e=>{ const td=tdOf(e.target); if(!td) return; if(pendingRange){ const p=pos(td); if(p.d!==pendingRange.d||p.r<pendingRange.a||p.r>pendingRange.b){ pendingRange=null; tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); } } tbody.querySelectorAll('td.focus').forEach(x=>x.classList.remove('focus')); td.classList.add('focus'); focused=td; });
 tbody.addEventListener('focusout',e=>{ const td=tdOf(e.target); if(!td) return; commit(td); td.classList.remove('focus'); });
 function commit(td){
   const {d,r}=pos(td); const inp=td.querySelector('.in'); const t=inp.textContent.trim(); const prev=cellData(d,r)||{};
   let c=prev.c; if(t!==(prev.t||'')){ c=guessCat(t)||(t?prev.c:undefined); }
-  setCell(d,r,t,c); paint(td); renderPanel();
+  setCell(d,r,t,c); paint(td);
+  if(pendingRange&&pendingRange.d===d&&r>=pendingRange.a&&r<=pendingRange.b){ const pr=pendingRange; pendingRange=null; tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); if(t){ for(let rr=pr.a;rr<=pr.b;rr++){ setCell(d,rr,t,c); paint(tdAt(d,rr)); } } }
+  renderPanel();
 }
 function paint(td){
   const {d,r}=pos(td); const c=cellData(d,r);
@@ -247,18 +256,33 @@ function applyCat(td,cat){
   toast(cat? (CATS.find(x=>x.id===cat).name+(t?' — remembered for “'+t+'”':'')) : 'Category cleared');
 }
 
-/* fill handle: drag down (or up) to copy the cell */
-let fill=null;
+/* drag to fill: press on a slot and drag up/down to stretch it over more half-hours.
+   (the corner handle still works; dragging an empty slot selects a range — type once, it fills all of them) */
+let fill=null, pendingRange=null;
 tbody.addEventListener('mousedown',e=>{
-  if(!e.target.classList.contains('fh')) return;
-  const td=tdOf(e.target); e.preventDefault(); commit(td); fill={src:pos(td), last:null};
-  const mv=ev=>{ const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t) return; const p=pos(t); if(p.d!==fill.src.d) return;
-    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); const [a,b]=[Math.min(p.r,fill.src.r),Math.max(p.r,fill.src.r)]; for(let r=a;r<=b;r++) tdAt(fill.src.d,r).classList.add('sel'); fill.last=p; };
-  const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up);
-    if(fill.last){ const src=cellData(fill.src.d,fill.src.r)||{}; const [a,b]=[Math.min(fill.last.r,fill.src.r),Math.max(fill.last.r,fill.src.r)]; for(let r=a;r<=b;r++){ setCell(fill.src.d,r,src.t||'',src.c); paint(tdAt(fill.src.d,r)); } renderPanel(); }
-    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); fill=null; };
-  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  if(e.button!==0) return;
+  const td=tdOf(e.target); if(!td) return;
+  if(!e.target.classList.contains('fh')){
+    // start of a possible drag from the cell body: only becomes a fill once the pointer leaves the row
+    if(td.classList.contains('focus')) return;           // already editing this cell → normal text selection
+    const start={x:e.clientX,y:e.clientY}, src=pos(td); let armed=false;
+    const mv0=ev=>{ if(armed) return; if(Math.abs(ev.clientY-start.y)<8) return; const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t||pos(t).r===src.r) return;
+      armed=true; document.removeEventListener('mousemove',mv0); document.removeEventListener('mouseup',up0); if(document.activeElement) document.activeElement.blur(); getSelection().removeAllRanges(); beginFill(src); mv(ev); };
+    const up0=()=>{ document.removeEventListener('mousemove',mv0); document.removeEventListener('mouseup',up0); };
+    document.addEventListener('mousemove',mv0); document.addEventListener('mouseup',up0); return;
+  }
+  e.preventDefault(); commit(td); beginFill(pos(td));
 });
+function beginFill(src){ fill={src, last:null}; document.body.classList.add('filling'); document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); }
+const mv=ev=>{ if(!fill) return; const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t) return; const p=pos(t); if(p.d!==fill.src.d) return;
+    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); const [a,b]=[Math.min(p.r,fill.src.r),Math.max(p.r,fill.src.r)]; for(let r=a;r<=b;r++) tdAt(fill.src.d,r).classList.add('sel'); fill.last=p; };
+const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('filling');
+    if(fill&&fill.last){ const src=cellData(fill.src.d,fill.src.r)||{}; const [a,b]=[Math.min(fill.last.r,fill.src.r),Math.max(fill.last.r,fill.src.r)];
+      if(src.t){ for(let r=a;r<=b;r++){ setCell(fill.src.d,r,src.t||'',src.c); paint(tdAt(fill.src.d,r)); } renderPanel(); toast('Stretched to '+((b-a+1)/2)+' h'); tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
+      else { pendingRange={d:fill.src.d,a,b}; focusCell(fill.src.d,a); toast('Type once to fill '+((b-a+1)/2)+' h'); } }
+    else tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
+    fill=null; };
+
 
 /* right-click: category menu */
 let ctx=null; function closeCtx(){ if(ctx){ ctx.remove(); ctx=null; } }
