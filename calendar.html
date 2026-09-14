@@ -131,6 +131,13 @@
   .pop .att{font-size:12px;color:#6f6858}
   .pop .att .a{display:inline-block;background:var(--chip);border-radius:12px;padding:2px 8px;margin:2px 3px 0 0}
   .pop .att .a.yes{background:#e8f6ee;color:#15803d} .pop .att .a.no{background:#fdeaea;color:#c1362c}
+  .pop .rsvp{display:flex;gap:6px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .pop .rsvp .lbl{font-size:12px;color:var(--muted);margin-right:auto}
+  .pop .rsvp button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:5px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .pop .rsvp button.on[data-r=accepted]{background:#e8f6ee;color:#15803d;border-color:#b7e2c7}
+  .pop .rsvp button.on[data-r=tentative]{background:#fff3d6;color:#8a5a0f;border-color:#efd9a6}
+  .pop .rsvp button.on[data-r=declined]{background:#fdeaea;color:#c1362c;border-color:#f3c1bd}
+  .ev.declined,.mev.declined,.adev.declined{text-decoration:line-through;opacity:.55}
   .pop .acts{display:flex;gap:6px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
   .pop .acts .danger{background:#fdeaea;color:#c1362c}
   .pop .acts .primary{background:var(--accent);color:#fff}
@@ -396,7 +403,7 @@ function layoutColumns(items){ // assign overlapping timed events to columns
 function renderGrid(cols){
   const [s]=rangeFor(); const days=[...Array(cols)].map((_,i)=>addD(s,i)); const vis=visible();
   let h='<div class="wk-head" style="--cols:'+cols+'"><div></div>'+days.map(d=>'<div class="dh'+(sameDay(d,new Date())?' today':'')+([0,6].includes(d.getDay())?' wknd':'')+'" data-d="'+iso(d)+'"><div class="dw">'+d.toLocaleDateString(undefined,{weekday:'short'})+'</div><div class="dn">'+d.getDate()+'</div></div>').join('')+'</div>';
-  h+='<div class="allday" style="--cols:'+cols+'"><div class="lbl">all-day</div>'+days.map(d=>{ const list=vis.filter(ev=>ev.allDay&&ev.start<=d&&ev.end>d); return '<div class="adc" data-d="'+iso(d)+'">'+list.map(ev=>'<div class="adev" style="background:'+ev.color+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'">'+esc(ev.title)+'</div>').join('')+'</div>'; }).join('')+'</div>';
+  h+='<div class="allday" style="--cols:'+cols+'"><div class="lbl">all-day</div>'+days.map(d=>{ const list=vis.filter(ev=>ev.allDay&&ev.start<=d&&ev.end>d); return '<div class="adc" data-d="'+iso(d)+'">'+list.map(ev=>'<div class="adev'+(ev.status==='declined'?' declined':'')+'" style="background:'+ev.color+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'">'+esc(ev.title)+'</div>').join('')+'</div>'; }).join('')+'</div>';
   h+='<div class="grid-scroll" id="gs"><div class="grid" style="--cols:'+cols+';--hpx:'+HPX+'px"><div class="hours">'+[...Array(24)].map((_,i)=>'<div class="h">'+(i?pad(i)+':00':'')+'</div>').join('')+'</div>';
   days.forEach(d=>{
     const ds=sod(d), de=addD(ds,1);
@@ -404,7 +411,7 @@ function renderGrid(cols){
     const laid=layoutColumns(items);
     h+='<div class="col'+([0,6].includes(d.getDay())?' wknd':'')+'" data-d="'+iso(d)+'">'+[...Array(24)].map((_,i)=>'<div class="hl" style="top:'+(i*HPX)+'px"></div><div class="hl half" style="top:'+(i*HPX+HPX/2)+'px"></div>').join('');
     laid.forEach(({ev,c,n})=>{ const st=Math.max(ev.start,ds), en=Math.min(ev.end,de); const top=((st-ds)/36e5)*HPX, hgt=Math.max(22,((en-st)/36e5)*HPX-2); const w=100/n; 
-      h+='<div class="ev'+(hgt<40?' short':'')+(ev.status==='tentative'||ev.status==='needsAction'?' tentative':'')+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'" style="top:'+top+'px;height:'+hgt+'px;'+evStyle(ev.color)+';left:calc('+(c*w)+'% + 2px);width:calc('+w+'% - 6px)"><div class="t">'+esc(ev.title)+'</div><div class="m">'+fmtT(ev.start)+' – '+fmtT(ev.end)+(ev.location?' · '+esc(ev.location):'')+'</div><div class="rz"></div></div>'; });
+      h+='<div class="ev'+(hgt<40?' short':'')+(ev.status==='tentative'||ev.status==='needsAction'?' tentative':'')+(ev.status==='declined'?' declined':'')+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'" style="top:'+top+'px;height:'+hgt+'px;'+evStyle(ev.color)+';left:calc('+(c*w)+'% + 2px);width:calc('+w+'% - 6px)"><div class="t">'+esc(ev.title)+'</div><div class="m">'+fmtT(ev.start)+' – '+fmtT(ev.end)+(ev.location?' · '+esc(ev.location):'')+'</div><div class="rz"></div></div>'; });
     if(sameDay(d,new Date())){ const now=new Date(); h+='<div class="nowline" style="top:'+(((now-ds)/36e5)*HPX)+'px"></div>'; }
     h+='</div>';
   });
@@ -419,7 +426,7 @@ function renderMonth(){
   const [s]=rangeFor(); const vis=visible(); const m=cursor.getMonth();
   let h='<div class="mo-head">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<div>'+d+'</div>').join('')+'</div><div class="mo">';
   for(let i=0;i<42;i++){ const d=addD(s,i), de=addD(d,1); const list=vis.filter(ev=>ev.start<de&&ev.end>d&&!(ev.allDay&&ev.end.getTime()===d.getTime())).sort((a,b)=>(b.allDay-a.allDay)||(a.start-b.start));
-    h+='<div class="cell'+(d.getMonth()!==m?' dim':'')+(sameDay(d,new Date())?' today':'')+'" data-d="'+iso(d)+'"><div class="n">'+d.getDate()+'</div>'+list.slice(0,3).map(ev=>'<div class="mev'+(ev.allDay?'':' timed')+'" style="'+evStyle(ev.color)+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'">'+(ev.allDay?'':fmtT(ev.start).replace(/^0/,'')+' ')+esc(ev.title)+'</div>').join('')+(list.length>3?'<div class="more" data-d="'+iso(d)+'">+'+(list.length-3)+' more</div>':'')+'</div>'; }
+    h+='<div class="cell'+(d.getMonth()!==m?' dim':'')+(sameDay(d,new Date())?' today':'')+'" data-d="'+iso(d)+'"><div class="n">'+d.getDate()+'</div>'+list.slice(0,3).map(ev=>'<div class="mev'+(ev.allDay?'':' timed')+(ev.status==='declined'?' declined':'')+'" style="'+evStyle(ev.color)+'" data-id="'+esc(ev.id)+'" data-cal="'+esc(ev.calId)+'">'+(ev.allDay?'':fmtT(ev.start).replace(/^0/,'')+' ')+esc(ev.title)+'</div>').join('')+(list.length>3?'<div class="more" data-d="'+iso(d)+'">+'+(list.length-3)+' more</div>':'')+'</div>'; }
   $('view').innerHTML=h+'</div>';
   $('view').querySelectorAll('.cell').forEach(c=>c.addEventListener('click',e=>{ if(e.target.closest('.mev')) return; cursor=new Date(c.dataset.d+'T00:00'); if(e.target.closest('.more')||e.detail===2){ view='day'; prefs.view=view; savePrefs(); render(); loadEvents(); } else openCreate(cursor,null,false); }));
   $('view').querySelectorAll('.mev').forEach(el=>el.addEventListener('click',e=>{ e.stopPropagation(); openDetail(el.dataset.cal,el.dataset.id,e); }));
@@ -499,10 +506,16 @@ function openDetail(calId,id,e){
     (ev.desc?'<div class="row"><span class="ic">≡</span><div class="desc">'+linkify(esc(ev.desc))+'</div></div>':'')+
     (att?'<div class="row"><span class="ic">👥</span><div class="att">'+att+'</div></div>':'')+
     '<div class="row" style="color:var(--muted);font-size:12px"><span class="ic">📅</span><span>'+esc(ev.cal)+'</span></div>'+
+    (ev.attendees.some(a=>a.self)?'<div class="rsvp"><span class="lbl">Going?</span>'+[['accepted','Yes'],['tentative','Maybe'],['declined','No']].map(([r,l])=>'<button data-r="'+r+'"'+(ev.status===r?' class="on"':'')+'>'+l+'</button>').join('')+'</div>':'')+
     '<div class="acts">'+(ev.link?'<button data-a="open">Open in Google</button>':'')+(cal.writable?'<button data-a="edit">Edit</button><button class="danger" data-a="del">Delete</button>':'')+'</div>';
   placePop(pop,e);
   pop.querySelector('[data-a=close]').onclick=closePop;
   const o=pop.querySelector('[data-a=open]'); if(o) o.onclick=()=>window.open(ev.link,'_blank');
+  pop.querySelectorAll('.rsvp button').forEach(b=>b.onclick=async()=>{ const r=b.dataset.r; if(ev.status===r) return;
+    const attendees=ev.attendees.map(a=>a.self?Object.assign({},a,{responseStatus:r}):a);
+    ev.status=r; ev.attendees=attendees; pop.querySelectorAll('.rsvp button').forEach(x=>x.classList.toggle('on',x.dataset.r===r)); render();
+    try{ await api('/calendars/'+encodeURIComponent(ev.calId)+'/events/'+encodeURIComponent(ev.id)+'?sendUpdates=all',{method:'PATCH',body:JSON.stringify({attendees})}); toast(r==='accepted'?'Accepted':r==='tentative'?'Marked as maybe':'Declined'); loadEvents(); }
+    catch(err){ toast('Could not respond: '+err.message); loadEvents(); } });
   const ed=pop.querySelector('[data-a=edit]'); if(ed) ed.onclick=()=>openCreate(ev.start,ev.end,ev.allDay,ev,e);
   const dl=pop.querySelector('[data-a=del]'); if(dl) dl.onclick=async()=>{ if(!confirm('Delete "'+ev.title+'"?')) return; closePop(); events=events.filter(x=>x!==ev); render(); try{ await api('/calendars/'+encodeURIComponent(ev.calId)+'/events/'+encodeURIComponent(ev.id),{method:'DELETE'}); toast('Deleted'); loadEvents(); }catch(err){ toast('Could not delete: '+err.message); loadEvents(); } };
 }

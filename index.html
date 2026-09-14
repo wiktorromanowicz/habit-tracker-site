@@ -276,6 +276,11 @@ function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0
       const local=new Date(dt.getTime()+24*3600*1000); // …was local-midnight minus the offset → add a day back
       nd[iso(local)]=h.done[k]; }); h.done=nd; }); }
   state.dateKeysLocal=true; save(); })();
+// one-time correction: ticks made from the Today page (already local dates) before the migration above ran got shifted a day forward.
+// A tick can never legitimately sit in the future, and this only runs on 14 Sep 2026 — so anything on/after today moves back a day.
+(function(){ if(state.dateKeysFix2) return; const t=new Date(); t.setHours(0,0,0,0); const today=iso(t);
+  { state.habits.forEach(h=>{ Object.keys(h.done||{}).filter(k=>k>today || (k===today && today==='2026-09-14')).sort().forEach(k=>{ const [y,m,d]=k.split('-').map(Number); const back=iso(new Date(y,m-1,d-1)); if(!h.done[back]) h.done[back]=h.done[k]; delete h.done[k]; }); }); }
+  state.dateKeysFix2=true; save(); })();
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDay(a,b){ return iso(a)===iso(b); }
 

@@ -207,7 +207,11 @@ const now=new Date(), today=isoDay(now);
   const hiso=d=>isoDay(d); const htoday=today;   // Habits now stores plain local dates (migrated on the Habits page)
   const streak=h=>{ let s=0; const d=new Date(now); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
   $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" role="checkbox" aria-checked="'+(h.done&&h.done[htoday]?'true':'false')+'" tabindex="0" aria-label="'+esc(h.name)+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
-  $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{}; if(h.done[htoday]) delete h.done[htoday]; else h.done[htoday]=true; localStorage.setItem('titan_habits_v1',JSON.stringify(s)); c.classList.toggle('on',!!h.done[htoday]); });
+  $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); if(!s) return;
+    if(!s.dateKeysLocal){ // same migration as the Habits page, so a tick written here is never shifted later
+      const off=new Date(); off.setHours(0,0,0,0); if(off.toISOString().slice(0,10)!==isoDay(off)){ s.habits.forEach(x=>{ const nd={}; Object.keys(x.done||{}).forEach(k=>{ const [y,m,d]=k.split('-').map(Number); nd[isoDay(new Date(y,m-1,d+1))]=x.done[k]; }); x.done=nd; }); }
+      s.dateKeysLocal=true; s.dateKeysFix2=true; }
+    const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{}; if(h.done[htoday]) delete h.done[htoday]; else h.done[htoday]=true; localStorage.setItem('titan_habits_v1',JSON.stringify(s)); c.classList.toggle('on',!!h.done[htoday]); });
 })();
 // keyboard: Space/Enter on any checkbox-like control acts like a click
 document.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter') && e.target.getAttribute && e.target.getAttribute('role')==='checkbox'){ e.preventDefault(); e.target.click(); e.target.setAttribute('aria-checked', e.target.classList.contains('on')||e.target.style.background?'true':'false'); } });
