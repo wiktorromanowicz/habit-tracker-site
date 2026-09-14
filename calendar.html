@@ -351,7 +351,7 @@ async function loadEvents(){
   await Promise.all(calendars.map(async cal=>{ try{
     const q='?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
     const j=await api('/calendars/'+encodeURIComponent(cal.id)+'/events'+q);
-    (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled') return; out.push(normalise(ev,cal)); });
+    (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled'||/^executive summary/i.test(ev.summary||'')) return; out.push(normalise(ev,cal)); });
   }catch(err){ console.warn('[cal]',cal.summary,err.message); } }));
   if(seq!==loadSeq) return;
   events=out.sort((a,b)=>a.start-b.start);

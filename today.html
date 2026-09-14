@@ -68,12 +68,12 @@
   .now-slot{font-size:13px;margin-top:6px}
   .wkline{font-size:12px;color:var(--muted);margin-top:4px} .wkline b{color:var(--ink)}
   .wkbar{height:5px;border-radius:3px;background:var(--chip);margin-top:5px;overflow:hidden} .wkbar i{display:block;height:100%;background:#a9741f;border-radius:3px}
-  .slots{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
-  .slots .lbl{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between}
+  .slots{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+  .slots .lbl{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between}
   .slots .lbl a{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500;text-decoration:none}
-  .slot{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .slot{display:flex;align-items:center;gap:8px;margin-bottom:3px}
   .slot .t{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;width:88px;flex-shrink:0}
-  .slot input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;background:var(--surface,#fff);color:var(--ink);outline:none;border-left-width:4px}
+  .slot input{flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:4px 9px;font:inherit;font-size:13px;background:var(--surface,#fff);color:var(--ink);outline:none;border-left-width:4px}
   .slot input:focus{border-color:var(--accent)}
   .slot.now input{box-shadow:0 0 0 2px rgba(169,116,31,.18)}
   .slot.now .t{color:#a9741f;font-weight:600}
@@ -135,10 +135,22 @@ const now=new Date(), today=isoDay(now);
 (function(){ const h=now.getHours(); const g=h<5?'Still up':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   $('greet').textContent=g+', Wiktor'; $('date').textContent=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}); })();
 
-/* executive summary — from the Notes store */
-(function(){
-  const S=ls('wiktorNotes',null); const n=S&&S.notes&&S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');
-  const m=n&&(n.body||'').match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/);
+/* executive summary — from the Notes store; if today's isn't there yet, fetch it from the calendar carrier event and file it into the note */
+async function fetchBriefFromCalendar(){
+  try{ const tok=JSON.parse(localStorage.getItem('apexGTok')||'null'); if(!tok||!tok.t||tok.e<Date.now()) return null;
+    const min=new Date(); min.setDate(min.getDate()-7); min.setHours(0,0,0,0);
+    const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&q='+encodeURIComponent('Executive summary')+'&timeMin='+encodeURIComponent(min.toISOString()),{headers:{Authorization:'Bearer '+tok.t}});
+    if(!r.ok) return null; const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^executive summary/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
+    return evs[0]?{date:evs[0].start.date,html:evs[0].description}:null; }catch(e){ return null; }
+}
+(async function(){
+  let S=ls('wiktorNotes',null); let n=S&&S.notes&&S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');
+  let m=n&&(n.body||'').match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/);
+  if(!m||m[1]!==today){ const b=await fetchBriefFromCalendar(); if(b&&(!m||b.date>m[1])){ S=S||{notes:[]}; S.notes=S.notes||[];
+      if(!n){ n={id:Math.random().toString(36).slice(2,9),title:'Executive summary',pinned:true,created:Date.now(),updated:Date.now(),body:''}; S.notes.unshift(n); }
+      const cur=n.body||''; const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
+      n.body='<div class="brief" data-brief="'+b.date+'">'+b.html+'</div><hr class="brief-end">'+rest; n.updated=Date.now(); n.pinned=true; localStorage.setItem('wiktorNotes',JSON.stringify(S));
+      m=n.body.match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/); } }
   if(!m){ $('brief').innerHTML='<div class="empty">No summary yet — it lands here every morning at 07:30.</div>'; return; }
   const fresh = m[1]===today;
   $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px" contenteditable="false">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+'<div class="brief-edit" contenteditable="true" spellcheck="true">'+m[2].replace(/<script[\s\S]*?<\/script>/gi,'')+'</div>';
@@ -174,7 +186,7 @@ const now=new Date(), today=isoDay(now);
   const mine=c=>!(prefs.hidden&&prefs.hidden[c.id]) && (c.primary || !(/@/.test(c.id) && !/group\.calendar\.google\.com$|holiday|import\.calendar/.test(c.id)));
   const myCals=(cache.calendars||[]).filter(mine); const myIds=new Set(myCals.map(c=>c.id));
   const paint=evs=>{
-    const list=evs.filter(e=>(!e.calId||myIds.has(e.calId)) && (isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now))).sort((a,b)=>new Date(a.start)-new Date(b.start));
+    const list=evs.filter(e=>!/^executive summary/i.test(e.title||'') && (!e.calId||myIds.has(e.calId)) && (isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now))).sort((a,b)=>new Date(a.start)-new Date(b.start));
     if(!list.length){ el.innerHTML='<div class="empty">Nothing on the calendar today.</div>'; return; }
     el.innerHTML=list.map(e=>{ const s=new Date(e.start), en=new Date(e.end); const past=en<now, cur=s<=now&&en>now;
       return '<div class="ev'+(past?' past':cur?' now':'')+'"><span class="t">'+(e.allDay?'All day':s.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'–'+en.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}))+'</span><span class="dot" style="background:'+esc(e.color||'#a9741f')+'"></span><span class="n">'+esc(e.title)+(e.location?'<small>'+esc(e.location)+'</small>':'')+'</span>'+(e.meet?'<a class="join" href="'+esc(e.meet)+'" target="_blank" rel="noopener">Join</a>':'')+'</div>'; }).join('');
@@ -210,10 +222,10 @@ const now=new Date(), today=isoDay(now);
   let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · incl. '+(Math.round(slept*10)/10)+' h sleep':'')+'</small></div>'+
     '<div class="wkline"><span>This week: <b>'+(Math.round(wkLogged*10)/10)+' h</b> logged · <b>'+pct+'%</b> of the time so far filled in</span><div class="wkbar"><i style="width:'+pct+'%"></i></div></div>';
   const awake=logged-slept; if(awake>0){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/awake*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
-  // the last ~3 hours (6 half-hour slots, current one last) so the recent past can be filled in right here
-  const rows=[]; for(let rr=Math.max(0,r-5); rr<=Math.min(35,r); rr++) rows.push(rr);
+  // the last 2 hours (4 half-hour slots, current one last) so the recent past can be filled in right here
+  const rows=[]; for(let rr=Math.max(0,r-3); rr<=Math.min(35,r); rr++) rows.push(rr);
   const colOf=c=>{ if(LEG[c]) c=LEG[c]; return CATS[c]?CATS[c][1]:'var(--line)'; };
-  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last few hours</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
+  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last 2 hours</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
   $('time').innerHTML=h;
   const write=inp=>{ const rr=+inp.dataset.r; const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+rr;
     if(t){ const prev=w[k]||{}; w[k]={t}; const c=(prev.t===t&&prev.c)?prev.c:(window.ApexTime?window.ApexTime.guessCat(t,S2.rules||{}):null); if(c) w[k].c=c; } else delete w[k];
