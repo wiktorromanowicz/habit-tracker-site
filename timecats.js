@@ -126,8 +126,18 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     return res;
   }
 
+  // don't write before the cloud copy has landed, or a stale slot could overwrite what you typed elsewhere
+  async function syncSettled(){
+    try{
+      const t0=Date.now();                                        // sync.js is injected by pwa.js, so wait for it to appear
+      while(!window.apexSyncReady && Date.now()-t0<3000) await new Promise(r=>setTimeout(r,100));
+      if(window.apexSyncReady) await Promise.race([window.apexSyncReady, new Promise(r=>setTimeout(r,6000))]);
+    }catch(e){}
+  }
+
   async function fillFromCalendar(opts){
     opts=opts||{};
+    await syncSettled();
     const from=opts.from||new Date(new Date().setHours(0,0,0,0));
     const to=opts.to||new Date(from.getTime()+864e5);
     const out={filled:0,kept:0,events:0,ok:false,source:'',reason:''};

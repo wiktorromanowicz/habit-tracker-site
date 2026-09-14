@@ -3,8 +3,15 @@
    Strategy: local-first. Pages keep using localStorage; this file mirrors the
    synced keys to the cloud (last write wins) and pulls other devices' changes. */
 (function () {
+  /* published before anything else: features that write shared data can await it
+     (resolves after the first cloud pull, or right away when sync is off) */
+  var readyDone = null;
+  var readyP = new Promise(function (r) { readyDone = r; });
+  window.apexSyncReady = readyP;
+  setTimeout(function () { readyDone(false); }, 6000);            // never block for long
+
   var cfg = window.APEX_SUPABASE || {};
-  if (!cfg.url || !cfg.key) return;               // not configured yet → app works exactly as before
+  if (!cfg.url || !cfg.key) { readyDone(false); return; }         // not configured yet → app works exactly as before
 
   /* localStorage keys that hold Apex data (per tab) */
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
@@ -197,11 +204,12 @@
   function boot() {
     if (!window.supabase || !window.supabase.createClient) { setTimeout(boot, 100); return; }
     sb = window.supabase.createClient(cfg.url, cfg.key);
-    window.apexSync = { client: function () { return sb; }, user: function () { return user; } };
+    window.apexSync = { client: function () { return sb; }, user: function () { return user; }, ready: function () { return readyP; } };
     sb.auth.getSession().then(function (r) {
       user = r.data && r.data.session ? r.data.session.user : null;
       mountChip();
-      if (user) { pullAll().then(subscribe); }
+      if (user) { pullAll().then(function () { readyDone(true); return subscribe(); }); }
+      else readyDone(false);
     });
     sb.auth.onAuthStateChange(function (ev, session) {
       var u = session ? session.user : null;
@@ -212,7 +220,7 @@
   }
   var s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-  s.onload = boot; s.onerror = function () { console.warn('[apex sync] could not load supabase-js'); };
+  s.onload = boot; s.onerror = function () { console.warn('[apex sync] could not load supabase-js'); readyDone(false); };
   document.head.appendChild(s);
   if (document.readyState !== 'loading') mountChip(); else document.addEventListener('DOMContentLoaded', mountChip);
 })();
