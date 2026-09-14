@@ -82,6 +82,8 @@
   .ctx i{width:10px;height:10px;border-radius:3px;display:inline-block}
   .ctx .k{margin-left:auto;color:var(--muted);font-size:11px}
   .ctx hr{border:0;border-top:1px solid var(--line);margin:5px 0}
+  .calhint{background:#fff3d6;border:1px solid #efd9a6;color:#8a5a0f;border-radius:10px;padding:9px 13px;font-size:13px;margin:0 0 12px}
+  .calhint a{color:#8a5a0f}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2b2a26;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;z-index:95;opacity:0;transition:opacity .15s;pointer-events:none}
   .toast.on{opacity:1}
   @media (max-width:700px){ body{padding:14px} .tophead h1{font-size:20px} .tgrid{max-height:none} .panel{position:static} }
@@ -121,6 +123,7 @@
     <div class="legend" id="legend"></div>
   </div>
 
+  <div class="calhint" id="calHint" style="display:none">Meetings aren't being logged automatically — open the <a href="calendar.html">Calendar tab</a> once to reconnect Google, then come back.</div>
   <div class="layout">
     <div class="tgrid"><table id="grid"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
     <aside class="panel" id="panel"></aside>
@@ -301,20 +304,20 @@ document.addEventListener('click',e=>{ if(ctx&&!ctx.contains(e.target)) closeCtx
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCtx(); });
 
 /* ---------- fill the grid from Google Calendar (own calendars only) ---------- */
+function reloadState(){ try{ S=JSON.parse(localStorage.getItem(KEY))||S; S.weeks=S.weeks||{}; S.rules=S.rules||{}; }catch(e){} }
 async function importCal(){
   toast('Importing…');
   const r=await window.ApexTime.fillFromCalendar({from:new Date(monday), to:addDays(monday,7), onlyPast:false});
-  if(!r.ok){ toast(r.reason==='no-token'?'Open the Calendar tab first so Google is connected':'No calendars cached yet — open the Calendar tab once'); return; }
-  try{ S=JSON.parse(localStorage.getItem(KEY))||S; S.weeks=S.weeks||{}; S.rules=S.rules||{}; }catch(e){}
-  render();
+  if(!r.ok){ toast(r.reason==='not-connected'?'Open the Calendar tab once so Google is connected':'No calendars found — open the Calendar tab once'); return; }
+  reloadState(); render();
   toast(r.events? ('Imported '+r.events+' events → '+r.filled+' slots filled'+(r.kept?', '+r.kept+' kept as you had them':'')) : 'No events found for this week');
 }
-// on load: quietly log today's meetings that have already happened, so the grid is never behind
+// on load: log today's meetings that have already happened, so the grid is never behind
 async function autoFillToday(){
   const t=new Date(); const from=new Date(t.getFullYear(),t.getMonth(),t.getDate());
   const r=await window.ApexTime.fillFromCalendar({from, to:addDays(from,1)});
-  if(r.filled){ try{ S=JSON.parse(localStorage.getItem(KEY))||S; S.weeks=S.weeks||{}; S.rules=S.rules||{}; }catch(e){}
-    if(iso(mondayOf(t))===iso(monday)) render(); toast('Added '+(r.filled/2)+' h of meetings from your calendar'); }
+  if(r.filled){ reloadState(); if(iso(mondayOf(t))===iso(monday)) render(); toast('Logged '+(r.filled/2)+' h of meetings from your calendar'); }
+  else if(!r.ok){ $('calHint').style.display='block'; }
 }
 
 /* ---------- navigation ---------- */
