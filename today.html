@@ -77,6 +77,16 @@
   .slot input:focus{border-color:var(--accent)}
   .slot.now input{box-shadow:0 0 0 2px rgba(169,116,31,.18)}
   .slot.now .t{color:#a9741f;font-weight:600}
+  /* card layout: drag a card's heading to move it within or across the two columns */
+  .card h2[draggable]{cursor:grab;user-select:none}
+  .card h2[draggable]:active{cursor:grabbing}
+  .card.dragging{opacity:.35}
+  .card.drop-before{box-shadow:0 -3px 0 0 var(--accent),0 1px 3px rgba(20,22,35,.05)}
+  .card.drop-after{box-shadow:0 3px 0 0 var(--accent),0 1px 3px rgba(20,22,35,.05)}
+  .col.drop-end{outline:2px dashed var(--accent);outline-offset:6px;border-radius:14px;min-height:60px}
+  .layout-foot{text-align:right;margin-top:10px}
+  .layout-foot button{font:inherit;font-size:11.5px;color:var(--muted);background:transparent;border:0;cursor:pointer;text-decoration:underline dotted}
+  .layout-foot button:hover{color:var(--accent)}
   .qa{display:flex;gap:8px;flex-wrap:wrap}
   .qa a,.qa button{text-decoration:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
   .qa a:hover,.qa button:hover{border-color:var(--accent);color:var(--accent)}
@@ -110,17 +120,18 @@
     <div class="qa"><a href="tasks.html?new=1">+ Task</a><a href="notes.html?new=1">+ Note</a><a href="calendar.html?new=1">+ Event</a></div>
   </div>
 
-  <div class="grid">
-    <div class="col">
-      <div class="card"><h2>Executive summary <a href="notes.html">Open in Notes →</a></h2><div class="brief" id="brief"></div></div>
-      <div class="card"><h2>Tasks <a href="tasks.html">All tasks →</a></h2><div id="tasks"></div></div>
+  <div class="grid" id="grid">
+    <div class="col" data-col="a">
+      <div class="card" data-card="brief"><h2 draggable="true" title="Drag to move this card">Executive summary <a href="notes.html">Open in Notes →</a></h2><div class="brief" id="brief"></div></div>
+      <div class="card" data-card="tasks"><h2 draggable="true" title="Drag to move this card">Tasks <a href="tasks.html">All tasks →</a></h2><div id="tasks"></div></div>
     </div>
-    <div class="col">
-      <div class="card"><h2>Today’s calendar <a href="calendar.html">Calendar →</a></h2><div id="cal"></div></div>
-      <div class="card"><h2>Right now <a href="time.html">Time log →</a></h2><div id="time"></div></div>
-      <div class="card"><h2>Habits <a href="index.html">Habits →</a></h2><div id="habits"></div></div>
+    <div class="col" data-col="b">
+      <div class="card" data-card="cal"><h2 draggable="true" title="Drag to move this card">Today’s calendar <a href="calendar.html">Calendar →</a></h2><div id="cal"></div></div>
+      <div class="card" data-card="time"><h2 draggable="true" title="Drag to move this card">Right now <a href="time.html">Time log →</a></h2><div id="time"></div></div>
+      <div class="card" data-card="habits"><h2 draggable="true" title="Drag to move this card">Habits <a href="index.html">Habits →</a></h2><div id="habits"></div></div>
     </div>
   </div>
+  <div class="layout-foot"><button type="button" id="layoutReset" hidden>Reset layout</button></div>
 </div>
 
 <script>
@@ -130,6 +141,34 @@ const pad=n=>String(n).padStart(2,'0');
 const isoDay=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const now=new Date(), today=isoDay(now);
+
+/* card layout — drag a heading to arrange the cards; saved as apexTodayLayout {a:[ids], b:[ids]} */
+(function(){
+  const KEY='apexTodayLayout', grid=$('grid'), cols={a:grid.querySelector('[data-col=a]'),b:grid.querySelector('[data-col=b]')};
+  const cardEl=id=>grid.querySelector('.card[data-card="'+id+'"]');
+  const current=()=>({a:[...cols.a.querySelectorAll('.card')].map(c=>c.dataset.card), b:[...cols.b.querySelectorAll('.card')].map(c=>c.dataset.card)});
+  const DEFAULT=current();
+  function apply(L){ if(!L||!L.a||!L.b) return; const seen=new Set(); ['a','b'].forEach(k=>L[k].forEach(id=>{ const el=cardEl(id); if(el&&!seen.has(id)){ cols[k].appendChild(el); seen.add(id); } }));
+    // any card unknown to the saved layout keeps its default column, at the bottom
+    ['a','b'].forEach(k=>DEFAULT[k].forEach(id=>{ if(!seen.has(id)){ cols[k].appendChild(cardEl(id)); seen.add(id); } })); }
+  function save(){ const L=current(); const same=JSON.stringify(L)===JSON.stringify(DEFAULT); if(same) localStorage.removeItem(KEY); else localStorage.setItem(KEY,JSON.stringify(L)); $('layoutReset').hidden=same; }
+  const saved=ls(KEY,null); if(saved){ apply(saved); $('layoutReset').hidden=false; }
+  $('layoutReset').addEventListener('click',()=>{ apply(DEFAULT); save(); });
+  let drag=null;
+  grid.addEventListener('dragstart',e=>{ const h=e.target.closest&&e.target.closest('h2[draggable]'); if(!h) return; drag=h.closest('.card'); drag.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',drag.dataset.card); }catch(x){} });
+  const clear=()=>grid.querySelectorAll('.drop-before,.drop-after,.drop-end').forEach(x=>x.classList.remove('drop-before','drop-after','drop-end'));
+  grid.addEventListener('dragover',e=>{ if(!drag) return; e.preventDefault(); e.dataTransfer.dropEffect='move'; clear();
+    const over=e.target.closest('.card'); const col=e.target.closest('.col');
+    if(over&&over!==drag){ const r=over.getBoundingClientRect(); over.classList.add(e.clientY<r.top+r.height/2?'drop-before':'drop-after'); }
+    else if(col&&!over){ col.classList.add('drop-end'); } });
+  grid.addEventListener('dragleave',e=>{ if(!grid.contains(e.relatedTarget)) clear(); });
+  grid.addEventListener('drop',e=>{ if(!drag) return; e.preventDefault();
+    const over=e.target.closest('.card'); const col=e.target.closest('.col');
+    if(over&&over!==drag){ const r=over.getBoundingClientRect(); over.parentNode.insertBefore(drag, e.clientY<r.top+r.height/2?over:over.nextSibling); }
+    else if(col){ col.appendChild(drag); }
+    clear(); save(); });
+  grid.addEventListener('dragend',()=>{ if(drag) drag.classList.remove('dragging'); drag=null; clear(); });
+})();
 
 /* greeting */
 (function(){ const h=now.getHours(); const g=h<5?'Still up':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
