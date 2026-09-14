@@ -222,10 +222,10 @@ async function fetchBriefFromCalendar(){
   let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · incl. '+(Math.round(slept*10)/10)+' h sleep':'')+'</small></div>'+
     '<div class="wkline"><span>This week: <b>'+(Math.round(wkLogged*10)/10)+' h</b> logged · <b>'+pct+'%</b> of the time so far filled in</span><div class="wkbar"><i style="width:'+pct+'%"></i></div></div>';
   const awake=logged-slept; if(awake>0){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/awake*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }
-  // the last 2 hours (4 half-hour slots, current one last) so the recent past can be filled in right here
-  const rows=[]; for(let rr=Math.max(0,r-3); rr<=Math.min(35,r); rr++) rows.push(rr);
+  // the last 90 minutes (3 half-hour slots, current one last) so the recent past can be filled in right here
+  const rows=[]; for(let rr=Math.max(0,r-2); rr<=Math.min(35,r); rr++) rows.push(rr);
   const colOf=c=>{ if(LEG[c]) c=LEG[c]; return CATS[c]?CATS[c][1]:'var(--line)'; };
-  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last 2 hours</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
+  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last 90 minutes</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
   $('time').innerHTML=h;
   const write=inp=>{ const rr=+inp.dataset.r; const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+rr;
     if(t){ const prev=w[k]||{}; w[k]={t}; const c=(prev.t===t&&prev.c)?prev.c:(window.ApexTime?window.ApexTime.guessCat(t,S2.rules||{}):null); if(c) w[k].c=c; } else delete w[k];
