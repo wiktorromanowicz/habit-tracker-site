@@ -466,6 +466,19 @@ function addTask(listId, afterId){
   const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
   if(el) el.focus();
 }
+// new subtask under a parent (appended after its last existing subtask) — from the right-click menu
+function addSubtask(listId, parentId){
+  const l = findList(listId); if(!l) return;
+  const p = l.items.find(i => i.id === parentId); if(!p) return;
+  const parent = p.parent === null ? p.id : p.parent;           // right-clicking a subtask adds a sibling under the same parent
+  let idx = l.items.findIndex(i => i.id === parent) + 1;
+  while(idx < l.items.length && l.items[idx].parent === parent) idx++;
+  const it = { id: uid(), text: "", desc: "", done: false, parent };
+  l.items.splice(idx, 0, it);
+  justAdded = [it.id]; save(); renderTasks();
+  const el = board.querySelector('[data-item="'+it.id+'"] .ttext');
+  if(el) el.focus();
+}
 function addTasks(listId, afterId, texts){
   const l = findList(listId); if(!l || !texts.length) return;
   const pos = insertAt(l, afterId);
@@ -605,6 +618,7 @@ function openCtx(e, listId, itemId){
     '<div class="line" id="ctxCustom" style="display:'+(rep.custom?'flex':'none')+'"><span>Every</span><input type="number" id="ctxN" min="1" value="'+(rep.interval||1)+'" style="width:60px"><select id="ctxUnit"><option value="daily"'+(rep.freq==='daily'?' selected':'')+'>days</option><option value="weekly"'+(rep.freq==='weekly'?' selected':'')+'>weeks</option><option value="monthly"'+(rep.freq==='monthly'?' selected':'')+'>months</option></select></div>'+
     '<div class="quick" id="ctxDays" style="display:'+(rep.freq==='weekly'&&rep.custom?'flex':'none')+'">'+[1,2,3,4,5,6,0].map(d=>'<button class="q'+((rep.days||[]).includes(d)?' on':'')+'" data-day="'+d+'">'+DOW[d]+'</button>').join('')+'</div>'+
     '<div class="sep"></div>'+
+    '<button class="it" data-a="sub">+ Add subtask'+(it.parent===null?'':' (sibling)')+'</button>'+
     '<div class="row2">'+(it.parent===null?'<button class="it" data-a="indent">\u21e5 Make subtask</button>':'<button class="it" data-a="outdent">\u21e4 Promote</button>')+'<button class="it" data-a="dup">\u29c9 Duplicate</button></div>'+
     '<div class="line"><span style="color:#6f6858;font-size:12px">Move to</span><select id="ctxMove" style="flex:1">'+state.taskLists.map(x=>'<option value="'+x.id+'"'+(x.id===listId?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>'+
     '<div class="sep"></div>'+
@@ -634,6 +648,7 @@ function openCtx(e, listId, itemId){
   days.querySelectorAll('.q').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); applyRepeat(); }));
   box.querySelector('#ctxMove').addEventListener('change',ev=>{ moveItem({listId,itemId:it.id}, ev.target.value, null, true, it.done); closeCtx(); });
   box.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{ const a=b.dataset.a;
+    if(a==='sub'){ closeCtx(); addSubtask(listId,it.id); return; }
     if(a==='indent') indentTask(listId,it.id); else if(a==='outdent') outdentTask(listId,it.id);
     else if(a==='dup'){ const i=l.items.findIndex(x=>x.id===it.id); const c=JSON.parse(JSON.stringify(it)); c.id=uid(); c.done=false; l.items.splice(i+1,0,c); justAdded=[c.id]; commit(); }
     else if(a==='done') toggleTask(listId,it.id); else if(a==='del') deleteTask(listId,it.id);

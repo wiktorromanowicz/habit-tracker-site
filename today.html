@@ -246,8 +246,10 @@ async function fetchBriefFromCalendar(){
   }catch(err){}
 })();
 
-/* right now — time log for today */
-(function(){
+/* right now — time log for today. Meetings already on your calendar are logged automatically. */
+(async function(){
+  try{ if(window.ApexTime&&window.ApexTime.fillFromCalendar){ const f=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    await window.ApexTime.fillFromCalendar({from:f, to:new Date(f.getTime()+864e5)}); } }catch(e){}
   const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
   const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
   const CATS={}; (window.ApexTime?window.ApexTime.CATS:[]).forEach(c=>CATS[c.id]=[c.name,c.color]); const LEG=(window.ApexTime&&window.ApexTime.LEGACY)||{};
