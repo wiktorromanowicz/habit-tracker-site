@@ -61,7 +61,14 @@ body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
 #apexSide .tw button{flex:1;border:1px solid var(--line);background:var(--chip,#f3efe4);color:var(--ink,#2b2a26);border-radius:7px;padding:5px 0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 #apexSide .tw button:hover{border-color:#a9741f;color:#a9741f}
 #apexSide .tw button.stop{background:#c1362c;border-color:#c1362c;color:#fff}
-#apexSide .tw .tw-lbl{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#8c8474);font-weight:600;margin-bottom:4px}
+#apexSide .tw .tw-lbl{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#8c8474);font-weight:600;margin-bottom:4px;display:flex;align-items:center}
+#apexSide .tw .tw-pen{margin-left:auto;border:0;background:transparent;color:var(--muted,#8c8474);font-size:11px;cursor:pointer;padding:0 2px;border-radius:4px;opacity:0;transition:opacity .12s}
+#apexSide .tw:hover .tw-pen{opacity:1}
+#apexSide .tw .tw-pen:hover{color:#a9741f}
+#apexSide .tw .tw-edit{display:flex;gap:4px;margin-bottom:6px}
+#apexSide .tw .tw-edit input{flex:1;min-width:0;width:100%;border:1px solid var(--line);border-radius:7px;padding:4px 2px;font:inherit;font-size:12px;text-align:center;background:var(--surface,#fff);color:var(--ink,#2b2a26);outline:none}
+#apexSide .tw .tw-edit input:focus{border-color:#a9741f}
+#apexSide .tw .tw-row button.prim{background:#a9741f;border-color:#a9741f;color:#fff}
 
 /* collapsed */
 html[data-sb="min"] #apexSide .sb-brand,html[data-sb="min"] #apexSide nav a .lb,html[data-sb="min"] #apexSide nav a .kb,

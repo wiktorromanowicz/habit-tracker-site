@@ -15,10 +15,10 @@
 
   /* localStorage keys that hold Apex data (per tab) */
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
-              'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin', 'apexNotesFont', 'apexTodayLayout'];
+              'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin', 'apexNotesFont', 'apexTodayLayout', 'apexTimerQuick'];
   var isYearKey = function (k) { return /^wiktorMetrics_\d{4}$/.test(k); };
   // keys that pages can apply without a reload (timer, theme, sidebar, nav order, fonts)
-  var LIVE = ['apexTimer', 'apexTheme', 'apexSideMin', 'apexNavOrder', 'apexNotesFont'];
+  var LIVE = ['apexTimer', 'apexTheme', 'apexSideMin', 'apexNavOrder', 'apexNotesFont', 'apexTimerQuick'];
   function liveApply(k) {
     try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k) })); } catch (e) {}
     if (k === 'apexTimer') { try { window.dispatchEvent(new Event('apex-timer-change')); } catch (e) {} }

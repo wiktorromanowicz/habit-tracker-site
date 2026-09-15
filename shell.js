@@ -135,20 +135,59 @@
   function pauseTimer() { var T = rt(); if (T.state === 'running') { T.remaining = Math.max(0, (T.endAt - Date.now()) / 1000); T.state = 'paused'; } else if (T.state === 'paused') { T.endAt = Date.now() + (T.remaining || 0) * 1000; T.state = 'running'; } wt(T); paintTw(); }
   function stopTimer() { if (window.apexTimerStop) window.apexTimerStop(); else { var T = rt(); T.state = 'idle'; delete T.endAt; delete T.rang; T.stoppedAt = Date.now(); wt(T); } paintTw(); }
   var lastTw = '';
+  /* the sidebar's quick timers — editable, shared across pages and devices */
+  var QK = 'apexTimerQuick', twEditing = false;
+  function quick() {
+    var q = ls.get(QK, null);
+    if (!Array.isArray(q) || !q.length) q = [25, 5, 45, 15];
+    return q.map(function (n) { return Math.max(1, Math.min(600, Math.round(+n || 0))); }).filter(function (n) { return n > 0; }).slice(0, 6);
+  }
+  function saveQuick(arr) { ls.set(QK, arr); lastTw = null; twEditing = false; paintTw(); }
+  function twEditor() {
+    var q = quick();
+    twEditing = true; lastTw = null;
+    tw.innerHTML = '<div class="tw-lbl">Quick timers (minutes)</div>' +
+      '<div class="tw-edit">' + q.map(function (m) { return '<input type="number" min="1" max="600" value="' + m + '">'; }).join('') + '</div>' +
+      '<div class="tw-row"><button data-a="qless" title="One fewer">–</button><button data-a="qmore" title="One more">+</button>' +
+      '<button data-a="qcancel">Cancel</button><button data-a="qsave" class="prim">Save</button></div>';
+    var first = tw.querySelector('input'); if (first) first.focus();
+  }
+  function readEditor() { return Array.prototype.map.call(tw.querySelectorAll('.tw-edit input'), function (i) { return +i.value; }).filter(function (n) { return n > 0; }); }
   function paintTw() {
-    if (!tw) return;
+    if (!tw || twEditing) return;
     var T = rt(), h;
     if (T.state === 'running') h = '<div class="tw-time">⏱ ' + fmt((T.endAt - Date.now()) / 1000) + '</div><div class="tw-row"><button data-a="pause">Pause</button><button data-a="stop">Stop</button></div>';
     else if (T.state === 'paused') h = '<div class="tw-time">⏸ ' + fmt(T.remaining || 0) + '</div><div class="tw-row"><button data-a="pause">Resume</button><button data-a="stop">Stop</button></div>';
     else if (T.state === 'done') h = '<div class="tw-time">⏰ Time’s up</div><div class="tw-row"><button class="stop" data-a="stop">Stop</button></div>';
-    else h = '<div class="tw-lbl">Timer</div><div class="tw-row">' + [25, 5, 45, 15].map(function (m) { return '<button data-m="' + m + '" title="Start ' + m + ' min">' + m + '</button>'; }).join('') + '</div>';
+    else h = '<div class="tw-lbl">Timer<button class="tw-pen" data-a="edit" title="Change these times">\u270E</button></div><div class="tw-row">' +
+      quick().map(function (m) { return '<button data-m="' + m + '" title="Start ' + m + ' min — right-click to change">' + m + '</button>'; }).join('') + '</div>';
     if (h !== lastTw) { tw.innerHTML = h; lastTw = h; tw.classList.toggle('done', T.state === 'done'); }
   }
   window.addEventListener('apex-timer-change', paintTw);
   document.addEventListener('click', function (e) {
     var b = e.target.closest('#apexTw button'); if (!b) return;
-    if (b.dataset.m) startTimer(+b.dataset.m); else if (b.dataset.a === 'pause') pauseTimer(); else if (b.dataset.a === 'stop') stopTimer();
+    var a = b.dataset.a;
+    if (a === 'edit') { twEditor(); return; }
+    if (a === 'qsave') { var v = readEditor(); if (!v.length) { twEditing = false; lastTw = null; paintTw(); return; } saveQuick(v); return; }
+    if (a === 'qcancel') { twEditing = false; lastTw = null; paintTw(); return; }
+    if (a === 'qmore') { var v2 = readEditor(); if (v2.length < 6) { v2.push(10); } twEditing = false; saveQuick(v2); twEditor(); return; }
+    if (a === 'qless') { var v3 = readEditor(); if (v3.length > 1) v3.pop(); twEditing = false; saveQuick(v3); twEditor(); return; }
+    if (b.dataset.m) startTimer(+b.dataset.m); else if (a === 'pause') pauseTimer(); else if (a === 'stop') stopTimer();
   });
+  /* right-click a quick timer to change just that one */
+  document.addEventListener('contextmenu', function (e) {
+    var b = e.target.closest('#apexTw button[data-m]'); if (!b) return;
+    e.preventDefault();
+    var cur = +b.dataset.m;
+    var v = prompt('Minutes for this quick timer (leave empty to remove it):', cur);
+    if (v === null) return;
+    var arr = quick();
+    var i = arr.indexOf(cur); if (i < 0) return;
+    if (!v.trim()) { if (arr.length > 1) arr.splice(i, 1); }
+    else { var n = Math.round(+v); if (!(n > 0)) return; arr[i] = Math.min(600, n); }
+    saveQuick(arr);
+  });
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && twEditing) { twEditing = false; lastTw = null; paintTw(); } });
   setInterval(paintTw, 500);
   window.addEventListener('storage', function (e) { if (e.key === TK) paintTw(); });
 
@@ -161,7 +200,8 @@
     out.push({ g: 'Actions', em: '➕', t: 'New task', sub: 'Tasks', run: function () { location.href = 'tasks.html?new=1'; } });
     out.push({ g: 'Actions', em: '📝', t: 'New note', sub: 'Notes', run: function () { location.href = 'notes.html?new=1'; } });
     out.push({ g: 'Actions', em: '📅', t: 'New event', sub: 'Calendar', run: function () { location.href = 'calendar.html?new=1'; } });
-    [25, 5, 45, 15].forEach(function (m) { out.push({ g: 'Actions', em: '⏱', t: 'Start ' + m + '-minute timer', sub: 'Timer', run: function () { startTimer(m); } }); });
+    quick().forEach(function (m) { out.push({ g: 'Actions', em: '⏱', t: 'Start ' + m + '-minute timer', sub: 'Timer', run: function () { startTimer(m); } }); });
+    out.push({ g: 'Actions', em: '⏱', t: 'Change the quick timers', sub: 'Sidebar', run: function () { twEditor(); } });
     out.push({ g: 'Actions', em: theme === 'dark' ? '☀︎' : '☾', t: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: toggleTheme });
     out.push({ g: 'Actions', em: '⌨', t: 'Keyboard shortcuts', sub: '?', run: openKeys });
     // notes & tasks search
