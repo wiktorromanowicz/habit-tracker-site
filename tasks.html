@@ -128,6 +128,10 @@
   .tctx .it .k{float:right;color:#a99f8c;font-size:11px;margin-top:1px}
   .tctx .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 4px 4px}
   .tctx .row2 .it{text-align:center;background:var(--panel2)} .tctx .row2 .it:hover{background:var(--chip2,#ece6d7)}
+  .ttoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:95;background:#2b2a26;color:#fff;padding:9px 12px;border-radius:10px;font-size:13px;display:flex;align-items:center;gap:10px;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .ttoast.on{opacity:1;pointer-events:auto}
+  .ttoast button{border:0;background:#a9741f;color:#fff;border-radius:7px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .ttoast button:hover{background:#946417}
   .tmenu-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 26px rgba(20,22,35,.18);padding:5px;min-width:150px;}
   .tmenu-pop button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
@@ -161,6 +165,7 @@
   <section class="tasks-wrap">
     <div class="tasks-head">
       <h2>Tasks</h2>
+      <button class="tlist-add" id="undoBtn" onclick="undoTasks()" title="Undo the last delete or structural change (⌘Z)" style="display:none">↩︎ Undo</button>
       <button class="tlist-add" onclick="addList()">+ New list</button>
     </div>
     <div class="tasks-board" id="tasksBoard"></div>
@@ -392,7 +397,7 @@ function taskRow(listId, it, isSub){
   let _tt=null; txt.addEventListener("input", e => { clearTimeout(_tt); _tt=setTimeout(()=>{ const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } },400); });
   txt.addEventListener("blur", e => {
     const v = e.target.textContent.trim();
-    if(!v){ deleteTask(listId, it.id); return; }
+    if(!v){ if(suppressBlurDelete || !li.isConnected) return; deleteTask(listId, it.id, true); return; }
     it.text = v; save();
   });
   txt.addEventListener("paste", e => {
@@ -407,8 +412,9 @@ function taskRow(listId, it, isSub){
   txt.addEventListener("keydown", e => {
     if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); desc.focus(); }
     else if(e.key === "Enter"){ e.preventDefault(); const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } addTask(listId, v?it.id:null); }
-    else if(e.key === "Tab" && !e.shiftKey){ e.preventDefault(); indentTask(listId, it.id, e.target); }
-    else if(e.key === "Tab" && e.shiftKey){ e.preventDefault(); outdentTask(listId, it.id, e.target); }
+    else if(e.key === "Tab"){ e.preventDefault(); clearTimeout(_tt);
+      if(!(e.target.textContent||'').trim()){ toast('Give the task a name first'); return; }
+      if(e.shiftKey) outdentTask(listId, it.id, e.target); else indentTask(listId, it.id, e.target); }
   });
   txt.addEventListener("focus", () => { li.draggable = false; });
   txt.addEventListener("blur", () => { li.draggable = true; });
@@ -500,34 +506,86 @@ function toggleTask(listId, itemId){
   }
   save(); renderTasks();
 }
-function deleteTask(listId, itemId){
+/* ---- undo for structural changes (delete, clear completed, indent…) ----
+   Snapshots of state.taskLists kept in apexTasksUndo — a LOCAL key, never synced,
+   so another device can't overwrite your undo history. */
+const UNDO_KEY='apexTasksUndo';
+let suppressBlurDelete=false;                       // a re-render must never look like "you emptied the task"
+function snapTasks(label){
+  try{
+    const cur=JSON.stringify(state.taskLists);
+    let list=[]; try{ list=JSON.parse(localStorage.getItem(UNDO_KEY)||'[]')||[]; }catch(e){}
+    if(list[0]&&list[0].data===cur) return;
+    list.unshift({ts:Date.now(), label:label||'change', data:cur});
+    localStorage.setItem(UNDO_KEY,JSON.stringify(list.slice(0,10)));
+  }catch(e){}
+  paintUndo();
+}
+function undoTasks(){
+  let list=[]; try{ list=JSON.parse(localStorage.getItem(UNDO_KEY)||'[]')||[]; }catch(e){}
+  const rec=list.shift(); if(!rec){ toast('Nothing to undo'); return; }
+  try{
+    const redo=JSON.stringify(state.taskLists);
+    state.taskLists=JSON.parse(rec.data); save();
+    list.unshift({ts:Date.now(), label:'redo', data:redo});     // so ⌘Z again puts it back
+    localStorage.setItem(UNDO_KEY,JSON.stringify(list.slice(0,10)));
+  }catch(e){ toast('Could not undo'); return; }
+  suppressBlurDelete=true; renderTasks(); setTimeout(()=>{suppressBlurDelete=false;},50);
+  toast('Undid: '+rec.label);
+}
+function undoDepth(){ try{ return (JSON.parse(localStorage.getItem(UNDO_KEY)||'[]')||[]).length; }catch(e){ return 0; } }
+function paintUndo(){ const b=document.getElementById('undoBtn'); if(b) b.style.display=undoDepth()?'inline-flex':'none'; }
+function toast(msg, action){
+  let el=document.getElementById('tToast');
+  if(!el){ el=document.createElement('div'); el.id='tToast'; el.className='ttoast'; document.body.appendChild(el); }
+  el.innerHTML='<span></span>'; el.querySelector('span').textContent=msg;
+  if(action){ const b=document.createElement('button'); b.textContent=action.label; b.onclick=()=>{ el.classList.remove('on'); action.fn(); }; el.appendChild(b); }
+  el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'), action?7000:2200);
+}
+
+function deleteTask(listId, itemId, quiet){
   const l = findList(listId); if(!l) return;
+  const it = l.items.find(i => i.id === itemId);
+  const kids = l.items.filter(i => i.parent === itemId).length;
+  if(!quiet) snapTasks('delete task');
   // deleting a parent deletes its subtasks
   l.items = l.items.filter(i => i.id !== itemId && i.parent !== itemId);
-  save(); renderTasks();
+  save(); suppressBlurDelete = true; renderTasks(); setTimeout(()=>{suppressBlurDelete=false;},50);
+  if(!quiet) toast('Deleted "'+(((it&&it.text)||'task').slice(0,40))+'"'+(kids?' and '+kids+' subtask'+(kids>1?'s':''):''), {label:'Undo', fn:undoTasks});
 }
 function indentTask(listId, itemId, focusEl){
   const l = findList(listId); if(!l) return;
-  const it = findItem(listId, itemId); if(!it || it.parent !== null) return; // only one level deep
-  // parent = nearest top-level task above it (of the same done-state group order in array)
+  const it = findItem(listId, itemId); if(!it) return;
+  if(focusEl) commitText(it, focusEl);                        // Tab used to re-render before the typing was saved
+  if(it.parent !== null){ toast('Already a subtask'); return; }        // only one level deep
+  // parent = nearest top-level task above it
   const idx = l.items.findIndex(i => i.id === itemId);
   let parent = null;
   for(let k = idx - 1; k >= 0; k--){ if(l.items[k].parent === null){ parent = l.items[k]; break; } }
-  if(!parent) return; // nothing above to nest under
-  if(childrenOf(l, it.id).length) return; // don't nest a task that itself has children
+  if(!parent){ toast('Nothing above to nest under'); return; }
+  if(childrenOf(l, it.id).length){ toast('This task has subtasks of its own'); return; }
+  if(parent.done && !it.done){ toast('"'+parent.text.slice(0,30)+'" is already completed'); return; }
+  snapTasks('make subtask');
   it.parent = parent.id;
-  it.done = parent.done;
   // move it to sit right after the parent's existing children
   l.items = l.items.filter(i => i.id !== itemId);
   let insertAt = l.items.findIndex(i => i.id === parent.id) + 1;
   while(insertAt < l.items.length && l.items[insertAt].parent === parent.id) insertAt++;
   l.items.splice(insertAt, 0, it);
-  save(); renderTasks();
+  save(); suppressBlurDelete = true; renderTasks(); setTimeout(()=>{suppressBlurDelete=false;},50);
   refocus(itemId);
 }
-function outdentTask(listId, itemId){
+function commitText(it, el){
+  if(!el || !it) return;
+  const v = (el.textContent || '').trim();
+  if(v && v !== it.text){ it.text = v; save(); }
+}
+function outdentTask(listId, itemId, focusEl){
   const l = findList(listId); if(!l) return;
-  const it = findItem(listId, itemId); if(!it || it.parent === null) return;
+  const it = findItem(listId, itemId); if(!it) return;
+  if(focusEl) commitText(it, focusEl);
+  if(it.parent === null){ toast('Already a top-level task'); return; }
+  snapTasks('promote');
   const oldParent = it.parent;
   it.parent = null;
   // move it just after the last of its former parent's remaining subtasks
@@ -535,7 +593,7 @@ function outdentTask(listId, itemId){
   let insertAt = l.items.findIndex(i => i.id === oldParent) + 1;
   while(insertAt < l.items.length && l.items[insertAt].parent === oldParent) insertAt++;
   l.items.splice(insertAt, 0, it);
-  save(); renderTasks();
+  save(); suppressBlurDelete = true; renderTasks(); setTimeout(()=>{suppressBlurDelete=false;},50);
   refocus(itemId);
 }
 function refocus(itemId){
@@ -587,8 +645,8 @@ function openListMenu(e, listId){
     '<button data-a="del" class="danger">Delete list</button>';
   pop.querySelector('[data-a="hide"]').addEventListener("click", () => { l.collapsed = !l.collapsed; save(); renderTasks(); closeListMenu(); });
   pop.querySelector('[data-a="order"]').addEventListener("click", () => { l.manualOrder = !l.manualOrder; save(); renderTasks(); closeListMenu(); });
-  pop.querySelector('[data-a="clear"]').addEventListener("click", () => { clearCompleted(listId); closeListMenu(); });
-  pop.querySelector('[data-a="del"]').addEventListener("click", () => { deleteList(listId); closeListMenu(); });
+  pop.querySelector('[data-a="clear"]').addEventListener("click", () => { snapTasks('clear completed'); clearCompleted(listId); closeListMenu(); toast('Completed tasks cleared',{label:'Undo',fn:undoTasks}); });
+  pop.querySelector('[data-a="del"]').addEventListener("click", () => { const l2=findList(listId); const n=l2?l2.items.length:0; snapTasks('delete list'); deleteList(listId); closeListMenu(); toast('List deleted'+(n?' with '+n+' task'+(n>1?'s':''):''),{label:'Undo',fn:undoTasks}); });
   document.body.appendChild(pop);
   const r = e.target.getBoundingClientRect();
   pop.style.top = (r.bottom + 4) + "px";
@@ -761,6 +819,13 @@ function moveItem(src, destListId, destItemId, after, doneZone){
   save(); renderTasks();
 }
 
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey) && (e.key==='z'||e.key==='Z') && !e.shiftKey){
+    const t=e.target; if(t && (t.isContentEditable || /INPUT|TEXTAREA/.test(t.tagName))) return;  // let the browser undo typing
+    e.preventDefault(); undoTasks();
+  }
+});
+paintUndo();
 window.addEventListener('beforeunload',()=>{ const ae=document.activeElement; if(ae&&ae.isContentEditable) ae.blur(); });
 renderTasks();
 (function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
