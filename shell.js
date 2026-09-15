@@ -26,9 +26,19 @@
     });
   }
   var links = pageLinks();
+  // Music lives in the shell, so every page gets the tab without editing its nav
+  if (links.length && !links.some(function (l) { return l.href === 'music.html'; }))
+    links.push({ href: 'music.html', em: '\uD83C\uDFB5', lb: 'Music', active: here === 'music.html' });
   (function () { var order = ls.get('apexNavOrder', null); if (!Array.isArray(order)) return; var by = {}; links.forEach(function (l) { by[l.href] = l; }); var out = []; order.forEach(function (h) { if (by[h]) { out.push(by[h]); delete by[h]; } }); links.forEach(function (l) { if (by[l.href]) out.push(l); }); links = out; })();
   // Today is the home screen: it always sits first
   (function () { var i = links.findIndex(function (l) { return l.href === 'today.html'; }); if (i > 0) links.unshift(links.splice(i, 1)[0]); })();
+
+  /* ---- music engine (IndexedDB library + one audio element), loaded once per page ---- */
+  (function () {
+    if (window.ApexMusic) return;
+    var m = document.createElement('script'); m.src = 'music.js'; m.onload = function () { paintMusic(); };
+    document.head.appendChild(m);
+  })();
 
   /* ---- sidebar ---- */
   var side, navEl, foot, tw;
@@ -39,6 +49,7 @@
       '<div class="sb-top"><div class="sb-brand">⚡ Apex</div><button class="sb-min" title="Collapse sidebar (`)">⟨</button></div>' +
       '<nav></nav>' +
       '<div class="sb-foot">' +
+        '<div class="mp" id="apexMp" style="display:none"></div>' +
         '<div class="tw" id="apexTw"></div>' +
         '<div class="sb-chips" id="apexChips"></div>' +
         '<div class="sb-row"><button class="sb-btn" id="apexPalBtn" title="Command palette"><span>Search</span><kbd>' + MOD + 'K</kbd></button>' +
@@ -52,7 +63,8 @@
     $('#apexPalBtn', side).addEventListener('click', openPalette);
     $('#apexThemeBtn', side).addEventListener('click', toggleTheme);
     $('#apexKeysBtn', side).addEventListener('click', openKeys);
-    paintFoot();
+    paintFoot(); paintMusic();
+    window.addEventListener('apex-music', paintMusic);
     // phone: the sidebar footer is hidden, so sync chips / theme / search get a slim bar above the page
     var phone = document.createElement('div'); phone.id = 'apexPhoneBar';
     phone.innerHTML = '<div class="pb-chips" id="apexPhoneChips"></div><button class="sb-btn" id="apexPhonePal">Search</button><button class="sb-btn" id="apexPhoneTheme">' + (theme === 'dark' ? '☀︎' : '☾') + '</button>';
@@ -67,6 +79,27 @@
       move(); new MutationObserver(move).observe(brand, { childList: true });
     }
   }
+  function paintMusic() {
+    var mp = document.getElementById('apexMp'); if (!mp || !window.ApexMusic) return;
+    var n = window.ApexMusic.now();
+    if (!n.track && !n.id) { mp.style.display = 'none'; return; }
+    var title = n.track ? (n.track.title || n.track.name) : 'Music';
+    var artist = n.track ? (n.track.artist || '') : '';
+    var pct = n.dur ? Math.min(100, n.pos / n.dur * 100) : 0;
+    mp.style.display = 'block';
+    mp.innerHTML = '<div class="mp-t" title="' + esc(title) + (artist ? ' — ' + esc(artist) : '') + '">' + esc(title) + '</div>' +
+      (artist ? '<div class="mp-a">' + esc(artist) + '</div>' : '') +
+      '<div class="mp-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="mp-row"><button data-a="prev" title="Previous">\u23EE</button>' +
+      '<button data-a="play" title="Play / pause">' + (n.playing ? '\u23F8' : '\u25B6') + '</button>' +
+      '<button data-a="next" title="Next">\u23ED</button>' +
+      '<a href="music.html" title="Open Music">\uD83C\uDFB5</a></div>';
+    mp.querySelectorAll('button').forEach(function (b) {
+      b.onclick = function () { var a = b.dataset.a, M = window.ApexMusic;
+        if (a === 'play') M.toggle(); else if (a === 'next') M.next(); else M.prev(); };
+    });
+  }
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   function renderNav() {
     navEl.innerHTML = '';
     links.forEach(function (l, i) {

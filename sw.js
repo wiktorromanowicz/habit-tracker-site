@@ -1,9 +1,9 @@
 /* Apex service worker — instant, offline-first loading.
    Cache-first for everything (served from disk in ~1ms), revalidated in the
    background. Bump CACHE when files change so clients pick up the new version. */
-const CACHE = 'wiktoros-v46';
+const CACHE = 'wiktoros-v47';
 const ASSETS = [
-  './', './index.html', './today.html', './time.html', './shell.js', './shell.css', './timecats.js', './tasks.html', './calendar.html', './cal-config.js', './notes.html', './timer.html', './lift.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
+  './', './index.html', './today.html', './time.html', './shell.js', './shell.css', './timecats.js', './music.html', './music.js', './tasks.html', './calendar.html', './cal-config.js', './notes.html', './timer.html', './lift.html', './finances.html', './metrics.html', './assets.html', './ideas.html',
   './grid.js', './grid.css', './pwa.js', './sync-config.js', './sync.js', './import.js', './vendor/pdf.min.js', './vendor/pdf.worker.min.js', './vendor/xlsx.full.min.js', './manifest.json', './alarm-classic.wav', './alarm-chime.wav', './alarm-marimba.wav',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'
 ];

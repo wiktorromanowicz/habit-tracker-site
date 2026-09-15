@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apex · Music</title>
+<style>
+  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:28px;min-height:100vh}
+  .wrap{max-width:900px;margin:0 auto}
+  .brand{font-size:15px;font-weight:700;margin-bottom:10px}
+  .nav{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;color:var(--muted);background:var(--surface,#fff);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  a{color:var(--accent)}
+  h1{font-size:26px;margin:4px 0 4px;letter-spacing:-.4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 1px 3px rgba(20,22,35,.05);margin-bottom:16px}
+  /* drop zone */
+  .drop{display:block;border:1.5px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted);font-size:13.5px;background:var(--surface,#fff);cursor:pointer;transition:border-color .15s,background .15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--chip);color:var(--ink)}
+  .drop b{display:block;font-size:15px;color:var(--ink);margin-bottom:4px}
+  .drop input{display:none}
+  /* player */
+  .np{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .np .art{width:52px;height:52px;border-radius:10px;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+  .np .meta{flex:1;min-width:140px}
+  .np .t{font-weight:600;font-size:15px}
+  .np .a{color:var(--muted);font-size:12.5px}
+  .np .btns{display:flex;gap:6px;align-items:center}
+  .np button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:9px;padding:7px 11px;font:inherit;font-size:14px;cursor:pointer}
+  .np button:hover{border-color:var(--accent);color:var(--accent)}
+  .np button.big{background:var(--accent);border-color:var(--accent);color:#fff;font-size:15px;padding:8px 15px}
+  .seek{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .seek input[type=range]{flex:1;accent-color:var(--accent)}
+  .vol{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .vol input{width:90px;accent-color:var(--accent)}
+  .toggles{display:flex;gap:6px;margin-left:auto}
+  .toggles button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* list */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 8px 7px}
+  td{padding:8px;border-top:1px solid var(--line);vertical-align:middle}
+  tr.on td{background:var(--chip)}
+  td.pl{width:34px}
+  td .p{border:0;background:transparent;font-size:15px;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:6px}
+  td .p:hover{color:var(--accent);background:var(--surface,#fff)}
+  td .ti{font-weight:600}
+  td .ar{color:var(--muted);font-size:12.5px}
+  td.d,td.s{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.x{width:34px;text-align:right}
+  td .del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:6px}
+  td .del:hover{color:#c1362c;background:#fdeaea}
+  td input.edit{border:1px solid transparent;background:transparent;font:inherit;color:inherit;padding:2px 4px;border-radius:6px;width:100%;outline:none}
+  td input.edit:hover{border-color:var(--line)}
+  td input.edit:focus{border-color:var(--accent);background:var(--surface,#fff)}
+  .empty{color:var(--muted);font-size:13px;padding:10px 0}
+  .foot{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;margin-top:10px;flex-wrap:wrap;gap:8px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:#2b2a26;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.on{opacity:1}
+  @media (max-width:700px){ body{padding:14px} }
+</style>
+<script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
+<link rel="stylesheet" href="shell.css"/>
+<script src="music.js"></script>
+<script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">⚡ Apex</div>
+  <nav class="nav">
+    <a href="today.html">🏠 Today</a>
+    <a href="index.html">🎯 Habits</a>
+    <a href="tasks.html">✅ Tasks</a>
+    <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
+    <a href="notes.html">📝 Notes</a>
+    <a href="timer.html">⏱ Timer</a>
+    <a href="music.html" class="active">🎵 Music</a>
+    <a href="lift.html">🏋️ Lift</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+
+  <h1>Music</h1>
+  <div class="sub">Your own audio files, kept on this device and played with no network — they work offline and inside Apex.app. Nothing is uploaded or synced.</div>
+
+  <div class="card" id="playerCard" style="display:none">
+    <div class="np">
+      <div class="art">🎵</div>
+      <div class="meta"><div class="t" id="npT">—</div><div class="a" id="npA"></div></div>
+      <div class="btns">
+        <button id="bPrev" title="Previous (or back to the start)">⏮</button>
+        <button class="big" id="bPlay" title="Play / pause (Space)">▶</button>
+        <button id="bNext" title="Next">⏭</button>
+      </div>
+      <div class="toggles">
+        <button id="bShuf" title="Shuffle">🔀</button>
+        <button id="bRep" title="Repeat all / one">🔁</button>
+      </div>
+    </div>
+    <div class="seek"><span id="npPos">0:00</span><input type="range" id="npSeek" min="0" max="1000" value="0"><span id="npDur">0:00</span>
+      <span class="vol">🔉<input type="range" id="npVol" min="0" max="100" value="90"></span></div>
+  </div>
+
+  <label class="drop" id="drop">
+    <b>Drop audio files here</b>
+    MP3, M4A, WAV, FLAC, OGG — or click to choose. Files you own: your own recordings, CD rips, purchases from Bandcamp or iTunes.
+    <input type="file" id="pick" accept="audio/*" multiple>
+  </label>
+
+  <div class="card" style="margin-top:16px">
+    <table>
+      <thead><tr><th></th><th>Track</th><th>Length</th><th>Size</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty">Nothing in your library yet.</div>
+    <div class="foot"><span id="stat"></span><span id="quota"></span></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const M=window.ApexMusic;
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'),1800); }
+const mmss=s=>{ s=Math.max(0,Math.round(s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+const mb=b=>(b/1048576).toFixed(1)+' MB';
+
+let tracks=[];
+async function renderList(){
+  tracks=await M.list();
+  const n=M.now();
+  $('empty').style.display=tracks.length?'none':'block';
+  $('rows').innerHTML=tracks.map(t=>'<tr class="'+(t.id===n.id?'on':'')+'" data-id="'+t.id+'">'+
+    '<td class="pl"><button class="p" data-a="play" title="Play">'+(t.id===n.id&&n.playing?'⏸':'▶')+'</button></td>'+
+    '<td><input class="edit ti" data-f="title" value="'+esc(t.title)+'" placeholder="Title"><input class="edit ar" data-f="artist" value="'+esc(t.artist)+'" placeholder="Artist"></td>'+
+    '<td class="d">'+(t.dur?mmss(t.dur):'—')+'</td><td class="s">'+mb(t.size||0)+'</td>'+
+    '<td class="x"><button class="del" data-a="del" title="Remove from Apex">🗑</button></td></tr>').join('');
+  const total=tracks.reduce((a,t)=>a+(t.size||0),0);
+  $('stat').textContent=tracks.length?(tracks.length+(tracks.length===1?' track · ':' tracks · ')+mb(total)):'';
+  const est=await M.usage(); $('quota').textContent=est&&est.quota?('about '+Math.round((est.quota-(est.usage||0))/1048576)+' MB of room left on this device'):'';
+  renderPlayer();
+}
+function renderPlayer(){
+  const n=M.now();
+  $('playerCard').style.display=(n.track||n.id)?'block':'none';
+  if(n.track){ $('npT').textContent=n.track.title||n.track.name; $('npA').textContent=n.track.artist||''; }
+  $('bPlay').textContent=n.playing?'⏸':'▶';
+  $('bShuf').classList.toggle('on',!!n.shuffle);
+  $('bRep').classList.toggle('on',n.repeat==='one');
+  $('bRep').textContent=n.repeat==='one'?'🔂':'🔁';
+  const dur=n.dur||0; $('npDur').textContent=mmss(dur); $('npPos').textContent=mmss(n.pos);
+  if(document.activeElement!==$('npSeek')) $('npSeek').value=dur?Math.round(n.pos/dur*1000):0;
+  $('npVol').value=Math.round(n.vol*100);
+  [...document.querySelectorAll('#rows tr')].forEach(tr=>{ const on=tr.dataset.id===n.id; tr.classList.toggle('on',on);
+    const b=tr.querySelector('[data-a=play]'); if(b) b.textContent=on&&n.playing?'⏸':'▶'; });
+}
+/* library actions */
+$('rows').addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return; const tr=b.closest('tr'); const id=tr.dataset.id;
+  if(b.dataset.a==='play'){ const n=M.now(); if(n.id===id) await M.toggle(); else await M.play(id); renderPlayer(); }
+  if(b.dataset.a==='del'){ const t=tracks.find(x=>x.id===id); if(!confirm('Remove "'+((t&&t.title)||'this track')+'" from Apex? The original file on your disk is untouched.')) return; await M.remove(id); await renderList(); toast('Removed'); }
+});
+$('rows').addEventListener('change',async e=>{
+  const i=e.target.closest('input.edit'); if(!i) return; const id=i.closest('tr').dataset.id;
+  const rec=await M.get(id); if(!rec) return; rec[i.dataset.f]=i.value.trim(); await M.put(rec); toast('Saved');
+});
+/* adding files */
+async function take(files){ const added=await M.add(files); if(!added.length){ toast('No audio files in that drop'); return; } await renderList(); toast('Added '+added.length+(added.length===1?' track':' tracks')); }
+$('pick').addEventListener('change',e=>{ take(e.target.files); e.target.value=''; });
+const dz=$('drop');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{ e.preventDefault(); dz.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{ e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop',e=>{ if(e.dataTransfer&&e.dataTransfer.files) take(e.dataTransfer.files); });
+window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
+/* player controls */
+$('bPlay').addEventListener('click',()=>M.toggle().then(renderPlayer));
+$('bNext').addEventListener('click',()=>M.next().then(renderPlayer));
+$('bPrev').addEventListener('click',()=>M.prev().then(renderPlayer));
+$('bShuf').addEventListener('click',()=>{ M.setFlag('shuffle',!M.now().shuffle); renderPlayer(); });
+$('bRep').addEventListener('click',()=>{ M.setFlag('repeat',M.now().repeat==='one'?'all':'one'); renderPlayer(); });
+$('npSeek').addEventListener('input',()=>{ const n=M.now(); if(n.dur) M.seek(n.dur*($('npSeek').value/1000)); });
+$('npVol').addEventListener('input',()=>M.volume($('npVol').value/100));
+window.addEventListener('apex-music',renderPlayer);
+document.addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable||e.metaKey||e.ctrlKey) return;
+  if(e.code==='Space'){ e.preventDefault(); M.toggle().then(renderPlayer); }
+  else if(e.key==='ArrowRight'&&e.shiftKey) M.next().then(renderPlayer);
+  else if(e.key==='ArrowLeft'&&e.shiftKey) M.prev().then(renderPlayer);
+});
+renderList();
+</script>
+</body>
+</html>

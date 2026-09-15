@@ -42,6 +42,16 @@ body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
 #apexSide .sb-btn:hover{color:var(--ink,#2b2a26);background:var(--chip,#f3efe4)}
 #apexSide .sb-btn kbd{font:inherit;font-size:10px;color:var(--muted,#8c8474);background:var(--chip,#f3efe4);border-radius:4px;padding:0 4px}
 
+/* mini music player */
+#apexSide .mp{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+#apexSide .mp .mp-t{font-size:12.5px;font-weight:600;color:var(--ink,#2b2a26);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#apexSide .mp .mp-a{font-size:11px;color:var(--muted,#8c8474);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+#apexSide .mp .mp-bar{height:3px;border-radius:2px;background:var(--chip,#f3efe4);margin:7px 0 6px;overflow:hidden}
+#apexSide .mp .mp-bar i{display:block;height:100%;background:#a9741f;border-radius:2px}
+#apexSide .mp .mp-row{display:flex;gap:4px;align-items:center}
+#apexSide .mp .mp-row button,#apexSide .mp .mp-row a{flex:1;border:1px solid var(--line);background:var(--chip,#f3efe4);color:var(--ink,#2b2a26);border-radius:7px;padding:4px 0;font-size:12px;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none;line-height:1.3}
+#apexSide .mp .mp-row button:hover,#apexSide .mp .mp-row a:hover{border-color:#a9741f;color:#a9741f}
+
 /* timer widget */
 #apexSide .tw{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
 #apexSide .tw .tw-time{font-size:20px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums;color:var(--ink,#2b2a26);display:flex;align-items:center;gap:8px}
@@ -55,10 +65,12 @@ body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
 
 /* collapsed */
 html[data-sb="min"] #apexSide .sb-brand,html[data-sb="min"] #apexSide nav a .lb,html[data-sb="min"] #apexSide nav a .kb,
-html[data-sb="min"] #apexSide .sb-chips,html[data-sb="min"] #apexSide .tw .tw-row,html[data-sb="min"] #apexSide .tw .tw-lbl,html[data-sb="min"] #apexSide .sb-btn span{display:none}
+html[data-sb="min"] #apexSide .mp .mp-t,html[data-sb="min"] #apexSide .mp .mp-a,html[data-sb="min"] #apexSide .mp .mp-row a,html[data-sb="min"] #apexSide .sb-chips,html[data-sb="min"] #apexSide .tw .tw-row,html[data-sb="min"] #apexSide .tw .tw-lbl,html[data-sb="min"] #apexSide .sb-btn span{display:none}
 html[data-sb="min"] #apexSide nav a{justify-content:center;padding:9px 0}
 html[data-sb="min"] #apexSide .sb-top{justify-content:center;padding:14px 0 8px}
 html[data-sb="min"] #apexSide .tw{padding:6px 4px;text-align:center}
+html[data-sb="min"] #apexSide .mp{padding:6px 4px}
+html[data-sb="min"] #apexSide .mp .mp-row{flex-direction:column}
 html[data-sb="min"] #apexSide .tw .tw-time{font-size:12px;justify-content:center}
 html[data-sb="min"] #apexSide .sb-row{flex-direction:column}
 html[data-sb="min"] #apexSide .sb-btn{padding:6px 0}
