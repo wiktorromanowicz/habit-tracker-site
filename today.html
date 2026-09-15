@@ -251,13 +251,17 @@ async function fetchBriefFromCalendar(){
   const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
   const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
   const CATS={}; (window.ApexTime?window.ApexTime.CATS:[]).forEach(c=>CATS[c.id]=[c.name,c.color]); const LEG=(window.ApexTime&&window.ApexTime.LEGACY)||{};
-  const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; let c=wk[k].c||'other'; if(LEG[c]) c=LEG[c]; logged+=.5; if(c==='sleep'){ slept+=.5; continue; } per[c]=(per[c]||0)+.5; }
+  const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')||k.startsWith('night')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; let c=wk[k].c||'other'; if(LEG[c]) c=LEG[c]; logged+=.5; if(c==='sleep'){ slept+=.5; continue; } per[c]=(per[c]||0)+.5; }
+  // the night hours the 05:00–23:00 sheet can't hold, from the 🌙–☀ times on the Time tab
+  const nInfo=window.ApexTime&&window.ApexTime.nightOf?window.ApexTime.nightOf(wk,dow):null;
+  if(nInfo&&nInfo.offGrid>0){ logged+=nInfo.offGrid; slept+=nInfo.offGrid; }
   const mins=now.getHours()*60+now.getMinutes(); const r=Math.floor((mins-START)/STEP); const cur=wk[dow+'_'+r];
   const slot=n=>pad(Math.floor(n/60))+':'+pad(n%60);
   // week so far: how much of the elapsed time (05:00–23:00 each day, up to now) is filled in
   const elapsed=dow*36+Math.max(0,Math.min(36,r+1)); let wkFilled=0, wkLogged=0;
-  for(const k in wk){ if(k.startsWith('wake')||!wk[k]||!wk[k].t) continue; const [d,rr]=k.split('_').map(Number); wkLogged+=.5; if(d<dow||(d===dow&&rr<=r)) wkFilled++; }
+  for(const k in wk){ if(k.startsWith('wake')||k.startsWith('night')||!wk[k]||!wk[k].t) continue; const [d,rr]=k.split('_').map(Number); wkLogged+=.5; if(d<dow||(d===dow&&rr<=r)) wkFilled++; }
   const pct=elapsed?Math.min(100,Math.round(wkFilled/elapsed*100)):0;
+  if(window.ApexTime&&window.ApexTime.nightOf){ for(let dd=0;dd<7;dd++){ const nn=window.ApexTime.nightOf(wk,dd); if(nn&&nn.offGrid>0) wkLogged+=nn.offGrid; } }
   let h='<div class="big">'+(Math.round(logged*10)/10)+' h<small>logged today'+(slept?' · incl. '+(Math.round(slept*10)/10)+' h sleep':'')+'</small></div>'+
     '<div class="wkline"><span>This week: <b>'+(Math.round(wkLogged*10)/10)+' h</b> logged · <b>'+pct+'%</b> of the time so far filled in</span><div class="wkbar"><i style="width:'+pct+'%"></i></div></div>';
   const awake=logged-slept; if(awake>0){ h+='<div class="tbar">'+Object.keys(per).map(c=>'<i style="width:'+(per[c]/awake*100)+'%;background:'+(CATS[c]?CATS[c][1]:'#cfc8b8')+'"></i>').join('')+'</div><div class="tl">'+Object.keys(per).sort((a,b)=>per[b]-per[a]).map(c=>'<span><b>'+(Math.round(per[c]*10)/10)+'h</b> '+(CATS[c]?CATS[c][0]:'Other')+'</span>').join('')+'</div>'; }

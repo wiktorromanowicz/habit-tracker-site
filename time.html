@@ -59,6 +59,20 @@
   td.c-life .in{background:#e6f4ea;color:#166534}
   td.c-sleep .in{background:#e0f2fe;color:#075985;opacity:.75}
   td.c-waste .in{background:#f1f1f1;color:#6b6b6b;text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25)}
+  thead th .nightbtn{display:inline-flex;align-items:center;gap:3px;margin-left:6px;border:1px solid var(--line);background:var(--surface,#fff);color:var(--muted);border-radius:999px;padding:1px 7px;font:inherit;font-size:10.5px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;vertical-align:middle}
+  thead th .nightbtn:hover{border-color:#0284c7;color:#0284c7}
+  thead th .nightbtn.on{color:#0284c7;border-color:#bae0f5;background:#eaf6fd}
+  html[data-theme="dark"] thead th .nightbtn.on{background:#102a3a;border-color:#1d4b66}
+  .npop{position:fixed;z-index:70;background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(20,22,35,.18);padding:12px 14px;width:270px;font-size:13px;color:var(--ink)}
+  .npop .nh{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .npop .nr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .npop .nr label{flex:1;color:var(--muted)}
+  .npop .nr input{border:1px solid var(--line);border-radius:7px;padding:4px 7px;font:inherit;font-size:13px;background:var(--surface,#fff);color:var(--ink);outline:none}
+  .npop .nr input:focus{border-color:var(--accent)}
+  .npop .ni{font-size:11.5px;color:var(--muted);line-height:1.4;margin:8px 0 10px;min-height:32px}
+  .npop .nb{display:flex;gap:6px;justify-content:flex-end}
+  .npop .nb button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .npop .nb .primary{background:var(--accent);border-color:var(--accent);color:#fff}
   thead th .wake{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:12px;color:var(--muted);cursor:pointer;vertical-align:middle;text-transform:none;letter-spacing:0}
   thead th .wake input{border:0;background:transparent;font:inherit;font-size:11px;color:var(--muted);width:62px;padding:0;outline:none;cursor:pointer}
   thead th .wake input:focus,thead th .wake input:not(:placeholder-shown){color:var(--ink)}
@@ -158,9 +172,28 @@ function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on')
 let monday=mondayOf(new Date());
 const ROWS=(END-START)/STEP;
 function week(){ const k=iso(monday); return S.weeks[k]||(S.weeks[k]={}); }
-function setWake(d,val){ const w=week(); if(!val){ delete w['wake_'+d]; save(); return; } w['wake_'+d]=val; const [hh,mm]=val.split(':').map(Number); const until=hh*60+mm;
-  for(let r=0;r<ROWS;r++){ const m=START+r*STEP; const k=d+'_'+r; if(m+STEP<=until){ if(!w[k]||!w[k].t||w[k].c==='sleep') w[k]={t:'Sleep',c:'sleep'}; } else if(w[k]&&w[k].c==='sleep'&&w[k].t==='Sleep'){ delete w[k]; } }
-  save(); render(); toast('Slept until '+val); }
+function setWake(d,val){ setNight(d, ((week()['night_'+d]||'').split('-')[0]||''), val); }
+function setNight(d,bed,wake){
+  const w=week();
+  if(!wake && !bed){ delete w['wake_'+d]; delete w['night_'+d]; clearSleepRows(d); save(); render(); return; }
+  if(wake) w['wake_'+d]=wake; else delete w['wake_'+d];
+  if(bed&&wake) w['night_'+d]=bed+'-'+wake; else delete w['night_'+d];
+  // the morning the grid can show: 05:00 → wake
+  if(wake){ const [hh,mm]=wake.split(':').map(Number); const until=hh*60+mm;
+    for(let r=0;r<ROWS;r++){ const m=START+r*STEP; const k=d+'_'+r;
+      if(m+STEP<=until){ if(!w[k]||!w[k].t||w[k].c==='sleep') w[k]={t:'Sleep',c:'sleep'}; }
+      else if(w[k]&&w[k].c==='sleep'&&w[k].t==='Sleep'&&m<12*60) delete w[k]; }
+  }
+  // and the evening before, when you were already in bed before 23:00 (previous column)
+  const info=window.ApexTime.parseNight(bed&&wake?bed+'-'+wake:'', {firstDayOfWeek:d===0});
+  if(info&&!info.sameDay&&info.prevIn>0&&d>0){ const pd=d-1;
+    for(let r=0;r<ROWS;r++){ const m=START+r*STEP; const k=pd+'_'+r;
+      if(m>=info.bed){ if(!w[k]||!w[k].t||w[k].c==='sleep') w[k]={t:'Sleep',c:'sleep'}; } }
+  }
+  save(); render();
+  toast(info? ('Night logged: '+(Math.round(info.total*10)/10)+' h'+(info.offGrid?' ('+(Math.round(info.offGrid*10)/10)+' h outside the sheet)':'')) : (wake?'Slept until '+wake:'Cleared'));
+}
+function clearSleepRows(d){ const w=week(); for(let r=0;r<ROWS;r++){ const k=d+'_'+r; if(w[k]&&w[k].c==='sleep'&&w[k].t==='Sleep') delete w[k]; } }
 function cellData(d,r){ return week()[d+'_'+r]; }
 function setCell(d,r,t,c){
   const w=week(), k=d+'_'+r;
@@ -174,8 +207,12 @@ function render(){
   const today=iso(new Date());
   const days=[...Array(7)].map((_,i)=>addDays(monday,i));
   $('range').textContent=days[0].toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+days[6].toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-  $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map((d,i)=>{ const wk=week()['wake_'+i]||''; return '<th class="'+(iso(d)===today?'today':'')+'">'+d.toLocaleDateString(undefined,{weekday:'short'})+'<b>'+d.getDate()+'</b><label class="wake" title="Woke up at — fills the morning with Sleep">😴<input type="time" data-d="'+i+'" value="'+wk+'"></label></th>'; }).join('')+'</tr>';
-  $('thead').querySelectorAll('input.wake, .wake input').forEach(inp=>inp.addEventListener('change',()=>setWake(+inp.dataset.d, inp.value)));
+  $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map((d,i)=>{ const W=week();
+    const info=window.ApexTime.nightOf(W,i);
+    const lbl=info? (Math.round(info.total*10)/10)+' h' : (W['wake_'+i]? 'till '+W['wake_'+i] : 'sleep');
+    return '<th class="'+(iso(d)===today?'today':'')+'">'+d.toLocaleDateString(undefined,{weekday:'short'})+'<b>'+d.getDate()+'</b>'+
+      '<button class="nightbtn'+(info?' on':'')+'" data-d="'+i+'" title="Night sleep — the hours outside 05:00–23:00 are counted even though the sheet has no rows for them">🌙 '+lbl+'</button></th>'; }).join('')+'</tr>';
+  $('thead').querySelectorAll('.nightbtn').forEach(b=>b.addEventListener('click',e=>openNight(+b.dataset.d,b)));
   const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
   let h='';
   for(let r=0;r<ROWS;r++){
@@ -194,7 +231,10 @@ function render(){
 }
 function renderPanel(){
   const w=week(); const per={}; let logged=0; const perDay=[0,0,0,0,0,0,0];
-  for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')) continue; const v=w[k]; if(!v||!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
+  for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')||k.startsWith('night')) continue; const v=w[k]; if(!v||!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
+  // sleep the 05:00–23:00 sheet has no rows for (from the 🌙–☀ times in each day header)
+  let night=0; for(let d=0;d<7;d++){ const n=window.ApexTime.nightOf(w,d); if(n&&n.offGrid>0){ night+=n.offGrid; perDay[d]+=n.offGrid; } }
+  if(night){ logged+=night; per.sleep=(per.sleep||0)+night; }
   const total=ROWS*7*.5;
   // completeness of the elapsed part of this week (only meaningful for the current/past weeks)
   const nowT=new Date(); const curMon=iso(mondayOf(nowT)), thisMon=iso(monday); let elapsed=0, filledSoFar=0;
@@ -204,13 +244,13 @@ function renderPanel(){
   const rows=CATS.map(c=>({...c,h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
   const waste=per.waste||0, focus=(per.work||0)+(per.content||0), awake=logged-(per.sleep||0);
   $('panel').innerHTML=
-    '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged of '+total+' h</small></div>'+
+    '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged'+(night?' (incl. '+fmtH(night)+' night)':' of '+total+' h')+'</small></div>'+
     (pct!==null?'<div class="stat" style="margin-top:-4px"><span>Filled in so far</span><b>'+pct+'%</b></div><div class="bar"><i style="width:'+pct+'%;background:var(--accent)"></i></div>':'')+
     '<div class="days">'+['M','T','W','T','F','S','S'].map((l,i)=>'<div>'+l+'<b>'+(perDay[i]?fmtH(perDay[i]):'–')+'</b></div>').join('')+'</div>'+
     '<h3 style="margin-top:16px">By category</h3>'+
     (rows.length?rows.map(r=>'<div class="stat"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+r.color+';margin-right:7px"></i>'+r.name+'</span><b>'+fmtH(r.h)+'</b></div><div class="bar"><i style="width:'+Math.round(r.h/Math.max(logged,1)*100)+'%;background:'+r.color+'"></i></div>').join(''):'<div class="stat" style="color:var(--muted)">Nothing logged yet</div>')+
-    (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(per.sleep?'<div class="stat"><span>Sleep in grid</span><b>'+fmtH(per.sleep)+'</b></div>':'')+
-    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · press and drag a slot up or down to stretch it over more hours (or drag over empty slots, then type once) · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 😴 in a day header fills the morning with Sleep · meetings from your calendar appear on their own (italic) and become yours as soon as you edit them · <kbd>⌘⌫</kbd> clears</div>';
+    (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(night?'<div class="stat"><span>of which outside 05:00–23:00</span><b>'+fmtH(night)+'</b></div>':'')+
+    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · press and drag a slot up or down to stretch it over more hours (or drag over empty slots, then type once) · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 🌙 in a day header records the night — the morning fills with Sleep and the hours outside 05:00–23:00 are counted too · meetings from your calendar appear on their own (italic) and become yours as soon as you edit them · <kbd>⌘⌫</kbd> clears</div>';
 }
 function fmtH(h){ return (Math.round(h*10)/10).toString().replace(/\.0$/,'')+' h'; }
 
@@ -290,6 +330,35 @@ const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEven
     else tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
     fill=null; };
 
+
+/* night sleep popover (🌙 in a day header) */
+let npop=null;
+function closeNight(){ if(npop){ npop.remove(); npop=null; } }
+document.addEventListener('pointerdown',e=>{ if(npop&&!npop.contains(e.target)&&!e.target.closest('.nightbtn')) closeNight(); },true);
+function openNight(d,btn){
+  if(npop){ closeNight(); return; }
+  const W=week(); const cur=(W['night_'+d]||'').split('-');
+  const bed=cur[0]||'', wake=cur[1]||W['wake_'+d]||'';
+  const day=addDays(monday,d).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'});
+  npop=document.createElement('div'); npop.className='npop';
+  npop.innerHTML='<div class="nh">Sleep · '+day+'</div>'+
+    '<div class="nr"><label>Went to bed</label><input type="time" id="nBed" value="'+bed+'"></div>'+
+    '<div class="nr"><label>Woke up</label><input type="time" id="nWake" value="'+wake+'"></div>'+
+    '<div class="ni" id="nOut"></div>'+
+    '<div class="nb"><button data-a="clear">Clear</button><button class="primary" data-a="save">Save</button></div>';
+  document.body.appendChild(npop);
+  const r=btn.getBoundingClientRect(), W2=npop.offsetWidth;
+  npop.style.left=Math.max(8,Math.min(r.left, innerWidth-W2-10))+'px';
+  npop.style.top=(r.bottom+6)+'px';
+  const B=$('nBed'), K=$('nWake'), out=$('nOut');
+  const preview=()=>{ const i=window.ApexTime.parseNight(B.value&&K.value?B.value+'-'+K.value:'',{firstDayOfWeek:d===0});
+    out.textContent=i? (Math.round(i.total*10)/10)+' h in bed — '+(Math.round(i.offGrid*10)/10)+' h of it outside 05:00–23:00, counted as Sleep' : 'Set both times to log the whole night.'; };
+  [B,K].forEach(x=>x.addEventListener('input',preview)); preview();
+  npop.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); npop.querySelector('[data-a=save]').click(); } if(e.key==='Escape') closeNight(); });
+  npop.querySelector('[data-a=save]').onclick=()=>{ setNight(d,B.value,K.value); closeNight(); };
+  npop.querySelector('[data-a=clear]').onclick=()=>{ setNight(d,'',''); closeNight(); };
+  B.focus();
+}
 
 /* right-click: category menu */
 let ctx=null; function closeCtx(){ if(ctx){ ctx.remove(); ctx=null; } }

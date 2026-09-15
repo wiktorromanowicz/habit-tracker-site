@@ -204,3 +204,33 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
   window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto;
 })();
+
+/* ---- night sleep, the part the 05:00–23:00 grid can't hold ----
+   Stored per day as night_<d> = "HH:MM-HH:MM" (bed the evening before – wake that morning).
+   total   = whole night in hours
+   offGrid = the hours outside 05:00–23:00, which the sheet has no rows for
+   (the in-grid part is filled with Sleep rows, so totals never double-count) */
+(function(){
+  const GRID_S=5*60, GRID_E=23*60;
+  function parseNight(v,opts){
+    if(!v||typeof v!=='string'||v.indexOf('-')<0) return null;
+    const [a,b]=v.split('-').map(x=>x.trim());
+    const mm=x=>{ const m=/^(\d{1,2}):(\d{2})$/.exec(x||''); return m?(+m[1])*60+(+m[2]):null; };
+    const bed=mm(a), wake=mm(b);
+    if(bed==null||wake==null) return null;
+    if(bed<720){                                                  // went to bed after midnight → same morning
+      const total=Math.max(0,wake-bed);
+      const todayIn=Math.max(0,Math.min(wake,GRID_E)-Math.max(GRID_S,bed));
+      return {bed, wake, sameDay:true, total:total/60, offGrid:Math.max(0,total-todayIn)/60, prevIn:0, todayIn:todayIn/60};
+    }
+    const total=(1440-bed)+wake;                                  // bed is the evening before
+    const prevIn=bed<GRID_E?Math.max(0,GRID_E-Math.max(GRID_S,bed)):0;   // evening hours the grid can hold
+    const todayIn=Math.max(0,Math.min(wake,GRID_E)-GRID_S);              // morning hours the grid can hold
+    const firstDay=!!(opts&&opts.firstDayOfWeek);                 // Monday: the evening before is last week's grid
+    const offGrid=Math.max(0,total-todayIn-(firstDay?0:prevIn));
+    return {bed, wake, total:total/60, offGrid:offGrid/60, prevIn:prevIn/60, todayIn:todayIn/60};
+  }
+  function nightOf(week,d){ return parseNight(week&&week['night_'+d], {firstDayOfWeek:d===0}); }
+  window.ApexTime.parseNight=parseNight;
+  window.ApexTime.nightOf=nightOf;
+})();
