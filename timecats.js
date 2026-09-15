@@ -231,6 +231,38 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     return {bed, wake, total:total/60, offGrid:offGrid/60, prevIn:prevIn/60, todayIn:todayIn/60};
   }
   function nightOf(week,d){ return parseNight(week&&week['night_'+d], {firstDayOfWeek:d===0}); }
+
+  /* How long the morning sleep block in the grid runs (row 0 up), in minutes since midnight. */
+  function morningWake(w,d){
+    var r=0, ROWS=36;
+    while(r<ROWS){ var c=w[d+'_'+r]; if(!c||!c.t||c.c!=='sleep') break; r++; }
+    return r?GRID_S+r*30:null;
+  }
+  /* When the evening sleep block on day d starts (if you logged going to bed before 23:00). */
+  function eveningBed(w,d){
+    var ROWS=36, last=null;
+    for(var r=ROWS-1;r>=0;r--){ var c=w[d+'_'+r]; if(c&&c.t&&c.c==='sleep') last=GRID_S+r*30; else break; }
+    return last;
+  }
+  /* The night before day d, worked out from what's already in the sheet:
+     the morning sleep rows you typed + either the evening rows you typed or your usual bedtime.
+     An explicit night_<d> always wins. Returns null when there's nothing to go on. */
+  function nightFor(w,d,settings){
+    var explicit=nightOf(w,d); if(explicit) return explicit;
+    if(!w) return null;
+    var wake=morningWake(w,d); if(wake==null) return null;              // no sleep logged that morning → nothing to infer
+    var bed=(d>0?eveningBed(w,d-1):null);
+    var inferredBed=false;
+    if(bed==null){ var us=(settings&&settings.bed)||'23:30'; var m=/^(\d{1,2}):(\d{2})$/.exec(us); if(!m) return null; bed=(+m[1])*60+(+m[2]); inferredBed=true; }
+    var hh=Math.floor(bed/60), mm=bed%60, wh=Math.floor(wake/60), wm=wake%60;
+    var pad=function(n){ return (n<10?'0':'')+n; };
+    var info=parseNight(pad(hh)+':'+pad(mm)+'-'+pad(wh)+':'+pad(wm), {firstDayOfWeek:d===0});
+    if(info){ info.inferred=true; info.inferredBed=inferredBed; }
+    return info;
+  }
+  window.ApexTime.morningWake=morningWake;
+  window.ApexTime.eveningBed=eveningBed;
+  window.ApexTime.nightFor=nightFor;
   window.ApexTime.parseNight=parseNight;
   window.ApexTime.nightOf=nightOf;
 })();

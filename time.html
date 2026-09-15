@@ -69,6 +69,7 @@
   .npop .nr label{flex:1;color:var(--muted)}
   .npop .nr input{border:1px solid var(--line);border-radius:7px;padding:4px 7px;font:inherit;font-size:13px;background:var(--surface,#fff);color:var(--ink);outline:none}
   .npop .nr input:focus{border-color:var(--accent)}
+  .npop .nx{font-size:11px;color:var(--muted);line-height:1.45;margin:0 0 6px;padding-top:8px;border-top:1px solid var(--line)}
   .npop .ni{font-size:11.5px;color:var(--muted);line-height:1.4;margin:8px 0 10px;min-height:32px}
   .npop .nb{display:flex;gap:6px;justify-content:flex-end}
   .npop .nb button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
@@ -88,6 +89,12 @@
   .days div{text-align:center;font-size:11px;color:var(--muted)}
   .days div b{display:block;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
   .hint{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+  details.hint>summary{cursor:pointer;font-weight:600;font-size:11px;letter-spacing:.4px;text-transform:uppercase;list-style:none;margin-bottom:4px}
+  details.hint>summary::-webkit-details-marker{display:none}
+  details.hint>summary::after{content:" ▾";opacity:.6}
+  details.hint[open]>summary::after{content:" ▴"}
+  details.hint>div{margin:5px 0}
+  details.hint b{color:var(--ink);font-weight:600}
   kbd{font:inherit;font-size:10.5px;background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:0 5px}
 
   .ctx{position:fixed;z-index:90;background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(20,22,35,.2);padding:6px;min-width:190px}
@@ -135,6 +142,7 @@
     <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import week</button>
     <button onclick="clearAutoWeek()" title="Remove every slot that was filled from the calendar (leaves what you typed)">🧹 Clear imported</button>
     <button onclick="undoTime()" title="Undo the last bulk change to this sheet">↩︎ Undo</button>
+    <button onclick="openBedtime()" id="bedBtn" title="Nights without a logged bedtime use this">🌙 Bedtime</button>
     <span class="sp"></span>
     <div class="legend" id="legend"></div>
   </div>
@@ -157,7 +165,7 @@ function guessCat(text){ return window.ApexTime.guessCat(text,S.rules); }
 const KEY='apexTime';
 let S; try{ S=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
 if(!S||typeof S!=='object') S={};
-S.weeks=S.weeks||{}; S.rules=S.rules||{};
+S.weeks=S.weeks||{}; S.rules=S.rules||{}; S.settings=S.settings||{bed:'23:30'};
 (function(){ let ch=false; for(const wk in S.weeks) for(const k in S.weeks[wk]){ const v=S.weeks[wk][k]; if(v&&LEGACY[v.c]){ v.c=LEGACY[v.c]; ch=true; } if(v&&v.c==='life'&&/\b(sleep|sleeping|nap)\b/i.test(v.t||'')){ v.c='sleep'; ch=true; } } for(const t in S.rules){ if(LEGACY[S.rules[t]]){ S.rules[t]=LEGACY[S.rules[t]]; ch=true; } } if(ch) save(); })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
 const $=id=>document.getElementById(id);
@@ -208,8 +216,8 @@ function render(){
   const days=[...Array(7)].map((_,i)=>addDays(monday,i));
   $('range').textContent=days[0].toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+days[6].toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
   $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map((d,i)=>{ const W=week();
-    const info=window.ApexTime.nightOf(W,i);
-    const lbl=info? (Math.round(info.total*10)/10)+' h' : (W['wake_'+i]? 'till '+W['wake_'+i] : 'sleep');
+    const info=window.ApexTime.nightFor(W,i,S.settings);
+    const lbl=info? ((info.inferred?'~':'')+(Math.round(info.total*10)/10)+' h') : 'sleep';
     return '<th class="'+(iso(d)===today?'today':'')+'">'+d.toLocaleDateString(undefined,{weekday:'short'})+'<b>'+d.getDate()+'</b>'+
       '<button class="nightbtn'+(info?' on':'')+'" data-d="'+i+'" title="Night sleep — the hours outside 05:00–23:00 are counted even though the sheet has no rows for them">🌙 '+lbl+'</button></th>'; }).join('')+'</tr>';
   $('thead').querySelectorAll('.nightbtn').forEach(b=>b.addEventListener('click',e=>openNight(+b.dataset.d,b)));
@@ -233,7 +241,8 @@ function renderPanel(){
   const w=week(); const per={}; let logged=0; const perDay=[0,0,0,0,0,0,0];
   for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')||k.startsWith('night')) continue; const v=w[k]; if(!v||!v.t) continue; logged+=.5; const d=+k.split('_')[0]; perDay[d]+=.5; const c=v.c||'other'; per[c]=(per[c]||0)+.5; }
   // sleep the 05:00–23:00 sheet has no rows for (from the 🌙–☀ times in each day header)
-  let night=0; for(let d=0;d<7;d++){ const n=window.ApexTime.nightOf(w,d); if(n&&n.offGrid>0){ night+=n.offGrid; perDay[d]+=n.offGrid; } }
+  let night=0, guessed=false;
+  for(let d=0;d<7;d++){ const n=window.ApexTime.nightFor(w,d,S.settings); if(n&&n.offGrid>0){ night+=n.offGrid; perDay[d]+=n.offGrid; if(n.inferredBed) guessed=true; } }
   if(night){ logged+=night; per.sleep=(per.sleep||0)+night; }
   const total=ROWS*7*.5;
   // completeness of the elapsed part of this week (only meaningful for the current/past weeks)
@@ -249,8 +258,15 @@ function renderPanel(){
     '<div class="days">'+['M','T','W','T','F','S','S'].map((l,i)=>'<div>'+l+'<b>'+(perDay[i]?fmtH(perDay[i]):'–')+'</b></div>').join('')+'</div>'+
     '<h3 style="margin-top:16px">By category</h3>'+
     (rows.length?rows.map(r=>'<div class="stat"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+r.color+';margin-right:7px"></i>'+r.name+'</span><b>'+fmtH(r.h)+'</b></div><div class="bar"><i style="width:'+Math.round(r.h/Math.max(logged,1)*100)+'%;background:'+r.color+'"></i></div>').join(''):'<div class="stat" style="color:var(--muted)">Nothing logged yet</div>')+
-    (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(night?'<div class="stat"><span>of which outside 05:00–23:00</span><b>'+fmtH(night)+'</b></div>':'')+
-    '<div class="hint">Type into a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day · press and drag a slot up or down to stretch it over more hours (or drag over empty slots, then type once) · right-click or <kbd>⌘1–6</kbd> to set a category — otherwise it’s guessed from the words and learns from your corrections · 🌙 in a day header records the night — the morning fills with Sleep and the hours outside 05:00–23:00 are counted too · meetings from your calendar appear on their own (italic) and become yours as soon as you edit them · <kbd>⌘⌫</kbd> clears</div>';
+    (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(night?'<div class="stat"><span>of which outside 05:00–23:00</span><b>'+fmtH(night)+'</b></div>'+(guessed?'<div class="stat" style="color:var(--muted);font-size:11.5px"><span>nights without a bedtime assume you are in bed by '+esc(S.settings.bed)+'</span><b><button onclick="openBedtime()" style="border:0;background:transparent;color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline dotted">change</button></b></div>':''):'')+
+    '<details class="hint"><summary>How this sheet works</summary>'+
+      '<div><b>Type</b> in a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day</div>'+
+      '<div><b>Drag</b> a slot up or down to stretch it over more hours</div>'+
+      '<div><b>Right-click</b> or <kbd>⌘1–6</kbd> to set a category — otherwise it is guessed from the words and learns from your corrections</div>'+
+      '<div><b>🌙 in a day header</b> for the night — sleep outside 05:00–23:00 is counted from your sleep rows and usual bedtime</div>'+
+      '<div><b>📅 Import week</b> pulls meetings from your calendar (italic); editing one makes it yours</div>'+
+      '<div><kbd>⌘⌫</kbd> clears a slot · <kbd>↩︎ Undo</kbd> reverses a bulk change</div>'+
+    '</details>';
 }
 function fmtH(h){ return (Math.round(h*10)/10).toString().replace(/\.0$/,'')+' h'; }
 
@@ -331,6 +347,12 @@ const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEven
     fill=null; };
 
 
+function openBedtime(){
+  const v=prompt('Usual bedtime (HH:MM) — used for any night where you have not logged going to bed:', S.settings.bed||'23:30');
+  if(v===null) return;
+  if(!/^\d{1,2}:\d{2}$/.test(v.trim())){ toast('Use HH:MM, e.g. 23:30'); return; }
+  S.settings.bed=v.trim(); save(); render(); toast('Usual bedtime '+S.settings.bed);
+}
 /* night sleep popover (🌙 in a day header) */
 let npop=null;
 function closeNight(){ if(npop){ npop.remove(); npop=null; } }
@@ -338,13 +360,17 @@ document.addEventListener('pointerdown',e=>{ if(npop&&!npop.contains(e.target)&&
 function openNight(d,btn){
   if(npop){ closeNight(); return; }
   const W=week(); const cur=(W['night_'+d]||'').split('-');
-  const bed=cur[0]||'', wake=cur[1]||W['wake_'+d]||'';
+  const auto=window.ApexTime.nightFor(W,d,S.settings);
+  const hm2=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  const bed=cur[0]||(auto?hm2(auto.bed):''), wake=cur[1]||W['wake_'+d]||(auto?hm2(auto.wake):'');
   const day=addDays(monday,d).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'});
   npop=document.createElement('div'); npop.className='npop';
   npop.innerHTML='<div class="nh">Sleep · '+day+'</div>'+
     '<div class="nr"><label>Went to bed</label><input type="time" id="nBed" value="'+bed+'"></div>'+
     '<div class="nr"><label>Woke up</label><input type="time" id="nWake" value="'+wake+'"></div>'+
     '<div class="ni" id="nOut"></div>'+
+    (auto&&auto.inferred?'<div class="nx">Worked out from the sleep rows in the sheet'+(auto.inferredBed?' and your usual bedtime <b>'+esc(S.settings.bed)+'</b>':'')+'. Saving exact times overrides it for this day.</div>':'')+
+    '<div class="nr" style="margin-top:8px"><label>Usual bedtime</label><input type="time" id="nUsual" value="'+esc(S.settings.bed||'23:30')+'" title="Used for any night where you have not logged going to bed"></div>'+
     '<div class="nb"><button data-a="clear">Clear</button><button class="primary" data-a="save">Save</button></div>';
   document.body.appendChild(npop);
   const r=btn.getBoundingClientRect(), W2=npop.offsetWidth;
@@ -355,6 +381,7 @@ function openNight(d,btn){
     out.textContent=i? (Math.round(i.total*10)/10)+' h in bed — '+(Math.round(i.offGrid*10)/10)+' h of it outside 05:00–23:00, counted as Sleep' : 'Set both times to log the whole night.'; };
   [B,K].forEach(x=>x.addEventListener('input',preview)); preview();
   npop.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); npop.querySelector('[data-a=save]').click(); } if(e.key==='Escape') closeNight(); });
+  $('nUsual').addEventListener('change',e=>{ S.settings.bed=e.target.value||'23:30'; save(); render(); toast('Usual bedtime '+S.settings.bed); });
   npop.querySelector('[data-a=save]').onclick=()=>{ setNight(d,B.value,K.value); closeNight(); };
   npop.querySelector('[data-a=clear]').onclick=()=>{ setNight(d,'',''); closeNight(); };
   B.focus();
