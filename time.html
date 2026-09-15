@@ -118,7 +118,9 @@
     <button onclick="shift(-1)" title="Previous week">‹</button>
     <button onclick="shift(1)" title="Next week">›</button>
     <span class="range" id="range"></span>
-    <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import from calendar</button>
+    <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import week</button>
+    <button onclick="clearAutoWeek()" title="Remove every slot that was filled from the calendar (leaves what you typed)">🧹 Clear imported</button>
+    <button onclick="undoTime()" title="Undo the last bulk change to this sheet">↩︎ Undo</button>
     <span class="sp"></span>
     <div class="legend" id="legend"></div>
   </div>
@@ -312,12 +314,27 @@ async function importCal(){
   reloadState(); render();
   toast(r.events? ('Imported '+r.events+' events → '+r.filled+' slots filled'+(r.kept?', '+r.kept+' kept as you had them':'')) : 'No events found for this week');
 }
-// on load: log today's meetings that have already happened, so the grid is never behind
-async function autoFillToday(){
+// on load: only LOOK — never write. If meetings are missing from the grid, offer the import.
+async function checkCal(){
+  const t=new Date(); const from=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  const r=await window.ApexTime.fillFromCalendar({from, to:addDays(from,1), dryRun:true});
+  if(!r.ok){ $('calHint').innerHTML="Meetings can't be read right now — open the <a href=\"calendar.html\">Calendar tab</a> once to reconnect Google."; $('calHint').style.display='block'; return; }
+  if(r.wouldFill){ $('calHint').innerHTML='You have '+(r.wouldFill/2)+' h of meetings today that aren\'t logged yet. <button onclick="importToday()">Log them</button> <span style="opacity:.7">— nothing is written until you press it.</span>'; $('calHint').style.display='block'; }
+}
+async function importToday(){
   const t=new Date(); const from=new Date(t.getFullYear(),t.getMonth(),t.getDate());
   const r=await window.ApexTime.fillFromCalendar({from, to:addDays(from,1)});
-  if(r.filled){ reloadState(); if(iso(mondayOf(t))===iso(monday)) render(); toast('Logged '+(r.filled/2)+' h of meetings from your calendar'); }
-  else if(!r.ok){ $('calHint').style.display='block'; }
+  reloadState(); render(); $('calHint').style.display='none';
+  toast(r.filled? ('Logged '+(r.filled/2)+' h of meetings — press Undo if that was wrong') : 'Nothing to log');
+}
+function clearAutoWeek(){
+  const n=window.ApexTime.clearAuto(new Date(monday), addDays(monday,7));
+  reloadState(); render(); toast(n? ('Removed '+n+' calendar-filled slots'):'No calendar-filled slots this week');
+}
+function undoTime(){
+  const snaps=window.ApexTime.snapshots();
+  if(!snaps.length){ toast('Nothing to undo'); return; }
+  if(window.ApexTime.restore()){ reloadState(); render(); toast('Reverted to '+new Date(snaps[0].ts).toLocaleTimeString()); }
 }
 
 /* ---------- navigation ---------- */
@@ -335,7 +352,7 @@ window.addEventListener('storage',e=>{ if(e.key===KEY && document.activeElement 
 
 window.addEventListener('beforeunload',()=>{ const td=focused||tdOf(document.activeElement); if(td&&document.activeElement&&td.contains(document.activeElement)) commit(td); });
 render(); scrollToNow();
-setTimeout(autoFillToday,600);
+setTimeout(checkCal,800);
 </script>
 </body>
 </html>

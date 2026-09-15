@@ -101,7 +101,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     return anyOk?out:null;
   }
 
-  function write(evs,onlyPast){
+  function write(evs,onlyPast,dry){
     const res={filled:0,kept:0};
     const S=ls(KEY,{weeks:{},rules:{}}); S.weeks=S.weeks||{}; S.rules=S.rules||{};
     const cutoff=onlyPast===false?Infinity:Date.now();
@@ -122,7 +122,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
         res.filled++;
       }
     });
-    if(res.filled){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+    if(res.filled && !dry){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
     return res;
   }
 
@@ -133,6 +133,52 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
       while(!window.apexSyncReady && Date.now()-t0<3000) await new Promise(r=>setTimeout(r,100));
       if(window.apexSyncReady) await Promise.race([window.apexSyncReady, new Promise(r=>setTimeout(r,6000))]);
     }catch(e){}
+  }
+
+  /* ---- local snapshots, so a bulk change can always be undone ----
+     Kept in apexTimeBackups (NOT a synced key): newest first, last 10. */
+  const BK='apexTimeBackups';
+  function snapshot(reason){
+    try{
+      const cur=localStorage.getItem(KEY); if(cur==null) return null;
+      let list=[]; try{ list=JSON.parse(localStorage.getItem(BK)||'[]')||[]; }catch(e){}
+      if(list[0] && list[0].data===cur){ return list[0].ts; }          // nothing changed since the last one
+      const rec={ts:Date.now(), reason:reason||'', data:cur};
+      list.unshift(rec); list=list.slice(0,10);
+      localStorage.setItem(BK,JSON.stringify(list));
+      return rec.ts;
+    }catch(e){ return null; }
+  }
+  function snapshots(){ try{ return (JSON.parse(localStorage.getItem(BK)||'[]')||[]).map(r=>({ts:r.ts,reason:r.reason,bytes:(r.data||'').length})); }catch(e){ return []; } }
+  function restore(ts){
+    try{
+      const list=JSON.parse(localStorage.getItem(BK)||'[]')||[];
+      const rec=ts?list.find(r=>r.ts===ts):list[0]; if(!rec) return false;
+      snapshot('before-restore');
+      localStorage.setItem(KEY,rec.data);                              // a normal write, so it syncs to your other devices
+      return true;
+    }catch(e){ return false; }
+  }
+  /* drop every auto-logged slot in [from,to) — undoing the calendar import without touching what you typed */
+  function clearAuto(from,to){
+    let removed=0;
+    try{
+      snapshot('clear-auto');
+      const S=ls(KEY,{weeks:{},rules:{}}); S.weeks=S.weeks||{};
+      Object.keys(S.weeks).forEach(wkKey=>{
+        const mon=new Date(wkKey+'T00:00'); if(isNaN(mon)) return;
+        const w=S.weeks[wkKey];
+        Object.keys(w).forEach(k=>{
+          if(k.startsWith('wake')||!w[k]||!w[k].a) return;
+          const [d,r]=k.split('_').map(Number);
+          const when=new Date(mon); when.setDate(mon.getDate()+d); when.setMinutes(START+r*STEP);
+          if(from&&when<from) return; if(to&&when>=to) return;
+          delete w[k]; removed++;
+        });
+      });
+      if(removed) localStorage.setItem(KEY,JSON.stringify(S));
+    }catch(e){}
+    return removed;
   }
 
   async function fillFromCalendar(opts){
@@ -146,9 +192,15 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     else { evs=cachedEvents(from,to); if(evs) out.source='cache'; }
     if(!evs){ out.reason=ls('apexGTok',null)?'no-calendars':'not-connected'; return out; }
     out.ok=true; out.events=evs.length;
-    if(evs.length){ const r=write(evs,opts.onlyPast); out.filled=r.filled; out.kept=r.kept; }
+    if(evs.length){
+      if(opts.dryRun){ const probe=write(evs,opts.onlyPast,true); out.wouldFill=probe.filled; out.kept=probe.kept; return out; }
+      snapshot('calendar-import');
+      const r=write(evs,opts.onlyPast); out.filled=r.filled; out.kept=r.kept;
+    }
     return out;
   }
 
   window.ApexTime.fillFromCalendar=fillFromCalendar;
+  window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
+  window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto;
 })();
