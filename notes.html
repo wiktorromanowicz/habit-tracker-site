@@ -89,6 +89,12 @@
   .nbody ul,.nbody ol{margin:4px 0 4px 2px;padding-left:24px}
   .nbody li{margin:2px 0}
   .nbody a{color:#2563eb}
+  /* pasted images */
+  .nbody img{display:block;max-width:100%;height:auto;border-radius:10px;margin:10px 0;border:1px solid var(--line);cursor:zoom-in}
+  .nbody img.isz-33{max-width:33%} .nbody img.isz-66{max-width:66%}
+  .nbody img.sel{outline:2px solid var(--accent);outline-offset:2px}
+  .nbody img.pending{opacity:.45;filter:grayscale(1)}
+  .nbody.dropping{box-shadow:inset 0 0 0 2px var(--accent);border-radius:8px}
   .nbody .brief{background:#fbf8f0;border:1px solid #efe6cf;border-radius:12px;padding:12px 16px;margin:2px 0 6px}
   .nbody .brief h2{font-size:17px;margin:0 0 8px} .nbody .brief h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#a9741f;margin:12px 0 4px}
   .nbody .brief ul{margin:2px 0 4px 2px} .nbody .brief li{margin:1px 0} .nbody .brief p{margin:4px 0}
@@ -218,6 +224,8 @@
   <button class="sw" style="background:#f59e0b" onmousedown="color(event,'#f59e0b')" title="Amber"></button>
   <button class="sw" style="background:#ef4444" onmousedown="color(event,'#ef4444')" title="Red"></button>
   <span class="sep"></span>
+  <button onmousedown="event.preventDefault();pickImage()" title="Insert an image — or just paste one (⌘V)">🖼</button>
+  <span class="sep"></span>
   <button onmousedown="fmt(event,'removeFormat')" title="Clear formatting">⌫</button>
 </div>
 <input type="date" id="datePick">
@@ -302,6 +310,73 @@ function renderList(){
 function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ---- editor ---- */
+/* ---- images pasted into a note ----
+   The bytes live in IndexedDB on this device (localStorage is far too small, and the note HTML
+   syncs to the cloud — so the note only ever carries a short id, never the image data). */
+const IMGDB='apexNoteImgs', IMGST='imgs';
+let imgdb=null, liveUrls=[];
+function idb(){
+  if(imgdb) return Promise.resolve(imgdb);
+  return new Promise((res,rej)=>{ const r=indexedDB.open(IMGDB,1);
+    r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains(IMGST)) d.createObjectStore(IMGST,{keyPath:'id'}); };
+    r.onsuccess=()=>{ imgdb=r.result; res(imgdb); }; r.onerror=()=>rej(r.error); });
+}
+function idbPut(rec){ return idb().then(d=>new Promise((res,rej)=>{ const t=d.transaction(IMGST,'readwrite').objectStore(IMGST).put(rec); t.onsuccess=()=>res(rec.id); t.onerror=()=>rej(t.error); })); }
+function idbGet(id){ return idb().then(d=>new Promise((res,rej)=>{ const t=d.transaction(IMGST,'readonly').objectStore(IMGST).get(id); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); })); }
+/* big screenshots get scaled down so a note stays quick to open */
+function shrink(file,max){
+  max=max||1600;
+  return new Promise(res=>{
+    const u=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{
+      const sc=Math.min(1,max/Math.max(im.width,im.height));
+      if(sc>=1&&file.size<900000){ URL.revokeObjectURL(u); res({blob:file,w:im.width,h:im.height}); return; }
+      const c=document.createElement('canvas'); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      c.toBlob(b=>{ URL.revokeObjectURL(u); res({blob:b||file,w:c.width,h:c.height}); }, file.type==='image/png'?'image/png':'image/jpeg', .85);
+    };
+    im.onerror=()=>{ URL.revokeObjectURL(u); res({blob:file,w:0,h:0}); };
+    im.src=u;
+  });
+}
+async function addImages(files){
+  const arr=[...files].filter(f=>/^image\//.test(f.type));
+  if(!arr.length) return false;
+  for(const f of arr){
+    const ph=document.createElement('img'); ph.className='pending'; ph.alt='pasting…';
+    insertAtCaret(ph);
+    try{
+      const {blob,w,h}=await shrink(f);
+      const id='i'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+      await idbPut({id, blob, w, h, type:blob.type||f.type, added:Date.now()});
+      const url=URL.createObjectURL(blob); liveUrls.push(url);
+      ph.dataset.img=id; ph.src=url; ph.alt=f.name||'image'; ph.classList.remove('pending');
+    }catch(e){ ph.remove(); toast&&toast('Could not add that image'); }
+  }
+  scheduleSave();
+  return true;
+}
+function insertAtCaret(node){
+  bodyEl.focus();
+  const sel=getSelection();
+  if(!sel.rangeCount || !bodyEl.contains(sel.anchorNode)){ bodyEl.appendChild(node); }
+  else { const r=sel.getRangeAt(0); r.deleteContents(); r.insertNode(node); r.setStartAfter(node); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); }
+  // always leave a line to type on after an image
+  if(!node.nextSibling){ const br=document.createElement('div'); br.innerHTML='<br>'; bodyEl.appendChild(br); }
+}
+/* put the real bytes back behind every id when a note opens */
+async function hydrateImages(){
+  liveUrls.splice(0).forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} });
+  const imgs=[...bodyEl.querySelectorAll('img')];
+  for(const im of imgs){
+    const id=im.dataset.img;
+    if(!id){ if(/^(blob:|file:)/.test(im.getAttribute('src')||'')) im.remove(); continue; }   // dead pre-v54 paste
+    try{ const rec=await idbGet(id);
+      if(rec&&rec.blob){ const u=URL.createObjectURL(rec.blob); liveUrls.push(u); im.src=u; im.classList.remove('pending'); }
+      else { im.removeAttribute('src'); im.alt='(image not on this device)'; im.classList.add('pending'); }
+    }catch(e){}
+  }
+}
 let loading=false, loadedId=null;
 function open(id, focusBody){
   const n=S.notes.find(x=>x.id===id); if(!n) return;
@@ -311,7 +386,7 @@ function open(id, focusBody){
   titleEl.textContent=n.title||'';
   bodyEl.innerHTML=n.body||'';
   loading=false; loadedId=n.id;
-  decorateChips();
+  decorateChips(); hydrateImages();
   renderList(); renderMeta();
   const a=list.querySelector('.nitem.active'); if(a) a.scrollIntoView({block:'nearest'});
   if(focusBody){ (n.title?bodyEl:titleEl).focus(); }
@@ -323,17 +398,49 @@ function renderMeta(){
   $('wc').textContent=words+' word'+(words===1?'':'s');
   $('pinBtn').classList.toggle('on',!!n.pinned); $('pinBtn').textContent=n.pinned?'📌 Pinned':'📌 Pin';
 }
+/* the saved HTML keeps data-img ids, not the temporary blob: URLs behind them */
+function serializeBody(){
+  const c=bodyEl.cloneNode(true);
+  c.querySelectorAll('img').forEach(im=>{ if(im.dataset.img) im.removeAttribute('src'); im.classList.remove('sel','pending'); });
+  return c.innerHTML;
+}
 let t=null;
 function scheduleSave(){ clearTimeout(t); t=setTimeout(flush,300); }
 function flush(){
   clearTimeout(t); t=null;
   const n=cur(); if(!n||loading||loadedId!==n.id) return;
-  const title=titleEl.textContent.trim(), body=bodyEl.innerHTML;
+  const title=titleEl.textContent.trim(), body=serializeBody();
   if(title===n.title && body===n.body) return;
   n.title=title; n.body=body; n.updated=Date.now(); save(); renderList(); renderMeta();
 }
 titleEl.addEventListener('input',scheduleSave);
 bodyEl.addEventListener('input',e=>{ if(!loading){ autoFormat(e); scheduleSave(); } });
+/* paste an image straight from the clipboard (⌘⇧4 screenshots included) */
+bodyEl.addEventListener('paste',e=>{
+  const dt=e.clipboardData; if(!dt) return;
+  const files=[...(dt.files||[])].filter(f=>/^image\//.test(f.type));
+  const items=files.length?files:[...(dt.items||[])].filter(i=>i.kind==='file'&&/^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
+  if(!items.length) return;                       // plain text / html pastes carry on as before
+  e.preventDefault(); addImages(items);
+});
+/* or drop an image file onto the note */
+['dragover','dragenter'].forEach(ev=>bodyEl.addEventListener(ev,e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){ e.preventDefault(); bodyEl.classList.add('dropping'); } }));
+['dragleave','drop'].forEach(ev=>bodyEl.addEventListener(ev,()=>bodyEl.classList.remove('dropping')));
+bodyEl.addEventListener('drop',e=>{ const f=e.dataTransfer&&e.dataTransfer.files; if(f&&[...f].some(x=>/^image\//.test(x.type))){ e.preventDefault(); addImages(f); } });
+/* click an image to cycle its width */
+bodyEl.addEventListener('click',e=>{
+  const im=e.target.closest&&e.target.closest('img'); if(!im||!bodyEl.contains(im)) return;
+  const order=['','isz-66','isz-33'];
+  const now=order.findIndex(c=>c?im.classList.contains(c):(!im.classList.contains('isz-66')&&!im.classList.contains('isz-33')));
+  const next=order[(now+1)%order.length];
+  im.classList.remove('isz-33','isz-66'); if(next) im.classList.add(next);
+  scheduleSave();
+});
+function pickImage(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+  inp.onchange=()=>{ if(inp.files&&inp.files.length) addImages(inp.files); };
+  inp.click();
+}
 window.addEventListener('beforeunload',flush);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) flush(); });
 
@@ -567,7 +674,7 @@ async function pullBrief(){
   const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
   n.body='<div class="brief" data-brief="'+b.brief_date+'">'+b.html+'</div><hr class="brief-end">'+rest;
   n.updated=Date.now(); n.pinned=true; save();
-  if(S.active===n.id){ loading=true; bodyEl.innerHTML=n.body; loading=false; decorateChips(); }
+  if(S.active===n.id){ loading=true; bodyEl.innerHTML=n.body; loading=false; decorateChips(); hydrateImages(); }
   renderList(); renderMeta();
 }
 setTimeout(pullBrief,1500); setInterval(pullBrief,5*60000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullBrief(); });
