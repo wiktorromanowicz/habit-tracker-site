@@ -51,6 +51,10 @@
   body.filling,body.filling *{user-select:none!important;cursor:ns-resize!important}
   td.cell.now{box-shadow:inset 3px 0 0 var(--accent)}
   td.cell.auto .in{font-style:italic}
+  td.cell .ghost{position:absolute;inset:0;padding:4px 8px;font-size:12px;line-height:1.3;color:var(--muted);opacity:.62;pointer-events:none;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  td.cell.empty:hover .ghost{pointer-events:auto;cursor:copy;opacity:.95;color:#a9741f;background:rgba(169,116,31,.07);border-radius:4px}
+  td.cell.focus .ghost{display:none}
+  td.cell.offplan{box-shadow:inset 2px 0 0 #c8850f}
   td.cell.auto .in::after{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.4;vertical-align:top;margin-left:4px}
   /* categories */
   td.c-work .in{background:#e8f0fe;color:#1a4fa3}
@@ -143,6 +147,7 @@
     <button onclick="clearAutoWeek()" title="Remove every slot that was filled from the calendar (leaves what you typed)">🧹 Clear imported</button>
     <button onclick="undoTime()" title="Undo the last bulk change to this sheet">↩︎ Undo</button>
     <button onclick="openBedtime()" id="bedBtn" title="Nights without a logged bedtime use this">🌙 Bedtime</button>
+    <button onclick="togglePlan()" id="planBtn" class="on" title="Show what your calendar had planned behind each slot">📋 Plan layer</button>
     <span class="sp"></span>
     <div class="legend" id="legend"></div>
   </div>
@@ -178,6 +183,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'),1600); }
 
 let monday=mondayOf(new Date());
+let PLAN={};                                  // "d_r" → what the calendar had planned for that slot
 const ROWS=(END-START)/STEP;
 function week(){ const k=iso(monday); return S.weeks[k]||(S.weeks[k]={}); }
 function setWake(d,val){ setNight(d, ((week()['night_'+d]||'').split('-')[0]||''), val); }
@@ -229,7 +235,12 @@ function render(){
     for(let d=0;d<7;d++){
       const c=cellData(d,r); const di=iso(days[d]);
       const cls=['cell', c&&c.c?'c-'+c.c:'', c&&c.a?'auto':'', di===today&&nowMin>=m&&nowMin<m+STEP?'now':'', (!c||!c.t)?'empty':'', (di<today||(di===today&&m+STEP<=nowMin))?'past':''].join(' ');
-      h+='<td class="'+cls+'" data-d="'+d+'" data-r="'+r+'"><div class="in" contenteditable="true" spellcheck="false">'+esc(c&&c.t||'')+'</div><span class="fh" title="Drag to fill"></span></td>';
+      const plan=(S.settings&&S.settings.plan===false)?null:PLAN[d+'_'+r];
+      const off=plan&&c&&c.t&&c.t.trim().toLowerCase()!==plan.trim().toLowerCase();
+      h+='<td class="'+cls+(off?' offplan':'')+'" data-d="'+d+'" data-r="'+r+'"'+(plan?' data-plan="'+esc(plan)+'"':'')+(off?' title="Planned: '+esc(plan)+'"':'')+'>'+
+        '<div class="in" contenteditable="true" spellcheck="false">'+esc(c&&c.t||'')+'</div>'+
+        (plan&&!(c&&c.t)?'<span class="ghost" title="Planned — click to log it as done">'+esc(plan)+'</span>':'')+
+        '<span class="fh" title="Drag to fill"></span></td>';
     }
     h+='</tr>';
   }
@@ -250,12 +261,32 @@ function renderPanel(){
   if(thisMon<curMon) elapsed=ROWS*7; else if(thisMon===curMon){ const dow=(nowT.getDay()+6)%7, rNow=Math.floor((nowT.getHours()*60+nowT.getMinutes()-START)/STEP); elapsed=dow*ROWS+Math.max(0,Math.min(ROWS,rNow+1)); for(const k in w){ if(k.indexOf('_')<1||k.startsWith('wake')||!w[k]||!w[k].t) continue; const [d,r]=k.split('_').map(Number); if(d<dow||(d===dow&&r<=rNow)) filledSoFar++; } }
   if(thisMon<curMon) filledSoFar=logged*2;
   const pct=elapsed?Math.min(100,Math.round(filledSoFar/elapsed*100)):null;
+  // plan vs actual, for planned slots that have already passed
+  let pTotal=0, pKept=0, pSwapped=0, pMissed=0;
+  if(!(S.settings&&S.settings.plan===false)){
+    const nowT2=new Date(), sameWeek=iso(mondayOf(nowT2))===iso(monday), past=iso(monday)<iso(mondayOf(nowT2));
+    const dowN=(nowT2.getDay()+6)%7, rN=Math.floor((nowT2.getHours()*60+nowT2.getMinutes()-START)/STEP);
+    for(const k in PLAN){ const [d,r]=k.split('_').map(Number);
+      if(sameWeek && !(d<dowN||(d===dowN&&r<=rN))) continue;         // hasn't happened yet
+      if(!past && !sameWeek) continue;
+      pTotal++;
+      const v=w[k];
+      if(!v||!v.t) pMissed++;
+      else if(v.t.trim().toLowerCase()===PLAN[k].trim().toLowerCase()) pKept++;
+      else pSwapped++;
+    }
+  }
   const rows=CATS.map(c=>({...c,h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
   const waste=per.waste||0, focus=(per.work||0)+(per.content||0), awake=logged-(per.sleep||0);
   $('panel').innerHTML=
     '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged'+(night?' (incl. '+fmtH(night)+' night)':' of '+total+' h')+'</small></div>'+
     (pct!==null?'<div class="stat" style="margin-top:-4px"><span>Filled in so far</span><b>'+pct+'%</b></div><div class="bar"><i style="width:'+pct+'%;background:var(--accent)"></i></div>':'')+
     '<div class="days">'+['M','T','W','T','F','S','S'].map((l,i)=>'<div>'+l+'<b>'+(perDay[i]?fmtH(perDay[i]):'–')+'</b></div>').join('')+'</div>'+
+    (pTotal?'<h3 style="margin-top:16px">Plan vs actual</h3>'+
+      '<div class="stat"><span>Went as planned</span><b>'+Math.round(pKept/pTotal*100)+'% of '+fmtH(pTotal*.5)+'</b></div>'+
+      '<div class="bar"><i style="width:'+Math.round(pKept/pTotal*100)+'%;background:#16a34a"></i></div>'+
+      (pSwapped?'<div class="stat"><span>Did something else</span><b>'+fmtH(pSwapped*.5)+'</b></div>':'')+
+      (pMissed?'<div class="stat"><span>Planned but not logged</span><b>'+fmtH(pMissed*.5)+'</b></div>':''):'')+
     '<h3 style="margin-top:16px">By category</h3>'+
     (rows.length?rows.map(r=>'<div class="stat"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+r.color+';margin-right:7px"></i>'+r.name+'</span><b>'+fmtH(r.h)+'</b></div><div class="bar"><i style="width:'+Math.round(r.h/Math.max(logged,1)*100)+'%;background:'+r.color+'"></i></div>').join(''):'<div class="stat" style="color:var(--muted)">Nothing logged yet</div>')+
     (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(night?'<div class="stat"><span>of which outside 05:00–23:00</span><b>'+fmtH(night)+'</b></div>'+(guessed?'<div class="stat" style="color:var(--muted);font-size:11.5px"><span>nights without a bedtime assume you are in bed by '+esc(S.settings.bed)+'</span><b><button onclick="openBedtime()" style="border:0;background:transparent;color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline dotted">change</button></b></div>':''):'')+
@@ -264,7 +295,8 @@ function renderPanel(){
       '<div><b>Drag</b> a slot up or down to stretch it over more hours</div>'+
       '<div><b>Right-click</b> or <kbd>⌘1–8</kbd> to set a category — otherwise it is guessed from the words and learns from your corrections</div>'+
       '<div><b>🌙 in a day header</b> for the night — sleep outside 05:00–23:00 is counted from your sleep rows and usual bedtime</div>'+
-      '<div><b>📅 Import week</b> pulls meetings from your calendar (italic); editing one makes it yours</div>'+
+      '<div><b>📋 Plan layer</b> shows what the calendar had planned behind each empty slot — click the faint text to log it as done; an amber edge means you did something else</div>'+
+      '<div><b>📅 Import week</b> fills every planned slot at once (italic); editing one makes it yours</div>'+
       '<div><kbd>⌘⌫</kbd> clears a slot · <kbd>↩︎ Undo</kbd> reverses a bulk change</div>'+
     '</details>';
 }
@@ -387,6 +419,14 @@ function openNight(d,btn){
   B.focus();
 }
 
+/* click a ghost (planned) slot to log it as what actually happened */
+tbody.addEventListener('click',e=>{
+  const g=e.target.closest('.ghost'); if(!g) return;
+  const td=tdOf(g); if(!td) return;
+  const {d,r}=pos(td); const t=td.dataset.plan||''; if(!t) return;
+  setCell(d,r,t,guessCat(t)); paint(td); renderPanel();
+});
+
 /* right-click: category menu */
 let ctx=null; function closeCtx(){ if(ctx){ ctx.remove(); ctx=null; } }
 tbody.addEventListener('contextmenu',e=>{
@@ -461,8 +501,20 @@ function undoTime(){
 }
 
 /* ---------- navigation ---------- */
-function shift(n){ monday=addDays(monday,7*n); render(); }
-function goToday(){ monday=mondayOf(new Date()); render(); scrollToNow(); }
+function shift(n){ monday=addDays(monday,7*n); render(); loadPlan(); }
+function goToday(){ monday=mondayOf(new Date()); render(); scrollToNow(); loadPlan(); }
+async function loadPlan(){
+  if(S.settings&&S.settings.plan===false){ PLAN={}; render(); return; }
+  try{ PLAN=await window.ApexTime.planSlots(new Date(monday), addDays(monday,7))||{}; }catch(e){ PLAN={}; }
+  render();
+}
+function togglePlan(){
+  S.settings=S.settings||{}; S.settings.plan=!(S.settings.plan!==false); save();
+  const on=S.settings.plan!==false;
+  $('planBtn').classList.toggle('on',on);
+  toast(on?'Calendar layer on — planned slots show faintly':'Calendar layer off');
+  if(on) loadPlan(); else { PLAN={}; render(); }
+}
 function scrollToNow(){ const td=tbody.querySelector('td.now'); if(td) td.scrollIntoView({block:'center'}); }
 document.addEventListener('keydown',e=>{
   if(e.target.closest('[contenteditable],input,textarea')) return;
@@ -476,6 +528,7 @@ window.addEventListener('storage',e=>{ if(e.key===KEY && document.activeElement 
 window.addEventListener('beforeunload',()=>{ const td=focused||tdOf(document.activeElement); if(td&&document.activeElement&&td.contains(document.activeElement)) commit(td); });
 render(); scrollToNow();
 setTimeout(checkCal,800);
+loadPlan();
 setTimeout(migrateCats,900);
 </script>
 </body>

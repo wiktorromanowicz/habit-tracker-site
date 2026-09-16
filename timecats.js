@@ -204,6 +204,25 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     return out;
   }
 
+  /* The plan layer: what the calendar says each slot was FOR, as a map of "d_r" → title.
+     Read-only — it never writes to the sheet. Cache first (works offline), live when the token is good. */
+  async function planSlots(from,to){
+    var evs=await liveEvents(from,to);
+    if(!evs) evs=cachedEvents(from,to);
+    var out={};
+    if(!evs) return out;
+    var mondayKey=iso(mondayOf(from));
+    evs.forEach(function(ev){
+      if(iso(mondayOf(ev.s))!==mondayKey) return;
+      var d=(ev.s.getDay()+6)%7;
+      var sm=ev.s.getHours()*60+ev.s.getMinutes();
+      var em=ev.e.getHours()*60+ev.e.getMinutes()+(ev.e.getDate()!==ev.s.getDate()?1440:0);
+      var r0=Math.max(0,Math.floor((sm-START)/STEP)), r1=Math.min(ROWS,Math.max(r0+1,Math.ceil((em-START)/STEP)));
+      for(var r=r0;r<r1;r++){ var k=d+'_'+r; if(!out[k]) out[k]=ev.t; }
+    });
+    return out;
+  }
+  window.ApexTime.planSlots=planSlots;
   window.ApexTime.fillFromCalendar=fillFromCalendar;
   window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
   window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto;
