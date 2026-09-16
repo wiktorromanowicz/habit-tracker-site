@@ -246,16 +246,26 @@ async function fetchBriefFromCalendar(){
   }catch(err){}
 })();
 
-/* right now — time log for today (read-only view of apexTime; nothing is written unless you type) */
-(async function(){
-  const S=ls('apexTime',{weeks:{}}); const START=300, STEP=30;
-  const m=new Date(now); const dow=(m.getDay()+6)%7; m.setDate(m.getDate()-dow); const wk=S.weeks[isoDay(m)]||{};
+/* right now — time log for today.
+   The clock is read fresh every time this card renders AND every time it writes: this page can sit
+   open for hours in the app, and a stale `now` used to file entries under the wrong day. */
+function nowCtx(){
+  const n=new Date(); const dow=(n.getDay()+6)%7;
+  const m=new Date(n); m.setDate(m.getDate()-dow); m.setHours(0,0,0,0);
+  return { n, dow, wkKey:isoDay(m), r:Math.floor((n.getHours()*60+n.getMinutes()-300)/30) };
+}
+let nowShown=null;
+async function renderNowCard(){
+  const START=300, STEP=30;
+  const ctx=nowCtx(); nowShown={dow:ctx.dow, r:ctx.r};
+  const now=ctx.n, dow=ctx.dow, wkKey=ctx.wkKey;
+  const S=ls('apexTime',{weeks:{}}); const wk=S.weeks[wkKey]||{};
   const CATS={}; (window.ApexTime?window.ApexTime.CATS:[]).forEach(c=>CATS[c.id]=[c.name,c.color]); const LEG=(window.ApexTime&&window.ApexTime.LEGACY)||{};
   const per={}; let logged=0, slept=0; for(const k in wk){ if(k.startsWith('wake')||k.startsWith('night')) continue; const [d,r]=k.split('_'); if(+d!==dow||!wk[k]||!wk[k].t) continue; let c=wk[k].c||'other'; if(LEG[c]) c=LEG[c]; logged+=.5; if(c==='sleep'){ slept+=.5; continue; } per[c]=(per[c]||0)+.5; }
   // the night hours the 05:00–23:00 sheet can't hold, from the 🌙–☀ times on the Time tab
   const S0=ls('apexTime',{}); const nInfo=window.ApexTime&&window.ApexTime.nightFor?window.ApexTime.nightFor(wk,dow,S0.settings||{bed:'23:30'}):null;
   if(nInfo&&nInfo.offGrid>0){ logged+=nInfo.offGrid; slept+=nInfo.offGrid; }
-  const mins=now.getHours()*60+now.getMinutes(); const r=Math.floor((mins-START)/STEP); const cur=wk[dow+'_'+r];
+  const r=ctx.r; const cur=wk[dow+'_'+r];
   const slot=n=>pad(Math.floor(n/60))+':'+pad(n%60);
   // week so far: how much of the elapsed time (05:00–23:00 each day, up to now) is filled in
   const elapsed=dow*36+Math.max(0,Math.min(36,r+1)); let wkFilled=0, wkLogged=0;
@@ -268,15 +278,26 @@ async function fetchBriefFromCalendar(){
   // the last 90 minutes (3 half-hour slots, current one last) so the recent past can be filled in right here
   const rows=[]; for(let rr=Math.max(0,r-2); rr<=Math.min(35,r); rr++) rows.push(rr);
   const colOf=c=>{ if(LEG[c]) c=LEG[c]; return CATS[c]?CATS[c][1]:'var(--line)'; };
-  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last 90 minutes</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
+  if(rows.length){ h+='<div class="slots"><div class="lbl"><span>Last 90 minutes</span><a href="time.html">Full week →</a></div>'+rows.map(rr=>{ const v=wk[dow+'_'+rr]; return '<div class="slot'+(rr===r?' now':'')+'"><span class="t">'+slot(START+rr*STEP)+' – '+slot(START+rr*STEP+STEP)+'</span><input data-r="'+rr+'" data-wk="'+wkKey+'" data-dow="'+dow+'" placeholder="'+(rr===r?'What are you doing now?':'…')+'" value="'+esc(v&&v.t||'')+'" style="border-left-color:'+(v&&v.t?colOf(v.c||'other'):'var(--line)')+'"></div>'; }).join('')+'</div>'; }
   $('time').innerHTML=h;
-  const write=inp=>{ const rr=+inp.dataset.r; const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[isoDay(m)]||(S2.weeks[isoDay(m)]={}); const t=inp.value.trim(); const k=dow+'_'+rr;
+  const write=inp=>{ const rr=+inp.dataset.r; const wkK=inp.dataset.wk, dw=+inp.dataset.dow;
+    const S2=ls('apexTime',{weeks:{},rules:{}}); S2.weeks=S2.weeks||{}; const w=S2.weeks[wkK]||(S2.weeks[wkK]={}); const t=inp.value.trim(); const k=dw+'_'+rr;
     if(t){ const prev=w[k]||{}; w[k]={t}; const c=(prev.t===t&&prev.c)?prev.c:(window.ApexTime?window.ApexTime.guessCat(t,S2.rules||{}):null); if(c) w[k].c=c; } else delete w[k];
     localStorage.setItem('apexTime',JSON.stringify(S2)); inp.style.borderLeftColor=(t&&w[k])?colOf(w[k].c||'other'):'var(--line)'; };
   $('time').querySelectorAll('.slot input').forEach(inp=>{ inp.addEventListener('change',()=>write(inp));
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); write(inp); const all=[...$('time').querySelectorAll('.slot input')]; const n=all[all.indexOf(inp)+1]; if(n) n.focus(); else inp.blur(); }
       if(e.key==='ArrowDown'||e.key==='ArrowUp'){ const all=[...$('time').querySelectorAll('.slot input')]; const n=all[all.indexOf(inp)+(e.key==='ArrowDown'?1:-1)]; if(n){ e.preventDefault(); write(inp); n.focus(); } } }); });
-})();
+}
+renderNowCard();
+/* keep the card honest as the clock moves on, but never while you are typing in it */
+function refreshNowCard(){
+  const card=$('time'); if(card && card.contains(document.activeElement)) return;
+  const c=nowCtx(); if(nowShown && c.dow===nowShown.dow && c.r===nowShown.r) return;
+  renderNowCard();
+}
+setInterval(refreshNowCard, 60000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshNowCard(); });
+window.addEventListener('focus',refreshNowCard);
 
 /* habits — today's checkboxes */
 (function(){

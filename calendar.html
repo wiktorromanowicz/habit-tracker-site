@@ -47,7 +47,9 @@
   .mini td span{display:inline-block;width:22px;height:22px;line-height:22px;border-radius:50%}
   .mini td.dim span{color:#c9c2b2}
   .mini td.today span{background:var(--accent);color:#fff;font-weight:700}
-  .mini td.sel span{outline:2px solid var(--accent);outline-offset:-2px}
+  .mini tr.selw td{background:var(--chip)}
+  .mini tr.selw td:first-child{border-radius:9px 0 0 9px} .mini tr.selw td:last-child{border-radius:0 9px 9px 0}
+  .mini tr.selw td span{color:var(--ink)}
   .mini td:hover span{background:var(--chip)}
   .mini td.today:hover span{background:#946417}
   .cals{list-style:none;margin:0;padding:0}
@@ -389,7 +391,14 @@ function renderCals(){
 function renderMini(){
   const f=new Date(cursor.getFullYear(),cursor.getMonth(),1); const s=mondayOf(f); const [rs,re]=rangeFor();
   let h='<tr><th colspan="7" style="font-size:12px;color:var(--ink);padding:0 0 6px">'+f.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</th></tr><tr>'+['M','T','W','T','F','S','S'].map(d=>'<th>'+d+'</th>').join('')+'</tr>';
-  for(let w=0;w<6;w++){ h+='<tr>'; for(let d=0;d<7;d++){ const x=addD(s,w*7+d); const cls=[]; if(x.getMonth()!==f.getMonth()) cls.push('dim'); if(sameDay(x,new Date())) cls.push('today'); if(x>=rs&&x<re&&view!=='agenda'&&view!=='month') cls.push('sel'); h+='<td class="'+cls.join(' ')+'" data-d="'+iso(x)+'"><span>'+x.getDate()+'</span></td>'; } h+='</tr>'; }
+  for(let w=0;w<6;w++){
+    const wStart=addD(s,w*7), inWeek=view!=='agenda'&&view!=='month'&&wStart>=rs&&wStart<re;
+    h+='<tr'+(inWeek?' class="selw"':'')+'>';
+    for(let d=0;d<7;d++){ const x=addD(s,w*7+d); const cls=[];
+      if(x.getMonth()!==f.getMonth()) cls.push('dim');
+      if(sameDay(x,new Date())) cls.push('today');
+      h+='<td class="'+cls.join(' ')+'" data-d="'+iso(x)+'"><span>'+x.getDate()+'</span></td>'; }
+    h+='</tr>'; }
   $('mini').innerHTML=h;
   $('mini').querySelectorAll('td').forEach(td=>td.addEventListener('click',()=>{ cursor=new Date(td.dataset.d+'T00:00'); if(view==='month'||view==='agenda') view='day'; prefs.view=view; savePrefs(); render(); loadEvents(); }));
 }
@@ -567,8 +576,11 @@ document.addEventListener('keydown',e=>{
   if(k==='t') goToday(); else if(e.key==='ArrowLeft') shift(-1); else if(e.key==='ArrowRight') shift(1);
   else if(k==='d') setView('day'); else if(k==='w') setView('week'); else if(k==='m') setView('month'); else if(k==='a') setView('agenda');
   else if(k==='n'){ e.preventDefault(); newEventNow(); } else if(e.key==='Escape') closePop(); else return; });
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&connected) loadEvents(); });
-setInterval(()=>{ if(!document.hidden&&connected) loadEvents(); },120000);
+/* Coming back to this tab should feel instant: the cached week is already on screen, so only
+   re-fetch when the data is actually old (or you ask for it). */
+const FRESH_MS=5*60000;
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&connected&&Date.now()-(cache.updated||0)>FRESH_MS) loadEvents(); });
+setInterval(()=>{ if(!document.hidden&&connected&&Date.now()-(cache.updated||0)>FRESH_MS) loadEvents(); },120000);
 setInterval(()=>{ const nl=document.querySelector('.nowline'); if(nl){ const now=new Date(); nl.style.top=(((now-sod(now))/36e5)*HPX)+'px'; } },60000);
 
 /* ---- demo data (?mock=1) so the UI can be checked without Google ---- */
