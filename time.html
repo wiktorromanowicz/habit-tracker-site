@@ -262,7 +262,7 @@ function renderPanel(){
     '<details class="hint"><summary>How this sheet works</summary>'+
       '<div><b>Type</b> in a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day</div>'+
       '<div><b>Drag</b> a slot up or down to stretch it over more hours</div>'+
-      '<div><b>Right-click</b> or <kbd>⌘1–6</kbd> to set a category — otherwise it is guessed from the words and learns from your corrections</div>'+
+      '<div><b>Right-click</b> or <kbd>⌘1–8</kbd> to set a category — otherwise it is guessed from the words and learns from your corrections</div>'+
       '<div><b>🌙 in a day header</b> for the night — sleep outside 05:00–23:00 is counted from your sleep rows and usual bedtime</div>'+
       '<div><b>📅 Import week</b> pulls meetings from your calendar (italic); editing one makes it yours</div>'+
       '<div><kbd>⌘⌫</kbd> clears a slot · <kbd>↩︎ Undo</kbd> reverses a bulk change</div>'+
@@ -294,7 +294,7 @@ function paint(td){
 function focusCell(d,r){ const td=tdAt(d,r); if(!td) return; const inp=td.querySelector('.in'); inp.focus(); const range=document.createRange(); range.selectNodeContents(inp); range.collapse(false); const s=getSelection(); s.removeAllRanges(); s.addRange(range); td.scrollIntoView({block:'nearest',inline:'nearest'}); }
 tbody.addEventListener('keydown',e=>{
   const td=tdOf(e.target); if(!td) return; const {d,r}=pos(td); const meta=e.metaKey||e.ctrlKey;
-  if(meta && /^[1-6]$/.test(e.key)){ e.preventDefault(); applyCat(td, CATS[+e.key-1].id); return; }
+  if(meta && /^[1-8]$/.test(e.key)){ e.preventDefault(); applyCat(td, CATS[+e.key-1].id); return; }
   if(meta && e.key==='0'){ e.preventDefault(); applyCat(td,null); return; }
   if(meta && e.key==='Backspace'){ e.preventDefault(); td.querySelector('.in').textContent=''; setCell(d,r,'',null); paint(td); renderPanel(); return; }
   if(e.key==='Enter'){ e.preventDefault(); commit(td); if(e.shiftKey) focusCell(d,Math.max(0,r-1)); else focusCell(d,Math.min(ROWS-1,r+1)); }
@@ -410,6 +410,33 @@ async function importCal(){
   reloadState(); render();
   toast(r.events? ('Imported '+r.events+' events → '+r.filled+' slots filled'+(r.kept?', '+r.kept+' kept as you had them':'')) : 'No events found for this week');
 }
+/* One-time: existing "Life" slots get re-read with the new Health / People lexicon.
+   Snapshots first and waits for the cloud copy, so it can't clobber another device. */
+async function migrateCats(){
+  if(S.settings && S.settings.catsV >= 2) return;
+  try{ const t0=Date.now(); while(!window.apexSyncReady && Date.now()-t0<3000) await new Promise(r=>setTimeout(r,100));
+       if(window.apexSyncReady) await Promise.race([window.apexSyncReady, new Promise(r=>setTimeout(r,6000))]); }catch(e){}
+  reloadState();
+  let n=0, seen=0; const touched=[];
+  for(const wk in S.weeks){ const w=S.weeks[wk];
+    for(const k in w){ if(k.startsWith('wake')||k.startsWith('night')) continue;
+      const v=w[k]; if(!v||!v.t) continue;
+      seen++;
+      const c=v.c||'other';
+      if(c!=='life'&&c!=='other'&&c!=='gym') continue;              // only what used to live under Life
+      const g=window.ApexTime.guessCat(v.t,S.rules||{});
+      if(g&&(g==='health'||g==='social')&&g!==c){ touched.push([w,k,g]); n++; }
+    } }
+  S.settings=S.settings||{};
+  // an empty sheet means the cloud copy hasn't landed yet — don't mark this done, or real data would never be sorted
+  if(!seen) return;
+  if(!n){ S.settings.catsV=2; save(); return; }
+  window.ApexTime.snapshot('split Life into Health / People');
+  touched.forEach(([w,k,g])=>{ w[k].c=g; });
+  S.settings.catsV=2; save(); render();
+  toast('Sorted '+n+' slot'+(n>1?'s':'')+' into Health / People — press Undo if you disagree');
+}
+
 // on load: only LOOK — never write. If meetings are missing from the grid, offer the import.
 async function checkCal(){
   const t=new Date(); const from=new Date(t.getFullYear(),t.getMonth(),t.getDate());
@@ -449,6 +476,7 @@ window.addEventListener('storage',e=>{ if(e.key===KEY && document.activeElement 
 window.addEventListener('beforeunload',()=>{ const td=focused||tdOf(document.activeElement); if(td&&document.activeElement&&td.contains(document.activeElement)) commit(td); });
 render(); scrollToNow();
 setTimeout(checkCal,800);
+setTimeout(migrateCats,900);
 </script>
 </body>
 </html>

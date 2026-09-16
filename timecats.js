@@ -4,20 +4,24 @@ const CATS=[
   {id:'work',    name:'Work',     color:'#1a4fa3', key:'1'},
   {id:'meet',    name:'Meetings', color:'#7c3aed', key:'2'},
   {id:'content', name:'Content',  color:'#c8850f', key:'3'},
-  {id:'life',    name:'Life',     color:'#16a34a', key:'4'},
-  {id:'sleep',   name:'Sleep',    color:'#0284c7', key:'5'},
-  {id:'waste',   name:'Wasted',   color:'#8a8a8a', key:'6'},
+  {id:'health',  name:'Health',   color:'#16a34a', key:'4'},
+  {id:'social',  name:'People',   color:'#db2777', key:'5'},
+  {id:'life',    name:'Life',     color:'#0d9488', key:'6'},
+  {id:'sleep',   name:'Sleep',    color:'#0284c7', key:'7'},
+  {id:'waste',   name:'Wasted',   color:'#8a8a8a', key:'8'},
 ];
-const LEGACY={admin:'work',gym:'life',rest:'life',personal:'life'};
+const LEGACY={admin:'work',gym:'health',rest:'life',personal:'life'};
 const LEX={
   sleep:  ['sleep','sleeping','nap','asleep','in bed','bed'],
   waste:  ['wast','scroll','doomscroll','tiktok','instagram','reels','netflix','procrast','nothing','watching youtube','youtube shorts','phone','browsing','random','distracted','twitter','x feed'],
   meet:   ['talk','talking','call','meeting','sync','1:1','1-1','standup','stand-up','interview','zoom','google meet','discussion','onboarding call','coaching','with the team','csm team','ftf team','q&a','demo','sales call','client call','catch up','catching up','chat with'],
   content:['content','video','script','research','writing','write','editing','edit','post','youtube','thumbnail','film','filming','record','recording','podcast','newsletter','blog','tweet','hook','title','outline','b-roll','shooting','skool post','carousel'],
+  health: ['gym','workout','work out','gym session','gains','lift','lifting','weights','training','train','run','running','jog','cardio','zone 2','walk','walking','steps','stretch','mobility','yoga','pilates','swim','swimming','bike','cycling','sauna','cold plunge','ice bath','breathwork','meditation','meditate','physio','doctor','dentist','appointment','checkup','check-up','bloodwork','massage','recovery','supplements','protein','health'],
+  social: ['family','friends','friend','girlfriend','partner','date','date night','dinner with','lunch with','coffee with','drinks','party','wedding','birthday','visiting','visit','hanging out','hang out','call with mum','call with mom','call with dad','parents','kids'],
   work:   ['working','work','build','building','coding','dev','apex','design','funnel','ads','campaign','planning','plan','strategy','review','analysis','analys','sop','hiring','recruit','cfo','finance','emails','email','messages','dms','slack','admin','invoice','organiz','responding','outreach','sales','offer','proposal','deck','spreadsheet','notion','crm','pipeline','context switching','deep work','focus'],
-  life:   ['wake','waking','morning routine','routine','eating','eat','lunch','dinner','breakfast','coffee','break','coming back','commute','preparing','prepare','shower','gym','workout','training','run','running','walk','lift','stretch','sauna','family','friends','date','partner','home','travel','driving','shopping','groceries','cleaning','cooking','reading','relax','chill','doctor','errand','church','massage','haircut','nap','rest'],
+  life:   ['wake','waking','morning routine','routine','eating','eat','lunch','dinner','breakfast','coffee','break','coming back','commute','preparing','prepare','shower','getting ready','home','travel','driving','shopping','groceries','cleaning','cooking','laundry','errand','reading','read','relax','chill','church','haircut','admin day','packing'],
 };
-const PRIORITY=['sleep','waste','meet','content','work','life'];
+const PRIORITY=['sleep','waste','health','social','meet','content','work','life'];
 // short words must match whole words, so "Board Seat Inquiry" isn't "eat" → Life
 const RX={};
 function hit(t,w){
