@@ -21,6 +21,9 @@
   .tophead{display:flex;align-items:center;gap:10px;margin:6px 0 14px;flex-wrap:wrap}
   .tophead h1{font-size:24px;margin:0 12px 0 0;letter-spacing:-.3px}
   .tophead .range{font-size:16px;font-weight:600;margin-left:4px}
+  .tophead .wkbadge{display:none;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;background:#f4d27a;color:#6b4a06;border:1px solid #e0b94e}
+  .tophead .wkbadge.on{display:inline-block}
+  .tophead button#todayBtn.away{background:#f4d27a;border-color:#e0b94e;color:#6b4a06;font-weight:700}
   .tophead .sp{flex:1}
   .legend{display:flex;gap:6px;flex-wrap:wrap}
   .legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:3px 8px;border-radius:999px;background:var(--surface,#fff);border:1px solid var(--line)}
@@ -159,10 +162,10 @@
 
   <div class="tophead">
     <h1>Time</h1>
-    <button onclick="goToday()">Today</button>
+    <button onclick="goToday()" id="todayBtn">Today</button>
     <button onclick="shift(-1)" title="Previous week">‹</button>
     <button onclick="shift(1)" title="Next week">›</button>
-    <span class="range" id="range"></span>
+    <span class="range" id="range"></span><span class="wkbadge" id="wkBadge"></span>
     <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import week</button>
     <button onclick="clearAutoWeek()" title="Remove every slot that was filled from the calendar (leaves what you typed)">🧹 Clear imported</button>
     <button onclick="undoTime()" title="Undo the last bulk change to this sheet">↩︎ Undo</button>
@@ -285,6 +288,10 @@ function render(){
   const today=iso(new Date());
   const days=[...Array(7)].map((_,i)=>addDays(monday,i));
   $('range').textContent=days[0].toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+days[6].toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  (function(){ const off=Math.round((mondayOf(new Date())-monday)/604800000)*-1; const bd=$('wkBadge'), tb=$('todayBtn');
+    let txt=''; if(off===1) txt='Next week'; else if(off===-1) txt='Last week'; else if(off>1) txt=off+' weeks ahead'; else if(off<-1) txt=(-off)+' weeks ago';
+    if(bd){ bd.textContent=txt; bd.classList.toggle('on',!!txt); }
+    if(tb) tb.classList.toggle('away',!!txt); })();
   $('thead').innerHTML='<tr><th class="tcol"></th>'+days.map((d,i)=>{ const W=week();
     const info=window.ApexTime.nightFor(W,i,S.settings);
     const lbl=info? ((info.inferred?'~':'')+(Math.round(info.total*10)/10)+' h') : 'sleep';
