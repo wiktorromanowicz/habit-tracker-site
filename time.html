@@ -87,6 +87,13 @@
   .npop .nr input:focus{border-color:var(--accent)}
   .npop .nx{font-size:11px;color:var(--muted);line-height:1.45;margin:0 0 6px;padding-top:8px;border-top:1px solid var(--line)}
   .npop .ni{font-size:11.5px;color:var(--muted);line-height:1.4;margin:8px 0 10px;min-height:32px}
+  .npop .rlist{max-height:260px;overflow:auto;margin:-2px -4px 0}
+  .npop .rrow{display:flex;align-items:center;gap:10px;padding:7px 4px;border-top:1px solid var(--line)}
+  .npop .rrow:first-child{border-top:0}
+  .npop .rrow>div{flex:1;font-size:12.5px}
+  .npop .rsub{color:var(--muted);font-size:11px;margin-top:1px}
+  .npop .rrow button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .npop .rrow button:hover{border-color:var(--accent);color:var(--accent)}
   .npop .nb{display:flex;gap:6px;justify-content:flex-end}
   .npop .nb button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
   .npop .nb .primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -159,6 +166,7 @@
     <button onclick="importCal()" title="Fill empty slots with this week's events from your own Google calendars" style="margin-left:6px">📅 Import week</button>
     <button onclick="clearAutoWeek()" title="Remove every slot that was filled from the calendar (leaves what you typed)">🧹 Clear imported</button>
     <button onclick="undoTime()" title="Undo the last bulk change to this sheet">↩︎ Undo</button>
+    <button onclick="openRecover()" id="recBtn" title="Snapshots kept on this device — put back anything that went missing">🛟 Recover</button>
     <button onclick="openBedtime()" id="bedBtn" title="Nights without a logged bedtime use this">🌙 Bedtime</button>
     <button onclick="togglePlan()" id="planBtn" class="on" title="Show what your calendar had planned behind each slot">📋 Plan layer</button>
     <span class="sp"></span>
@@ -452,6 +460,29 @@ const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEven
     fill=null; };
 
 
+function openRecover(){
+  closeNight&&closeNight(); closeCPop&&closeCPop();
+  const wkKey=iso(monday);
+  const snaps=window.ApexTime.snapshots(wkKey);
+  const nowC=(function(){ let n=0; const w=week(); for(const k in w){ if(k.startsWith('wake')||k.startsWith('night')) continue; const v=w[k]; if(v&&v.t&&String(v.t).trim()) n++; } return n/2; })();
+  const box=document.createElement('div'); box.className='npop'; box.style.width='380px';
+  box.innerHTML='<div class="nh">Recover · snapshots on this device</div>'+
+    '<div class="nx" style="border:0;padding:0;margin-bottom:8px">This week currently holds <b>'+fmtH(nowC)+'</b>. "Fill gaps" only adds slots that are empty now — it never overwrites what is there.</div>'+
+    (snaps.length? '<div class="rlist">'+snaps.map(s2=>'<div class="rrow"><div><b>'+new Date(s2.ts).toLocaleString(undefined,{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</b>'+
+        '<div class="rsub">'+esc(s2.reason||'change')+' · this week '+fmtH(s2.weekHours)+' · all weeks '+fmtH(s2.hours)+'</div></div>'+
+        '<button data-ts="'+s2.ts+'" data-a="merge">Fill gaps</button></div>').join('')+'</div>'
+      : '<div class="nx" style="border:0">No snapshots on this device yet. They are written before bulk changes (imports, category re-sorts, undo) and are per-device — if this device was not the one that lost the data, try the same button on the device you type on.</div>')+
+    '<div class="nb" style="margin-top:10px"><button data-a="close">Close</button></div>';
+  document.body.appendChild(box);
+  box.style.left=Math.max(8,(innerWidth-box.offsetWidth)/2)+'px'; box.style.top='90px';
+  const close=()=>box.remove();
+  box.querySelector('[data-a=close]').onclick=close;
+  box.querySelectorAll('[data-a=merge]').forEach(b=>b.onclick=()=>{
+    const n=window.ApexTime.restoreMerge(+b.dataset.ts);
+    reloadState(); render(); close();
+    toast(n? ('Put back '+(n/2)+' h that were missing — ↩︎ Undo reverses it') : 'That snapshot had nothing this sheet is missing');
+  });
+}
 function openBedtime(){
   const v=prompt('Usual bedtime (HH:MM) — used for any night where you have not logged going to bed:', S.settings.bed||'23:30');
   if(v===null) return;

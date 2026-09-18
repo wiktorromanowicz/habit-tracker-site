@@ -153,7 +153,37 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
       return rec.ts;
     }catch(e){ return null; }
   }
-  function snapshots(){ try{ return (JSON.parse(localStorage.getItem(BK)||'[]')||[]).map(r=>({ts:r.ts,reason:r.reason,bytes:(r.data||'').length})); }catch(e){ return []; } }
+  function countFilled(str,weekKey){
+    try{ const S=JSON.parse(str||'{}')||{}; let all=0, wk=0;
+      Object.keys(S.weeks||{}).forEach(k=>{ const w=S.weeks[k]||{};
+        Object.keys(w).forEach(x=>{ if(x.startsWith('wake')||x.startsWith('night')) return; const v=w[x];
+          if(v&&v.t&&String(v.t).trim()){ all++; if(k===weekKey) wk++; } }); });
+      return {all:all/2, week:wk/2};
+    }catch(e){ return {all:0,week:0}; }
+  }
+  function snapshots(weekKey){
+    try{ return (JSON.parse(localStorage.getItem(BK)||'[]')||[]).map(r=>{
+      const c=countFilled(r.data,weekKey);
+      return {ts:r.ts, reason:r.reason, bytes:(r.data||'').length, hours:c.all, weekHours:c.week}; });
+    }catch(e){ return []; }
+  }
+  /* Non-destructive recovery: take only the slots a snapshot has and the sheet currently lacks. */
+  function restoreMerge(ts){
+    let added=0;
+    try{
+      const list=JSON.parse(localStorage.getItem(BK)||'[]')||[];
+      const rec=ts?list.find(r=>r.ts===ts):list[0]; if(!rec) return 0;
+      const old=JSON.parse(rec.data||'{}')||{}, cur=ls(KEY,{weeks:{},rules:{}});
+      cur.weeks=cur.weeks||{};
+      const filled=v=>typeof v==='string'?!!v:!!(v&&v.t&&String(v.t).trim());
+      Object.keys(old.weeks||{}).forEach(wk=>{
+        const ow=old.weeks[wk]||{}, cw=cur.weeks[wk]||(cur.weeks[wk]={});
+        Object.keys(ow).forEach(k=>{ if(!filled(cw[k])&&filled(ow[k])){ cw[k]=ow[k]; added++; } });
+      });
+      if(added){ snapshot('before recovery'); localStorage.setItem(KEY,JSON.stringify(cur)); }
+    }catch(e){}
+    return added;
+  }
   function restore(ts){
     try{
       const list=JSON.parse(localStorage.getItem(BK)||'[]')||[];
@@ -225,7 +255,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   window.ApexTime.planSlots=planSlots;
   window.ApexTime.fillFromCalendar=fillFromCalendar;
   window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
-  window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto;
+  window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto; window.ApexTime.restoreMerge=restoreMerge;
 })();
 
 /* ---- night sleep, the part the 05:00–23:00 grid can't hold ----

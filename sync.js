@@ -59,14 +59,46 @@
     for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isYearKey(k)) push(k); }
   }
 
+  /* ---- merge rules ----
+     The time sheet used to sync as one blob with last-write-wins, so a device holding a stale
+     copy could erase days recorded elsewhere (it did, three times). apexTime now MERGES:
+     a slot that exists on either side survives. Deletions therefore don't propagate — a far
+     better trade than losing a week. */
+  function mergeTime(localStr, remoteStr) {
+    try {
+      var L = JSON.parse(localStr || '{}') || {}, R = JSON.parse(remoteStr || '{}') || {};
+      var out = JSON.parse(remoteStr || '{}') || {};
+      out.weeks = out.weeks || {};
+      var LW = L.weeks || {};
+      var filled = function (v) { return typeof v === 'string' ? !!v : !!(v && v.t && String(v.t).trim()); };
+      Object.keys(LW).forEach(function (wk) {
+        var lw = LW[wk] || {}, rw = out.weeks[wk] || (out.weeks[wk] = {});
+        Object.keys(lw).forEach(function (k) { if (!filled(rw[k]) && filled(lw[k])) rw[k] = lw[k]; });
+      });
+      out.rules = Object.assign({}, L.rules || {}, R.rules || {});
+      out.settings = Object.assign({}, L.settings || {}, R.settings || {});
+      return JSON.stringify(out);
+    } catch (e) { return remoteStr; }
+  }
+  var MERGERS = { apexTime: mergeTime };
+
   /* ---- pull: newer copy wins ---- */
   var changedKeys = [];
   function applyRemote(row) {
     var k = row.key; if (!synced(k)) return false;
     var remoteTs = Date.parse(row.updated_at) || 0;
     var localTs = (meta[k] && meta[k].ts) || 0;
-    if (localStorage.getItem(k) == null || remoteTs > localTs) {
-      if (localStorage.getItem(k) === row.value) { meta[k] = { ts: remoteTs }; saveMeta(); return false; }
+    var cur = localStorage.getItem(k);
+    if (MERGERS[k] && cur != null && cur !== row.value) {
+      var merged = MERGERS[k](cur, row.value);
+      var changedLocal = merged !== cur, changedRemote = merged !== row.value;
+      if (changedLocal) { pulling = true; rawSet(k, merged); pulling = false; }
+      meta[k] = { ts: Math.max(remoteTs, localTs) }; saveMeta();
+      if (changedRemote) { meta[k] = { ts: Date.now() }; saveMeta(); schedulePush(k); }   // give the cloud the union
+      return changedLocal;
+    }
+    if (cur == null || remoteTs > localTs) {
+      if (cur === row.value) { meta[k] = { ts: remoteTs }; saveMeta(); return false; }
       pulling = true; rawSet(k, row.value); pulling = false;
       meta[k] = { ts: remoteTs }; saveMeta();
       return true;
