@@ -161,6 +161,48 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
       return {all:all/2, week:wk/2};
     }catch(e){ return {all:0,week:0}; }
   }
+  /* Snapshots used to be taken only before bulk changes, so anything typed after the last
+     bulk change had no copy anywhere. Take one whenever the sheet is opened and the newest
+     snapshot is stale — cheap insurance against a bad sync or a mistaken edit. */
+  function autoSnapshot(){
+    try{
+      const cur=localStorage.getItem(KEY); if(!cur) return false;
+      const filled=(JSON.parse(cur).weeks)?Object.values(JSON.parse(cur).weeks).reduce((a,w)=>a+Object.keys(w).filter(k=>!k.startsWith('wake')&&!k.startsWith('night')&&w[k]&&w[k].t).length,0):0;
+      if(!filled) return false;                                   // never snapshot an empty sheet over good ones
+      let list=[]; try{ list=JSON.parse(localStorage.getItem(BK)||'[]')||[]; }catch(e){}
+      const newest=list[0];
+      if(newest && Date.now()-newest.ts < 6*3600e3 && newest.data===cur) return false;
+      if(newest && Date.now()-newest.ts < 6*3600e3) return false;
+      snapshot('daily backup');
+      return true;
+    }catch(e){ return false; }
+  }
+  /* Everything the sheet holds, as a file you can keep or move between devices. */
+  function exportAll(){
+    const data=localStorage.getItem(KEY)||'{}';
+    const blob=new Blob([data],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='apex-time-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }
+  /* Import merges: it only adds slots this sheet is missing, so it can never delete anything. */
+  function importMerge(text){
+    let added=0;
+    try{
+      const inc=JSON.parse(text||'{}')||{}; if(!inc.weeks) return -1;
+      snapshot('before import');
+      const cur=ls(KEY,{weeks:{},rules:{}}); cur.weeks=cur.weeks||{};
+      const filled=v=>typeof v==='string'?!!v:!!(v&&v.t&&String(v.t).trim());
+      Object.keys(inc.weeks).forEach(wk=>{
+        const iw=inc.weeks[wk]||{}, cw=cur.weeks[wk]||(cur.weeks[wk]={});
+        Object.keys(iw).forEach(k=>{ if(!filled(cw[k])&&filled(iw[k])){ cw[k]=iw[k]; added++; } });
+      });
+      cur.rules=Object.assign({}, inc.rules||{}, cur.rules||{});
+      if(added) localStorage.setItem(KEY,JSON.stringify(cur));
+    }catch(e){ return -1; }
+    return added;
+  }
   function snapshots(weekKey){
     try{ return (JSON.parse(localStorage.getItem(BK)||'[]')||[]).map(r=>{
       const c=countFilled(r.data,weekKey);
@@ -255,6 +297,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   window.ApexTime.planSlots=planSlots;
   window.ApexTime.fillFromCalendar=fillFromCalendar;
   window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
+  window.ApexTime.autoSnapshot=autoSnapshot; window.ApexTime.exportAll=exportAll; window.ApexTime.importMerge=importMerge;
   window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto; window.ApexTime.restoreMerge=restoreMerge;
 })();
 

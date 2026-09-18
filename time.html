@@ -472,11 +472,20 @@ function openRecover(){
         '<div class="rsub">'+esc(s2.reason||'change')+' · this week '+fmtH(s2.weekHours)+' · all weeks '+fmtH(s2.hours)+'</div></div>'+
         '<button data-ts="'+s2.ts+'" data-a="merge">Fill gaps</button></div>').join('')+'</div>'
       : '<div class="nx" style="border:0">No snapshots on this device yet. They are written before bulk changes (imports, category re-sorts, undo) and are per-device — if this device was not the one that lost the data, try the same button on the device you type on.</div>')+
-    '<div class="nb" style="margin-top:10px"><button data-a="close">Close</button></div>';
+    '<div class="nb" style="margin-top:10px"><button data-a="export">⬇ Export sheet</button><button data-a="import">⬆ Import &amp; merge</button><button data-a="close">Close</button></div>';
   document.body.appendChild(box);
   box.style.left=Math.max(8,(innerWidth-box.offsetWidth)/2)+'px'; box.style.top='90px';
   const close=()=>box.remove();
   box.querySelector('[data-a=close]').onclick=close;
+  box.querySelector('[data-a=export]').onclick=()=>{ window.ApexTime.exportAll(); toast('Saved a copy of the whole sheet'); };
+  box.querySelector('[data-a=import]').onclick=()=>{
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json';
+    inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return;
+      const rd=new FileReader(); rd.onload=()=>{ const n=window.ApexTime.importMerge(String(rd.result));
+        if(n<0){ toast("That file isn't an Apex time export"); return; }
+        reloadState(); render(); close(); toast(n? ('Added '+(n/2)+' h from the file — ↩︎ Undo reverses it') : 'Nothing in that file was missing here'); };
+      rd.readAsText(f); };
+    inp.click(); };
   box.querySelectorAll('[data-a=merge]').forEach(b=>b.onclick=()=>{
     const n=window.ApexTime.restoreMerge(+b.dataset.ts);
     reloadState(); render(); close();
@@ -634,6 +643,16 @@ render(); scrollToNow();
 setTimeout(checkCal,800);
 loadPlan();
 setTimeout(migrateCats,900);
+/* back up the sheet once the cloud copy has settled — a fixed delay can be outrun by a reload */
+(async function backupOnOpen(){
+  try{
+    const t0=Date.now();
+    while(!window.apexSyncReady && Date.now()-t0<3000) await new Promise(r=>setTimeout(r,100));
+    if(window.apexSyncReady) await Promise.race([window.apexSyncReady, new Promise(r=>setTimeout(r,6000))]);
+    await new Promise(r=>setTimeout(r,400));
+    if(window.ApexTime.autoSnapshot()) console.log('[apex] backup taken');
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
