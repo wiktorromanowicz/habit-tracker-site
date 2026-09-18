@@ -49,7 +49,7 @@
   td.cell .fh{position:absolute;right:3px;bottom:3px;width:6px;height:6px;background:var(--accent);opacity:.55;border-radius:50%;cursor:ns-resize;display:none;z-index:3}
   td.cell .fh:hover{opacity:1;transform:scale(1.3)}
   td.cell.focus .fh,td.cell:not(.empty):hover .fh{display:block}
-  body.filling,body.filling *{user-select:none!important;cursor:ns-resize!important}
+  body.filling,body.filling *{user-select:none!important;cursor:cell!important}
   td.cell.now{box-shadow:inset 3px 0 0 var(--accent)}
   td.cell.auto .in{font-style:italic}
   td.cell .ghost{position:absolute;inset:0;padding:4px 8px;font-size:11.5px;font-style:italic;line-height:1.3;color:var(--muted);opacity:.55;pointer-events:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -58,13 +58,23 @@
   td.cell.focus .ghost{display:none}
   td.cell.offplan{box-shadow:inset 2px 0 0 #c8850f}
   td.cell.auto .in::after{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.4;vertical-align:top;margin-left:4px}
-  /* categories */
-  td.c-work .in{background:#e8f0fe;color:#1a4fa3}
-  td.c-meet .in{background:#efe4ff;color:#5b21b6}
-  td.c-content .in{background:#fff1d6;color:#8a5a0d}
-  td.c-life .in{background:#e6f4ea;color:#166534}
-  td.c-sleep .in{background:#e0f2fe;color:#075985;opacity:.75}
-  td.c-waste .in{background:#f1f1f1;color:#6b6b6b;text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25)}
+  /* categories — the actual colours are generated into #catCSS from your palette,
+     painted on the cell itself so a tall row is filled edge to edge */
+  td.cell.c-sleep .in{opacity:.8}
+  td.cell.c-waste .in{text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25)}
+  html[data-theme="dark"] td.cell.c-waste .in{text-decoration-color:rgba(255,255,255,.3)}
+  /* colour picker */
+  .cpop{position:fixed;z-index:75;background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(20,22,35,.18);padding:12px 14px;width:236px;font-size:13px;color:var(--ink)}
+  .cpop .ch{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .cpop .sw{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px}
+  .cpop .sw button{width:100%;aspect-ratio:1;border:1px solid rgba(0,0,0,.12);border-radius:7px;cursor:pointer;padding:0}
+  .cpop .sw button.on{outline:2px solid var(--ink);outline-offset:1px}
+  .cpop .row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .cpop .row input[type=color]{width:38px;height:28px;padding:0;border:1px solid var(--line);border-radius:7px;background:none;cursor:pointer}
+  .cpop .row span{color:var(--muted);font-size:12px}
+  .cpop .nb{display:flex;gap:6px;justify-content:flex-end}
+  .cpop .nb button{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .legend span{cursor:pointer} .legend span:hover{border-color:var(--accent);color:var(--ink)}
   thead th .nightbtn{display:inline-flex;align-items:center;gap:3px;margin-left:6px;border:1px solid var(--line);background:var(--surface,#fff);color:var(--muted);border-radius:999px;padding:1px 7px;font:inherit;font-size:10.5px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;vertical-align:middle}
   thead th .nightbtn:hover{border-color:#0284c7;color:#0284c7}
   thead th .nightbtn.on{color:#0284c7;border-color:#bae0f5;background:#eaf6fd}
@@ -117,6 +127,7 @@
 </style>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
+<style id="catCSS"></style>
 <script src="timecats.js"></script>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
@@ -218,6 +229,49 @@ function setCell(d,r,t,c){
   if(!t && w[k]) delete w[k].c;
   save();
 }
+/* ---------- category palette ---------- */
+function catColor(id){ const o=(S.settings&&S.settings.colors)||{}; if(o[id]) return o[id]; const c=CATS.find(x=>x.id===id); return c?c.color:'#8a8a8a'; }
+function hexRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(h||''); if(!m) return [138,138,138]; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
+function mix(c,k){ return Math.round(Math.min(255,Math.max(0,c*k))); }
+function buildCatCSS(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  let css='';
+  CATS.forEach(c=>{
+    const [r,g,b]=hexRgb(catColor(c.id));
+    const bg=dark?'rgba('+r+','+g+','+b+',.26)':'rgba('+r+','+g+','+b+',.15)';
+    const k=dark?1.45:.62;
+    const tx='rgb('+mix(r,k)+','+mix(g,k)+','+mix(b,k)+')';
+    css+='td.cell.c-'+c.id+'{background:'+bg+'}\n';
+    css+='td.cell.c-'+c.id+' .in{color:'+tx+'}\n';
+  });
+  $('catCSS').textContent=css;
+}
+new MutationObserver(buildCatCSS).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+/* click a legend chip to recolour that category */
+let cpop=null;
+function closeCPop(){ if(cpop){ cpop.remove(); cpop=null; } }
+document.addEventListener('pointerdown',e=>{ if(cpop&&!cpop.contains(e.target)&&!e.target.closest('.legend span')) closeCPop(); },true);
+function openColor(id,el){
+  closeCPop();
+  const cat=CATS.find(c=>c.id===id); if(!cat) return;
+  const cur=catColor(id);
+  const PRESETS=['#1a4fa3','#2563eb','#0284c7','#0d9488','#16a34a','#65a30d','#c8850f','#ea580c','#dc2626','#db2777','#7c3aed','#8a8a8a'];
+  cpop=document.createElement('div'); cpop.className='cpop';
+  cpop.innerHTML='<div class="ch">'+esc(cat.name)+' colour</div>'+
+    '<div class="sw">'+PRESETS.map(p=>'<button data-c="'+p+'" style="background:'+p+'"'+(p.toLowerCase()===cur.toLowerCase()?' class="on"':'')+' title="'+p+'"></button>').join('')+'</div>'+
+    '<div class="row"><input type="color" id="cIn" value="'+cur+'"><span>or pick your own</span></div>'+
+    '<div class="nb"><button data-a="reset">Default</button><button data-a="close">Done</button></div>';
+  document.body.appendChild(cpop);
+  const r=el.getBoundingClientRect(), W=cpop.offsetWidth;
+  cpop.style.left=Math.max(8,Math.min(r.left,innerWidth-W-10))+'px';
+  cpop.style.top=Math.min(r.bottom+6,innerHeight-cpop.offsetHeight-10)+'px';
+  const apply=v=>{ S.settings=S.settings||{}; S.settings.colors=S.settings.colors||{}; S.settings.colors[id]=v; save(); buildCatCSS(); render(); };
+  cpop.querySelectorAll('.sw button').forEach(b=>b.onclick=()=>{ apply(b.dataset.c); closeCPop(); });
+  $('cIn').addEventListener('input',e=>apply(e.target.value));
+  cpop.querySelector('[data-a=reset]').onclick=()=>{ if(S.settings&&S.settings.colors) delete S.settings.colors[id]; save(); buildCatCSS(); render(); closeCPop(); };
+  cpop.querySelector('[data-a=close]').onclick=closeCPop;
+}
+
 /* ---------- render ---------- */
 function render(){
   const today=iso(new Date());
@@ -247,7 +301,9 @@ function render(){
     h+='</tr>';
   }
   $('tbody').innerHTML=h;
-  $('legend').innerHTML=CATS.map(c=>'<span><i style="background:'+c.color+'"></i>'+c.name+'</span>').join('');
+  $('legend').innerHTML=CATS.map(c=>'<span data-c="'+c.id+'" title="Click to change this colour"><i style="background:'+catColor(c.id)+'"></i>'+c.name+'</span>').join('');
+  $('legend').querySelectorAll('span').forEach(sp=>sp.addEventListener('click',()=>openColor(sp.dataset.c,sp)));
+  buildCatCSS();
   renderPanel();
 }
 function renderPanel(){
@@ -278,7 +334,7 @@ function renderPanel(){
       else pSwapped++;
     }
   }
-  const rows=CATS.map(c=>({...c,h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
+  const rows=CATS.map(c=>({...c,color:catColor(c.id),h:per[c.id]||0})).concat(per.other?[{id:'other',name:'Uncategorised',color:'#cfc8b8',h:per.other}]:[]).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
   const waste=per.waste||0, focus=(per.work||0)+(per.content||0), awake=logged-(per.sleep||0);
   $('panel').innerHTML=
     '<h3>This week</h3><div class="big">'+fmtH(logged)+'<small>logged'+(night?' (incl. '+fmtH(night)+' night)':' of '+total+' h')+'</small></div>'+
@@ -294,7 +350,8 @@ function renderPanel(){
     (awake>0?'<div class="stat" style="margin-top:6px"><span>Focused (work + content)</span><b>'+Math.round(focus/awake*100)+'% of awake</b></div><div class="stat"><span>Wasted</span><b>'+Math.round(waste/awake*100)+'%</b></div>':'')+(night?'<div class="stat"><span>of which outside 05:00–23:00</span><b>'+fmtH(night)+'</b></div>'+(guessed?'<div class="stat" style="color:var(--muted);font-size:11.5px"><span>nights without a bedtime assume you are in bed by '+esc(S.settings.bed)+'</span><b><button onclick="openBedtime()" style="border:0;background:transparent;color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;text-decoration:underline dotted">change</button></b></div>':''):'')+
     '<details class="hint"><summary>How this sheet works</summary>'+
       '<div><b>Type</b> in a slot · <kbd>Enter</kbd> next slot · <kbd>Tab</kbd> next day</div>'+
-      '<div><b>Drag</b> a slot up or down to stretch it over more hours</div>'+
+      '<div><b>Drag</b> a slot up, down or sideways — down stretches the hours, sideways copies it to other days</div>'+
+      '<div><b>Click a colour chip</b> in the legend to recolour that category</div>'+
       '<div><b>Right-click</b> or <kbd>⌘1–8</kbd> to set a category — otherwise it is guessed from the words and learns from your corrections</div>'+
       '<div><b>🌙 in a day header</b> for the night — sleep outside 05:00–23:00 is counted from your sleep rows and usual bedtime</div>'+
       '<div><b>📋 Plan layer</b> shows what the calendar had planned behind each empty slot — click the faint text to log it as done; an amber edge means you did something else</div>'+
@@ -310,13 +367,15 @@ function tdOf(el){ return el&&el.closest? el.closest('td.cell'):null; }
 function pos(td){ return {d:+td.dataset.d, r:+td.dataset.r}; }
 function tdAt(d,r){ return tbody.querySelector('td.cell[data-d="'+d+'"][data-r="'+r+'"]'); }
 let focused=null;
-tbody.addEventListener('focusin',e=>{ const td=tdOf(e.target); if(!td) return; if(pendingRange){ const p=pos(td); if(p.d!==pendingRange.d||p.r<pendingRange.a||p.r>pendingRange.b){ pendingRange=null; tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); } } tbody.querySelectorAll('td.focus').forEach(x=>x.classList.remove('focus')); td.classList.add('focus'); focused=td; });
+tbody.addEventListener('focusin',e=>{ const td=tdOf(e.target); if(!td) return; if(pendingRange){ const p=pos(td); if(p.d<pendingRange.d0||p.d>pendingRange.d1||p.r<pendingRange.a||p.r>pendingRange.b){ pendingRange=null; tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); } } tbody.querySelectorAll('td.focus').forEach(x=>x.classList.remove('focus')); td.classList.add('focus'); focused=td; });
 tbody.addEventListener('focusout',e=>{ const td=tdOf(e.target); if(!td) return; commit(td); td.classList.remove('focus'); });
 function commit(td){
   const {d,r}=pos(td); const inp=td.querySelector('.in'); const t=inp.textContent.trim(); const prev=cellData(d,r)||{};
   let c=prev.c; if(t!==(prev.t||'')){ c=guessCat(t)||(t?prev.c:undefined); }
   setCell(d,r,t,c); paint(td);
-  if(pendingRange&&pendingRange.d===d&&r>=pendingRange.a&&r<=pendingRange.b){ const pr=pendingRange; pendingRange=null; tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); if(t){ for(let rr=pr.a;rr<=pr.b;rr++){ setCell(d,rr,t,c); paint(tdAt(d,rr)); } } }
+  if(pendingRange&&d>=pendingRange.d0&&d<=pendingRange.d1&&r>=pendingRange.a&&r<=pendingRange.b){ const pr=pendingRange; pendingRange=null;
+    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
+    if(t){ for(let dd=pr.d0;dd<=pr.d1;dd++) for(let rr=pr.a;rr<=pr.b;rr++){ setCell(dd,rr,t,c); const x=tdAt(dd,rr); if(x) paint(x); } } }
   renderPanel();
 }
 function paint(td){
@@ -363,7 +422,10 @@ tbody.addEventListener('mousedown',e=>{
     // start of a possible drag from the cell body: only becomes a fill once the pointer leaves the row
     if(td.classList.contains('focus')) return;           // already editing this cell → normal text selection
     const start={x:e.clientX,y:e.clientY}, src=pos(td); let armed=false;
-    const mv0=ev=>{ if(armed) return; if(Math.abs(ev.clientY-start.y)<8) return; const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t||pos(t).r===src.r) return;
+    const mv0=ev=>{ if(armed) return;
+      if(Math.abs(ev.clientY-start.y)<8 && Math.abs(ev.clientX-start.x)<12) return;      // sideways counts too
+      const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t) return;
+      const q=pos(t); if(q.r===src.r && q.d===src.d) return;
       armed=true; document.removeEventListener('mousemove',mv0); document.removeEventListener('mouseup',up0); if(document.activeElement) document.activeElement.blur(); getSelection().removeAllRanges(); beginFill(src); mv(ev); };
     const up0=()=>{ document.removeEventListener('mousemove',mv0); document.removeEventListener('mouseup',up0); };
     document.addEventListener('mousemove',mv0); document.addEventListener('mouseup',up0); return;
@@ -371,12 +433,21 @@ tbody.addEventListener('mousedown',e=>{
   e.preventDefault(); commit(td); beginFill(pos(td));
 });
 function beginFill(src){ fill={src, last:null}; document.body.classList.add('filling'); document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); }
-const mv=ev=>{ if(!fill) return; const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t) return; const p=pos(t); if(p.d!==fill.src.d) return;
-    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); const [a,b]=[Math.min(p.r,fill.src.r),Math.max(p.r,fill.src.r)]; for(let r=a;r<=b;r++) tdAt(fill.src.d,r).classList.add('sel'); fill.last=p; };
+const mv=ev=>{ if(!fill) return; const t=tdOf(document.elementFromPoint(ev.clientX,ev.clientY)); if(!t) return; const p=pos(t);
+    tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
+    const [a,b]=[Math.min(p.r,fill.src.r),Math.max(p.r,fill.src.r)];
+    const [c,d2]=[Math.min(p.d,fill.src.d),Math.max(p.d,fill.src.d)];     // sideways too: copy across days
+    for(let dd=c;dd<=d2;dd++) for(let r=a;r<=b;r++){ const x=tdAt(dd,r); if(x) x.classList.add('sel'); }
+    fill.last=p; };
 const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.classList.remove('filling');
-    if(fill&&fill.last){ const src=cellData(fill.src.d,fill.src.r)||{}; const [a,b]=[Math.min(fill.last.r,fill.src.r),Math.max(fill.last.r,fill.src.r)];
-      if(src.t){ for(let r=a;r<=b;r++){ setCell(fill.src.d,r,src.t||'',src.c); paint(tdAt(fill.src.d,r)); } renderPanel(); toast('Stretched to '+((b-a+1)/2)+' h'); tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
-      else { pendingRange={d:fill.src.d,a,b}; focusCell(fill.src.d,a); toast('Type once to fill '+((b-a+1)/2)+' h'); } }
+    if(fill&&fill.last){ const src=cellData(fill.src.d,fill.src.r)||{};
+      const [a,b]=[Math.min(fill.last.r,fill.src.r),Math.max(fill.last.r,fill.src.r)];
+      const [c0,c1]=[Math.min(fill.last.d,fill.src.d),Math.max(fill.last.d,fill.src.d)];
+      const slots=(b-a+1)*(c1-c0+1), days=c1-c0+1;
+      if(src.t){ for(let dd=c0;dd<=c1;dd++) for(let r=a;r<=b;r++){ setCell(dd,r,src.t||'',src.c); const x=tdAt(dd,r); if(x) paint(x); }
+        renderPanel(); toast(days>1? ('Copied to '+days+' days ('+(slots/2)+' h)') : ('Stretched to '+((b-a+1)/2)+' h'));
+        tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
+      else { pendingRange={d0:c0,d1:c1,a,b}; focusCell(c0,a); toast('Type once to fill '+(slots/2)+' h'); } }
     else tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
     fill=null; };
 
