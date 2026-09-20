@@ -27,6 +27,18 @@
   }
   var synced = function (k) { return KEYS.indexOf(k) >= 0 || isYearKey(k); };
 
+  function localSyncedKeys() {
+    var out = [];
+    KEYS.forEach(function (k) { if (localStorage.getItem(k) != null) out.push(k); });
+    for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isYearKey(k) && out.indexOf(k) < 0) out.push(k); }
+    return out;
+  }
+  function wipeLocal() {
+    // removes only the synced Apex keys — Time snapshots (apexTimeBackups), music and note images stay
+    localSyncedKeys().forEach(function (k) { try { rawRemove(k); } catch (e) {} });
+    try { rawRemove(META_KEY); } catch (e) {}
+    meta = {};
+  }
   var META_KEY = 'apexSyncMeta';                    // { key: { ts } } local write timestamps
   var meta = {}; try { meta = JSON.parse(localStorage.getItem(META_KEY) || '{}') || {}; } catch (e) {}
   function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {} }
@@ -173,7 +185,23 @@
       card.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px">Apex sync</h3><div style="font-size:13px;color:#6f6858;margin-bottom:16px">Signed in as <b>' + esc(user.email) + '</b>. Every device signed in with this email sees the same data.</div>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end"><button data-a="sync" style="' + btn('#f3efe4', '#2b2a26') + '">Sync now</button><button data-a="out" style="' + btn('#2b2a26', '#fff') + '">Sign out</button></div>';
       card.querySelector('[data-a=sync]').onclick = function () { pullAll(); pushAll(); };
-      card.querySelector('[data-a=out]').onclick = function () { sb.auth.signOut().then(function () { location.reload(); }); };
+      card.querySelector('[data-a=out]').onclick = function () {
+        var n = localSyncedKeys().length;
+        card.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px">Sign out of Apex?</h3>' +
+          '<div style="font-size:13px;color:#6f6858;margin-bottom:16px">This removes Apex data from <b>this browser</b> (' + n + ' item' + (n === 1 ? '' : 's') + ') so the next person starts clean. Your cloud copy is untouched \u2014 signing back in brings everything back. Time snapshots on this device are kept.</div>' +
+          '<div id="apexOutMsg" style="font-size:12px;color:#6f6858;min-height:16px;margin-bottom:8px"></div>' +
+          '<div style="display:flex;gap:8px;justify-content:flex-end"><button data-a="cancel" style="' + btn('#f3efe4', '#2b2a26') + '">Cancel</button><button data-a="go" style="' + btn('#c1362c', '#fff') + '">Sign out and clear</button></div>';
+        card.querySelector('[data-a=cancel]').onclick = function () { if (panel) { panel.remove(); panel = null; } };
+        card.querySelector('[data-a=go]').onclick = function () {
+          var m = card.querySelector('#apexOutMsg');
+          m.textContent = 'Saving anything unsent to the cloud\u2026';
+          pushAll();
+          setTimeout(function () {
+            wipeLocal();
+            sb.auth.signOut().then(function () { location.reload(); }).catch(function () { location.reload(); });
+          }, 1400);
+        };
+      };
     } else {
       card.innerHTML = '<h3 style="margin:0 0 6px;font-size:16px">Sign in to Apex</h3>' +
         '<div style="font-size:13px;color:#6f6858;margin-bottom:14px">Use the same email + password on your phone and laptop. First time? Enter the details and press <b>Create account</b>.</div>' +
@@ -196,6 +224,16 @@
         if (pass.length < 6) { msg.style.color = '#c1362c'; msg.textContent = 'Password needs at least 6 characters.'; form.elements.password.focus(); return; }
         busy = true;
         msg.style.color = '#6f6858'; msg.textContent = mode === 'up' ? 'Creating account\u2026' : 'Signing in\u2026';
+        if (mode === 'up' && localSyncedKeys().length && !go.owned) {
+          busy = false;
+          msg.style.color = '#8a5a0f';
+          msg.innerHTML = 'This browser already holds Apex data. Is it yours? ' +
+            '<button type="button" data-a="mine" style="' + btn('#f3efe4', '#2b2a26') + ';padding:4px 9px;font-size:12px;margin:4px 4px 0 0">Keep it</button>' +
+            '<button type="button" data-a="fresh" style="' + btn('#2b2a26', '#fff') + ';padding:4px 9px;font-size:12px;margin-top:4px">Start empty</button>';
+          msg.querySelector('[data-a=mine]').onclick = function () { go.owned = 1; msg.textContent = ''; go('up'); };
+          msg.querySelector('[data-a=fresh]').onclick = function () { wipeLocal(); go.owned = 1; msg.textContent = ''; go('up'); };
+          return;
+        }
         var p = mode === 'up' ? sb.auth.signUp({ email: email, password: pass }) : sb.auth.signInWithPassword({ email: email, password: pass });
         p.then(function (res) {
           busy = false;
