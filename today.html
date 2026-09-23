@@ -175,12 +175,18 @@ const now=new Date(), today=isoDay(now);
   $('greet').textContent=g+', Wiktor'; $('date').textContent=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}); })();
 
 /* executive summary — from the Notes store; if today's isn't there yet, fetch it from the calendar carrier event and file it into the note */
+function briefFromCache(){                       // the Calendar tab stores the newest carrier event here
+  try{ const b=ls('apexCal',{}).brief; return (b&&b.date&&b.html)? {date:b.date,html:b.html} : null; }catch(e){ return null; }
+}
 async function fetchBriefFromCalendar(){
-  try{ const tok=JSON.parse(localStorage.getItem('apexGTok')||'null'); if(!tok||!tok.t||tok.e<Date.now()) return null;
+  // live fetch first; the token only lasts an hour, so the Calendar tab's cache is the everyday path
+  try{ const tok=JSON.parse(localStorage.getItem('apexGTok')||'null'); if(!tok||!tok.t||tok.e<Date.now()) return briefFromCache();
     const min=new Date(); min.setDate(min.getDate()-7); min.setHours(0,0,0,0);
     const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&q='+encodeURIComponent('Executive summary')+'&timeMin='+encodeURIComponent(min.toISOString()),{headers:{Authorization:'Bearer '+tok.t}});
-    if(!r.ok) return null; const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^executive summary/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
-    return evs[0]?{date:evs[0].start.date,html:evs[0].description}:null; }catch(e){ return null; }
+    if(!r.ok) return briefFromCache(); const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^executive summary/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
+    const live=evs[0]?{date:evs[0].start.date,html:evs[0].description}:null, cached=briefFromCache();
+    if(live&&cached) return live.date>=cached.date?live:cached;
+    return live||cached; }catch(e){ return briefFromCache(); }
 }
 (async function(){
   let S=ls('wiktorNotes',null); let n=S&&S.notes&&S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');

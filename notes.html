@@ -664,6 +664,9 @@ async function pullBrief(){
     const min=new Date(); min.setDate(min.getDate()-7); min.setHours(0,0,0,0);
     const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&q='+encodeURIComponent('Executive summary')+'&timeMin='+encodeURIComponent(min.toISOString()),{headers:{Authorization:'Bearer '+tok.t}});
     if(r.ok){ const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^executive summary/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1); if(evs[0]) b={brief_date:evs[0].start.date,html:evs[0].description}; } } }catch(e){}
+  // Source 1b: the Calendar tab's cache — no token needed, which is the usual case
+  try{ const c=JSON.parse(localStorage.getItem('apexCal')||'{}').brief;
+    if(c&&c.date&&c.html&&(!b||c.date>b.brief_date)) b={brief_date:c.date,html:c.html}; }catch(e){}
   // Source 2: the private Supabase drop-box (only used when the calendar has nothing newer)
   const sy=window.apexSync; if(sy&&sy.user()){ try{ const r=await sy.client().from('apex_brief').select('brief_date,html').eq('user_id',sy.user().id).order('brief_date',{ascending:false}).limit(1); const sb=r.data&&r.data[0]; if(sb&&sb.brief_date&&sb.html&&(!b||sb.brief_date>b.brief_date)) b=sb; }catch(e){} }
   if(!b||!b.brief_date||!b.html) return;

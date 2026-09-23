@@ -353,7 +353,14 @@ async function loadEvents(){
   await Promise.all(calendars.map(async cal=>{ try{
     const q='?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
     const j=await api('/calendars/'+encodeURIComponent(cal.id)+'/events'+q);
-    (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled'||/^executive summary/i.test(ev.summary||'')) return; out.push(normalise(ev,cal)); });
+    (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled') return;
+      if(/^executive summary/i.test(ev.summary||'')){                 // carrier event: keep the brief, hide the event
+        if(cal.primary && ev.start && ev.start.date && ev.description){
+          const cur=cache.brief;
+          if(!cur || cur.date<=ev.start.date) cache.brief={date:ev.start.date, html:ev.description, ts:Date.now()};
+        }
+        return; }
+      out.push(normalise(ev,cal)); });
   }catch(err){ console.warn('[cal]',cal.summary,err.message); } }));
   if(seq!==loadSeq) return;
   events=out.sort((a,b)=>a.start-b.start);
