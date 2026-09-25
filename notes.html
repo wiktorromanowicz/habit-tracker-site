@@ -495,10 +495,10 @@ function checklist(ev){
   scheduleSave();
 }
 function closest(node,sel){ let n=node&&node.nodeType===3?node.parentNode:node; while(n&&n!==bodyEl){ if(n.matches&&n.matches(sel)) return n; n=n.parentNode; } return null; }
-function link(){
+async function link(){
   if(!inBody()) return;
   const s=getSelection(); const cur=closest(s.anchorNode,'a');
-  const url=prompt('Link URL', cur?cur.href:'https://'); if(url===null) return;
+  const url=await apexPrompt('Link URL', cur?cur.href:'https://', {ok:'Link'}); if(url===null) return;
   if(!url) document.execCommand('unlink'); else document.execCommand('createLink',false,url);
   scheduleSave();
 }
