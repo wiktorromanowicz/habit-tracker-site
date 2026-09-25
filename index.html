@@ -344,17 +344,18 @@ function fxTick(){
   else { fxCtx.clearRect(0,0,fxCanvas.width,fxCanvas.height); fxRunning=false; }
 }
 
-function addHabit(){
-  const name = prompt("Habit name:");
-  if(!name) return;
-  const target = prompt("Daily target / note (optional):","") || "";
+async function addHabit(){
+  const name = await apexPrompt("Habit name:", "", {ok:"Add habit", placeholder:"e.g. Meditation"});
+  if(name===null || !name.trim()) return;
+  const target = await apexPrompt("Daily target / note (optional):", "", {ok:"Save", placeholder:"e.g. 10 minutes"});
+  if(target===null) return;
   state.habits.push({ id: uid(), name: name.trim(), target: target.trim(), done:{} });
   save(); render();
 }
-function editHabit(hid){
-  const h = state.habits.find(x=>x.id===hid);
-  const name = prompt("Habit name:", h.name); if(name===null) return;
-  const target = prompt("Daily target / note:", h.target);
+async function editHabit(hid){
+  const h = state.habits.find(x=>x.id===hid); if(!h) return;
+  const name = await apexPrompt("Habit name:", h.name, {ok:"Save"}); if(name===null) return;
+  const target = await apexPrompt("Daily target / note:", h.target, {ok:"Save"});
   h.name = name.trim() || h.name;
   if(target!==null) h.target = target.trim();
   save(); render();

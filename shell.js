@@ -1,3 +1,44 @@
+/* ---- apexPrompt: an in-page replacement for window.prompt ----
+   WKWebView (the Apex.app wrapper) never shows a prompt() dialog unless the native side
+   implements runJavaScriptTextInputPanel — it just returns null, so every prompt-driven
+   feature silently did nothing in the Mac app. This works everywhere and looks like Apex. */
+(function () {
+  if (window.apexPrompt) return;
+  window.apexPrompt = function (label, value, opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var done = false;
+      var finish = function (v) { if (done) return; done = true; try { ov.remove(); } catch (e) {} document.removeEventListener('keydown', onKey, true); resolve(v); };
+      var ov = document.createElement('div');
+      ov.className = 'apex-prompt';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,28,22,.35);display:flex;align-items:center;justify-content:center;padding:20px;';
+      var card = document.createElement('div');
+      card.style.cssText = 'background:var(--card,#fff);color:var(--ink,#2b2a26);border-radius:14px;padding:20px 22px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit;';
+      card.innerHTML = '<div style="font-size:13.5px;font-weight:600;margin-bottom:10px"></div>' +
+        '<input type="text" style="display:block;width:100%;box-sizing:border-box;border:1px solid var(--line,#e7e2d6);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;background:var(--bg,#fff);color:inherit;outline:none">' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+        '<button data-a="cancel" style="background:var(--chip,#f3efe4);color:inherit;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>' +
+        '<button data-a="ok" style="background:#a9741f;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"></button></div>';
+      card.firstChild.textContent = label == null ? '' : String(label);
+      var inp = card.querySelector('input');
+      inp.value = value == null ? '' : String(value);
+      if (opts.placeholder) inp.placeholder = opts.placeholder;
+      card.querySelector('[data-a=ok]').textContent = opts.ok || 'OK';
+      card.querySelector('[data-a=ok]').onclick = function () { finish(inp.value); };
+      card.querySelector('[data-a=cancel]').onclick = function () { finish(null); };
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); finish(inp.value); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+      });
+      var onKey = function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); } };
+      document.addEventListener('keydown', onKey, true);
+      ov.addEventListener('mousedown', function (e) { if (e.target === ov) finish(null); });
+      ov.appendChild(card);
+      (document.body || document.documentElement).appendChild(ov);
+      setTimeout(function () { inp.focus(); inp.select(); }, 0);
+    });
+  };
+})();
 /* Apex shell — sidebar, command palette (⌘K), shortcuts (?), dark mode, sidebar timer.
    Runs on every page after pwa.js. It reads the page's own .nav links, so pages stay the source of truth. */
 (function () {
@@ -179,13 +220,14 @@
     var b = e.target.closest('#apexTw button[data-m]'); if (!b) return;
     e.preventDefault();
     var cur = +b.dataset.m;
-    var v = prompt('Minutes for this quick timer (leave empty to remove it):', cur);
-    if (v === null) return;
-    var arr = quick();
-    var i = arr.indexOf(cur); if (i < 0) return;
-    if (!v.trim()) { if (arr.length > 1) arr.splice(i, 1); }
-    else { var n = Math.round(+v); if (!(n > 0)) return; arr[i] = Math.min(600, n); }
-    saveQuick(arr);
+    window.apexPrompt('Minutes for this quick timer (leave empty to remove it):', cur).then(function (v) {
+      if (v === null) return;
+      var arr = quick();
+      var i = arr.indexOf(cur); if (i < 0) return;
+      if (!v.trim()) { if (arr.length > 1) arr.splice(i, 1); }
+      else { var n = Math.round(+v); if (!(n > 0)) return; arr[i] = Math.min(600, n); }
+      saveQuick(arr);
+    });
   });
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && twEditing) { twEditing = false; lastTw = null; paintTw(); } });
   setInterval(paintTw, 500);

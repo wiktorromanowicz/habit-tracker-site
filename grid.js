@@ -360,7 +360,7 @@ function makeGrid(mountId, opts){
     setColWidth(j,w){ S.colW[j]=w; },
     setGroupsOpen(open){ computeGroups(); GRP.forEach(g=>S.gopen[S.cols[g.head]]=!!open); render(); persist(); },
     refresh(){ render(); persist(); },
-    addCol(){ const n=prompt('Column name:','New'); if(n===null)return; pushUndo(); S.cols.push(n||'New'); S.rows.forEach(r=>r.push('')); render(); persist(); }
+    async addCol(){ const n=await apexPrompt('Column name:','New',{ok:'Add column'}); if(n===null)return; pushUndo(); S.cols.push(n||'New'); S.rows.forEach(r=>r.push('')); render(); persist(); }
   };
 }
 window.makeGrid = makeGrid;
