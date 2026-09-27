@@ -80,7 +80,9 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   }
 
   async function liveEvents(from,to){
-    const tok=ls('apexGTok',null);
+    // ApexG keeps a valid token on every page; fall back to the stored one when it is absent
+    let tok=ls('apexGTok',null);
+    if(window.ApexG){ const t=await window.ApexG.token(); if(t) tok={t:t,e:Date.now()+60000}; }
     if(!tok||!tok.t||!(tok.e>Date.now())) return null;
     const cache=ls('apexCal',{calendars:[]}), prefs=ls('apexCalPrefs',{hidden:{}});
     const cals=(cache.calendars||[]).filter(c=>isMine(c,prefs));
