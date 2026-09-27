@@ -45,6 +45,21 @@
   table.grid tbody tr:nth-child(even) td.rowlabel{background:var(--chip,#f2ecdd);}
   .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
   .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
+  /* typing counter (fed by Apex.app over loopback) */
+  .typing{max-width:1500px;margin:18px auto 30px;padding:0 clamp(16px,4vw,40px);}
+  .typing .card{background:var(--card,#fbf9f4);border:1px solid var(--line,#e7e2d6);border-radius:14px;padding:18px 20px;}
+  .typing h2{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a99f8c;}
+  .typing .big{font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--ink,#2b2a26);line-height:1.15;}
+  .typing .big small{font-size:13px;font-weight:600;color:#9c9484;margin-left:7px;letter-spacing:0;}
+  .typing .subs{font-size:12.5px;color:#9c9484;margin-top:3px;}
+  .typing .subs b{color:#6b6355;font-weight:600;}
+  .typing .bars{display:flex;align-items:flex-end;gap:5px;height:66px;margin:16px 0 4px;}
+  .typing .bars div{flex:1;background:var(--chip,#e9e2d2);border-radius:4px 4px 0 0;min-height:2px;position:relative;}
+  .typing .bars div.today{background:#c69a4e;}
+  .typing .lbls{display:flex;gap:5px;font-size:10px;color:#b3ab99;}
+  .typing .lbls span{flex:1;text-align:center;}
+  .typing .note{margin-top:12px;font-size:12px;color:#a99f8c;}
+  .typing .note b{color:#8a5a0f;font-weight:600;}
 </style>
 <link rel="stylesheet" href="grid.css"/>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -82,9 +97,66 @@
   <div class="sheet-foot"><button class="ptab" onclick="G.addRow()">+ Add metric</button><button class="ptab" onclick="G.setGroupsOpen(true)">Expand all weeks</button><button class="ptab" onclick="G.setGroupsOpen(false)">Collapse all weeks</button></div>
   <div class="sheet-note">Click a column header to select it, shift-click or drag across headers to select several, then right-click → Hide. A small ◂▸ marker shows where columns are hidden — click it to bring them back. Cmd+Z undoes anything.</div>
 </div></div>
+
+<div class="typing"><div class="card" id="typingCard"></div></div>
+
 <script src="grid.js"></script>
 <script>
 /* ---- focus bar (shared) ---- */
+
+/* ---- typing counter -------------------------------------------------------
+   Apex.app counts key presses on this Mac (never what was typed) and serves the
+   daily totals on the same loopback port the menu-bar timer uses. The numbers are
+   cached here, so the panel still shows the last known figures in Chrome or when
+   the app is closed. */
+(function(){
+  const CARD=document.getElementById('typingCard'); if(!CARD) return;
+  const KEY='apexTyping';
+  const pad=n=>String(n).padStart(2,'0');
+  const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const addD=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const cache=()=>{ try{ return JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ return {}; } };
+  const save=o=>{ try{ localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} };
+  const nf=n=>n.toLocaleString();
+
+  function avg(days,from,n){
+    let sum=0,c=0;
+    for(let i=0;i<n;i++){ const k=iso(addD(from,-i)); if(days[k]){ sum+=days[k].words||0; c++; } }
+    return c? Math.round(sum/c):0;
+  }
+  function paint(){
+    const st=cache(), days=st.days||{}, t=new Date(); t.setHours(0,0,0,0);
+    const today=days[iso(t)]||{words:0,keys:0};
+    const last14=[...Array(14).keys()].map(i=>{ const d=addD(t,-13+i); return {d, v:(days[iso(d)]||{}).words||0}; });
+    const peak=Math.max(1,...last14.map(x=>x.v));
+    const WD=['S','M','T','W','T','F','S'];
+    let note;
+    if(st.permission===false) note='<b>Needs permission</b> — Apex.app menu → “Typing counter…”, then allow Apex in System Settings → Privacy &amp; Security → Input Monitoring.';
+    else if(st.live) note='Counting on this Mac. Key presses only — what you type is never read or stored.';
+    else if(st.seen) note='Last heard from Apex.app '+new Date(st.seen).toLocaleString()+'. Open Apex.app on your Mac for live numbers.';
+    else note='Waiting for Apex.app — this panel fills in once the Mac app is running with Input Monitoring allowed.';
+    CARD.innerHTML =
+      '<h2>Typing</h2>'+
+      '<div class="big">'+nf(today.words||0)+' <small>words today</small></div>'+
+      '<div class="subs">'+nf(today.keys||0)+' key presses · <b>'+nf(avg(days,t,7))+'</b> a day over the last week · <b>'+nf(avg(days,t,30))+'</b> over 30 days</div>'+
+      '<div class="bars">'+last14.map(x=>'<div class="'+(iso(x.d)===iso(t)?'today':'')+'" style="height:'+Math.max(2,Math.round(x.v/peak*100))+'%" title="'+iso(x.d)+' · '+nf(x.v)+' words"></div>').join('')+'</div>'+
+      '<div class="lbls">'+last14.map(x=>'<span>'+WD[x.d.getDay()]+'</span>').join('')+'</div>'+
+      '<div class="note">'+note+'</div>';
+  }
+  function pull(){
+    fetch('http://127.0.0.1:47831/typing',{mode:'cors'})
+      .then(r=>r.json())
+      .then(j=>{
+        if(!j||!j.days) return;
+        const st=cache(); st.days=Object.assign(st.days||{}, j.days);
+        st.permission=j.permission; st.live=true; st.seen=Date.now(); save(st); paint();
+      })
+      .catch(()=>{ const st=cache(); if(st.live){ st.live=false; save(st); } paint(); });
+  }
+  paint(); pull();
+  setInterval(pull, 60000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pull(); });
+})();
 
 /* ---- Metrics 2026 (rows = metrics, cols = months) ---- */
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
