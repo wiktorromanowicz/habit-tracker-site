@@ -129,11 +129,23 @@
   .sheet tbody tr:nth-child(even){background:var(--soft2,#f8f5ee);}
   .sheet tbody tr:hover{background:#f3efe3;}
   .sheet tbody tr:last-child td{border-bottom:none;}
-  .sheet th.wend,.sheet td.wend{background:var(--soft2,#f6f1e6);}
-  .sheet tbody tr:nth-child(even) td.wend{background:#f2ecde;}
+  /* weekends get a hairline, not a fill; today gets a rule, not a wash —
+     three stacked tints were fighting each other (and needed !important to settle it) */
+  .sheet th.wend .dnum,.sheet th.wend .dwd{color:#bdb4a1;}
   .sheet td.day{height:38px;cursor:pointer;padding:0;}
   .sheet td.day:hover{background:var(--chip2,#ece5d5);}
-  .sheet td.today-cell{background:rgba(180,128,42,.12)!important;}
+  .sheet th.today{box-shadow:inset 1px 0 0 #c69a4e, inset -1px 0 0 #c69a4e, inset 0 2px 0 #c69a4e;}
+  .sheet td.today-cell{box-shadow:inset 1px 0 0 #e0c48c, inset -1px 0 0 #e0c48c;}
+  .sheet tbody tr:last-child td.today-cell{box-shadow:inset 1px 0 0 #e0c48c, inset -1px 0 0 #e0c48c, inset 0 -2px 0 #c69a4e;}
+  /* days before the habit existed: not a miss, not clickable, not counted */
+  .sheet td.pre{cursor:default;background:repeating-linear-gradient(135deg,transparent,transparent 5px,rgba(160,150,130,.13) 5px,rgba(160,150,130,.13) 6px);}
+  .sheet td.pre:hover{background:repeating-linear-gradient(135deg,transparent,transparent 5px,rgba(160,150,130,.13) 5px,rgba(160,150,130,.13) 6px);}
+  .sheet td.pre .dot{display:none;}
+  .sheet table.d14{min-width:0;}
+  .sheet table.d14 td.day{height:46px;}
+  .sheet table.d14 th.habit-col,.sheet table.d14 td.habit-col{width:24%;}
+  .sheet table.d14 .dot{width:19px;height:19px;}
+  .sheet table.d14 td.done .dot::after{width:5px;height:9px;}
   .sheet .hname{font-weight:600;color:var(--ink,#2b2a26);font-size:15px;}
   .sheet .hmeta{color:#a99f8c;font-size:12px;}
   .sheet .dot{width:15px;height:15px;border:1.5px solid #d4ccbb;}
@@ -170,14 +182,14 @@
     <div class="sheet-inner">
       <div class="sheet-head">
         <div>
-          <div class="sheet-eyebrow">Habits · Monthly view</div>
           <div class="sheet-title" id="weekLabel"></div>
           <div class="sheet-sub" id="weekInfo"></div>
         </div>
         <div class="periodtabs">
-          <button class="ptab" onclick="shiftTrackMonth(-1)">‹ Prev</button>
-          <button class="ptab dark" onclick="thisTrackMonth()">This month</button>
-          <button class="ptab" onclick="shiftTrackMonth(1)">Next ›</button>
+          <button class="ptab" onclick="shiftPeriod(-1)" title="Earlier">‹</button>
+          <button class="ptab dark" onclick="thisPeriod()">Today</button>
+          <button class="ptab" onclick="shiftPeriod(1)" title="Later">›</button>
+          <button class="ptab" id="viewTab" onclick="toggleView()"></button>
         </div>
       </div>
       <div class="sheet-scroll">
@@ -263,6 +275,22 @@ state.goals = state.goals || {};   // { "2026-08": "<html>" }
 
 function firstOfMonth(d){ const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; }
 let trackMonth = firstOfMonth(new Date());
+/* 14 days is the default unit — the question you ask each morning is "today?", and a
+   31-column grid answers that worst. Month stays a click away for review. */
+const VIEW_KEY='apexHabitView';
+let view = (function(){ try{ return localStorage.getItem(VIEW_KEY)==='month'?'month':'d14'; }catch(e){ return 'd14'; } })();
+let viewEnd = (function(){ const d=new Date(); d.setHours(0,0,0,0); return d; })();
+/* every habit knows when it started; days before that are hatched out and never counted
+   as misses. Habits from before this existed inherit their earliest tick. */
+(function migrateStart(){
+  let ch=false;
+  (state.habits||[]).forEach(h=>{
+    if(h.start!==undefined) return;
+    const ks=Object.keys(h.done||{}).sort();
+    if(ks.length){ h.start=ks[0]; ch=true; }
+  });
+  if(ch) save();
+})();
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function mondayOf(d){
@@ -284,8 +312,34 @@ function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDay(a,b){ return iso(a)===iso(b); }
 
-function shiftTrackMonth(n){ trackMonth.setMonth(trackMonth.getMonth()+n); render(); }
-function thisTrackMonth(){ trackMonth = firstOfMonth(new Date()); render(); }
+function shiftPeriod(n){
+  if(view==='month'){ trackMonth.setMonth(trackMonth.getMonth()+n); }
+  else { viewEnd = addDays(viewEnd, n*14); }
+  render();
+}
+function thisPeriod(){
+  trackMonth = firstOfMonth(new Date());
+  viewEnd = (function(){ const d=new Date(); d.setHours(0,0,0,0); return d; })();
+  render();
+}
+function toggleView(){
+  view = view==='month' ? 'd14' : 'month';
+  try{ localStorage.setItem(VIEW_KEY, view); }catch(e){}
+  thisPeriod();
+}
+/* the columns this view covers, oldest first */
+function viewDays(){
+  if(view==='month'){
+    const y=trackMonth.getFullYear(), m=trackMonth.getMonth();
+    const n=new Date(y,m+1,0).getDate(), out=[];
+    for(let i=1;i<=n;i++) out.push(new Date(y,m,i));
+    return out;
+  }
+  const out=[];
+  for(let i=13;i>=0;i--) out.push(addDays(viewEnd,-i));
+  return out;
+}
+function startedBy(h,date){ return !h.start || iso(date) >= h.start; }
 
 function currentStreak(h){
   let s=0, d=new Date(); d.setHours(0,0,0,0);
@@ -349,15 +403,17 @@ async function addHabit(){
   if(name===null || !name.trim()) return;
   const target = await apexPrompt("Daily target / note (optional):", "", {ok:"Save", placeholder:"e.g. 10 minutes"});
   if(target===null) return;
-  state.habits.push({ id: uid(), name: name.trim(), target: target.trim(), done:{} });
+  state.habits.push({ id: uid(), name: name.trim(), target: target.trim(), start: iso(new Date()), done:{} });
   save(); render();
 }
 async function editHabit(hid){
   const h = state.habits.find(x=>x.id===hid); if(!h) return;
   const name = await apexPrompt("Habit name:", h.name, {ok:"Save"}); if(name===null) return;
   const target = await apexPrompt("Daily target / note:", h.target, {ok:"Save"});
+  const start = await apexPrompt("Tracking since (YYYY-MM-DD) — earlier days are hatched out and never counted:", h.start||"", {ok:"Save", placeholder:"empty = from the beginning"});
   h.name = name.trim() || h.name;
   if(target!==null) h.target = target.trim();
+  if(start!==null){ const v=start.trim(); if(!v) delete h.start; else if(/^\d{4}-\d{2}-\d{2}$/.test(v)) h.start=v; }
   save(); render();
 }
 function delHabit(hid){
@@ -370,26 +426,29 @@ function delHabit(hid){
 
 function render(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const year = trackMonth.getFullYear(), month = trackMonth.getMonth();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
   const WD = ["S","M","T","W","T","F","S"];
-  document.getElementById("weekLabel").textContent =
-    trackMonth.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  const days = viewDays();
+  const fmtDay = d=>d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  document.getElementById("weekLabel").textContent = view==='month'
+    ? trackMonth.toLocaleDateString(undefined,{month:"long",year:"numeric"})
+    : (fmtDay(days[0])+" – "+fmtDay(days[days.length-1]));
+  document.getElementById("viewTab").textContent = view==='month' ? '14 days' : 'Month';
+  const table = document.querySelector('.sheet table');
+  if(table) table.classList.toggle('d14', view!=='month');
 
-  // header — one column per day of the month
+  // header — one column per day in view
   let head = '<th class="habit-col">Habit</th>';
-  for(let i=1;i<=daysInMonth;i++){
-    const date = new Date(year,month,i);
+  days.forEach(date=>{
     const isT = sameDay(date,today);
     const we = (date.getDay()===0 || date.getDay()===6);
-    head += `<th class="${isT?'today':''} ${we?'wend':''}"><span class="dnum">${i}</span><span class="dwd">${WD[date.getDay()]}</span></th>`;
-  }
+    head += `<th class="${isT?'today':''} ${we?'wend':''}"><span class="dnum">${date.getDate()}</span><span class="dwd">${WD[date.getDay()]}</span></th>`;
+  });
   document.getElementById("headRow").innerHTML = head;
 
   // body
   const body = document.getElementById("body");
   if(state.habits.length===0){
-    body.innerHTML = `<tr><td colspan="${daysInMonth+1}" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${days.length+1}" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
   } else {
     body.innerHTML = state.habits.map(h=>{
       const streak = currentStreak(h);
@@ -401,32 +460,33 @@ function render(){
           <button onclick="delHabit('${h.id}')">Delete</button>
         </div>
       </td>`;
-      for(let i=1;i<=daysInMonth;i++){
-        const date = new Date(year,month,i);
+      days.forEach(date=>{
         const dstr = iso(date);
         const future = date>today;
+        const pre = !startedBy(h,date);
         const done = !!h.done[dstr];
         const isT = sameDay(date,today);
         const we = (date.getDay()===0 || date.getDay()===6);
-        row += `<td class="day ${done?'done':''} ${future?'future':''} ${isT?'today-cell':''} ${we?'wend':''}"
-                  onclick="toggle('${h.id}','${dstr}',${future},event)"><div class="dot"></div></td>`;
-      }
+        const cls = `day ${done?'done':''} ${future?'future':''} ${pre?'pre':''} ${isT?'today-cell':''} ${we?'wend':''}`;
+        row += pre
+          ? `<td class="${cls}" title="Not tracked yet — started ${escapeHtml(h.start||'')}"></td>`
+          : `<td class="${cls}" onclick="toggle('${h.id}','${dstr}',${future},event)"><div class="dot"></div></td>`;
+      });
       return `<tr>${row}</tr>`;
     }).join("");
   }
 
-  // month stat
+  // period stat — days before a habit started are not counted against it
   let cells=0, filled=0;
   state.habits.forEach(h=>{
-    for(let i=1;i<=daysInMonth;i++){
-      const date=new Date(year,month,i);
-      if(date>today) continue;
+    days.forEach(date=>{
+      if(date>today || !startedBy(h,date)) return;
       cells++; if(h.done[iso(date)]) filled++;
-    }
+    });
   });
   const pct = cells? Math.round(filled/cells*100):0;
   document.getElementById("weekStat").textContent =
-    `This month: ${filled}/${cells} done (${pct}%)`;
+    `${view==='month'?'This month':'Last 14 days'}: ${filled}/${cells} done (${pct}%)`;
 }
 
 function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
