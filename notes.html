@@ -140,6 +140,15 @@
   .help td{padding:5px 4px;border-bottom:1px solid #f0ece2}
   .help td:first-child{width:150px;color:#6f6858}
   kbd{display:inline-block;padding:1px 6px;border:1px solid #d9d2c2;border-bottom-width:2px;border-radius:5px;background:var(--soft2,#faf8f2);font-family:inherit;font-size:12px;margin-right:2px}
+  .emo-menu{position:fixed;z-index:120;background:var(--card,#fff);border:1px solid var(--line,#e7e2d6);border-radius:12px;
+    box-shadow:0 14px 40px rgba(0,0,0,.18);padding:6px;width:268px;max-height:232px;overflow:auto;font-family:inherit}
+  .emo-menu .emo-hint{font-size:11px;color:var(--muted,#9c8f76);padding:3px 8px 5px}
+  .emo-menu button{display:flex;align-items:center;gap:9px;width:100%;border:none;background:none;text-align:left;
+    padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;color:inherit}
+  .emo-menu button .ch{font-size:17px;line-height:1;width:22px;text-align:center}
+  .emo-menu button .nm{color:var(--muted,#6f6858)}
+  .emo-menu button.on{background:var(--chip,#f3efe4)}
+  .emo-menu button.on .nm{color:inherit}
 </style>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
@@ -243,6 +252,7 @@
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>⌫</kbd></td><td>Delete the whole note (with undo)</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>B</kbd> <kbd>⌘</kbd><kbd>I</kbd> <kbd>⌘</kbd><kbd>U</kbd></td><td>Bold / italic / underline</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></td><td>Strikethrough</td></tr>
+      <tr><td><kbd>:</kbd></td><td>Emoji — keep typing to filter, ↑↓ and Enter to insert</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>8</kbd> / <kbd>⌘</kbd><kbd>7</kbd> / <kbd>⌘</kbd><kbd>9</kbd></td><td>Bullet / numbered / checklist</td></tr>
       <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>1</kbd>–<kbd>3</kbd> , <kbd>⌘</kbd><kbd>⇧</kbd><kbd>0</kbd></td><td>Heading 1–3 / plain text</td></tr>
       <tr><td><kbd>Tab</kbd> / <kbd>⇧</kbd><kbd>Tab</kbd></td><td>Indent / outdent list item</td></tr>
@@ -414,7 +424,7 @@ function flush(){
   n.title=title; n.body=body; n.updated=Date.now(); save(); renderList(); renderMeta();
 }
 titleEl.addEventListener('input',scheduleSave);
-bodyEl.addEventListener('input',e=>{ if(!loading){ autoFormat(e); scheduleSave(); } });
+bodyEl.addEventListener('input',e=>{ if(!loading){ autoFormat(e); emoScan(); scheduleSave(); } });
 /* paste an image straight from the clipboard (⌘⇧4 screenshots included) */
 bodyEl.addEventListener('paste',e=>{
   const dt=e.clipboardData; if(!dt) return;
@@ -509,6 +519,151 @@ bodyEl.addEventListener('click',e=>{
   const chip=e.target.closest&&e.target.closest('.dchip');
   if(chip && bodyEl.contains(chip)){ openPicker(chip); e.preventDefault(); }
 });
+
+/* ---- ":" emoji picker ------------------------------------------------------
+   Type ":" at the start of a word and the 30 most-used emoji appear; keep typing
+   to filter by name, up/down to move, Enter or Tab to insert, Esc to dismiss.
+   The ones you pick float to the front (remembered on this device only). */
+const EMOJI=[
+  {c:'✅',n:'check done yes tick complete'},
+  {c:'❌',n:'x no cross wrong fail'},
+  {c:'⚠️',n:'warning careful risk'},
+  {c:'🔥',n:'fire hot urgent'},
+  {c:'✨',n:'sparkles new shiny nice'},
+  {c:'🎯',n:'target goal focus'},
+  {c:'🚀',n:'rocket launch ship fast'},
+  {c:'💡',n:'idea bulb light'},
+  {c:'📌',n:'pin important'},
+  {c:'📝',n:'note memo write'},
+  {c:'⭐',n:'star favourite favorite'},
+  {c:'👍',n:'thumbsup yes good ok'},
+  {c:'👎',n:'thumbsdown no bad'},
+  {c:'🙏',n:'thanks please pray'},
+  {c:'👀',n:'eyes look watch review'},
+  {c:'💪',n:'strong muscle effort gym'},
+  {c:'🎉',n:'party win celebrate done'},
+  {c:'🤔',n:'thinking hmm question'},
+  {c:'🙂',n:'smile happy'},
+  {c:'😂',n:'laugh funny lol'},
+  {c:'😅',n:'sweat nervous phew'},
+  {c:'😎',n:'cool sunglasses'},
+  {c:'🤝',n:'handshake deal agree partner'},
+  {c:'🧠',n:'brain think smart'},
+  {c:'⏰',n:'clock time deadline'},
+  {c:'📅',n:'calendar date schedule'},
+  {c:'📈',n:'up growth chart increase'},
+  {c:'📉',n:'down chart decrease drop'},
+  {c:'💰',n:'money cash revenue'},
+  {c:'📊',n:'chart data metrics stats'},
+  {c:'❤️',n:'heart love'},
+  {c:'😍',n:'loveeyes adore'},
+  {c:'😭',n:'cry sad crying'},
+  {c:'😡',n:'angry mad'},
+  {c:'🤯',n:'mindblown wow shocked'},
+  {c:'🥳',n:'celebrate partyhat'},
+  {c:'➡️',n:'arrow right next then'},
+  {c:'✔️',n:'tick check small'},
+  {c:'❓',n:'question ask unclear'},
+  {c:'❗',n:'exclamation important'},
+  {c:'💬',n:'comment chat message talk'},
+  {c:'📞',n:'call phone'},
+  {c:'✉️',n:'email mail letter'},
+  {c:'🔗',n:'link url'},
+  {c:'📎',n:'attach paperclip file'},
+  {c:'🗑️',n:'delete trash bin remove'},
+  {c:'🔒',n:'lock secure private'},
+  {c:'🔑',n:'key access password'},
+  {c:'🛠️',n:'tools fix build'},
+  {c:'🐛',n:'bug issue broken'},
+  {c:'⚡',n:'fast energy quick power'},
+  {c:'☕',n:'coffee break'},
+  {c:'🍕',n:'pizza food lunch'},
+  {c:'🏃',n:'run running cardio'},
+  {c:'🏋️',n:'gym lift weights workout'},
+  {c:'😴',n:'sleep tired bed'},
+  {c:'🎵',n:'music song'},
+  {c:'🌍',n:'world global earth'},
+  {c:'🏠',n:'home house'},
+  {c:'🚗',n:'car drive travel'}
+];
+const EMO_RECENT='apexEmojiRecent';
+function emoRecent(){ try{ return JSON.parse(localStorage.getItem(EMO_RECENT)||'[]')||[]; }catch(e){ return []; } }
+function emoBump(ch){ try{ const r=emoRecent().filter(x=>x!==ch); r.unshift(ch); localStorage.setItem(EMO_RECENT,JSON.stringify(r.slice(0,30))); }catch(e){} }
+function emoRanked(){ const r=emoRecent(), score=c=>{ const i=r.indexOf(c); return i<0?999:i; };
+  return EMOJI.map((e,i)=>({e,i})).sort((a,b)=>(score(a.e.c)-score(b.e.c))||(a.i-b.i)).map(x=>x.e); }
+let emo=null;                                   // {q, items, i, el}
+function emoClose(){ if(!emo) return; try{ emo.el.remove(); }catch(e){} emo=null; }
+function emoMatches(q){
+  const all=emoRanked();
+  if(!q) return all.slice(0,30);
+  const t=q.toLowerCase();
+  const starts=all.filter(e=>e.n.split(' ').some(w=>w.indexOf(t)===0));
+  const has=all.filter(e=>starts.indexOf(e)<0 && e.n.indexOf(t)>=0);
+  return starts.concat(has).slice(0,30);
+}
+function emoPaint(){
+  if(!emo) return;
+  emo.el.innerHTML='<div class="emo-hint">'+(emo.q?('“'+esc(emo.q)+'”'):'Most used')+' · ↑↓ to move, Enter to insert</div>'+
+    emo.items.map((e,i)=>'<button type="button" data-i="'+i+'"'+(i===emo.i?' class="on"':'')+'><span class="ch">'+e.c+'</span><span class="nm">'+esc(e.n.split(' ')[0])+'</span></button>').join('');
+  const on=emo.el.querySelector('button.on'); if(on) on.scrollIntoView({block:'nearest'});
+}
+function emoOpen(q){
+  const items=emoMatches(q);
+  if(!items.length){ emoClose(); return; }
+  if(!emo){
+    const el=document.createElement('div'); el.className='emo-menu';
+    el.addEventListener('mousedown',ev=>{ ev.preventDefault(); const b=ev.target.closest('button[data-i]'); if(b) emoPick(+b.dataset.i); });
+    document.body.appendChild(el);
+    emo={q:'',items:[],i:0,el:el};
+  }
+  emo.q=q; emo.items=items; if(emo.i>items.length-1) emo.i=0; if(emo.i<0) emo.i=0;
+  emoPaint();
+  const sel=getSelection();
+  if(sel.rangeCount){
+    const rect=sel.getRangeAt(0).getBoundingClientRect();
+    const x=Math.min(Math.max(8,(rect.left||60)), Math.max(8,innerWidth-276));
+    const below=(rect.bottom||80)+6, h=emo.el.offsetHeight||232;
+    emo.el.style.left=x+'px';
+    emo.el.style.top=(below+h>innerHeight-8 ? Math.max(8,(rect.top||80)-h-6) : below)+'px';
+  }
+}
+function emoPick(i){
+  if(!emo) return;
+  const item=emo.items[i]; if(!item) return;
+  const back=emo.q.length+1;                    // the ":" plus whatever was typed after it
+  emoClose();
+  const s=getSelection(); if(!s.rangeCount) return;
+  const r=s.getRangeAt(0);
+  if(r.startContainer.nodeType===3 && r.startOffset>=back){
+    // splice the ":query" straight out of the text node and drop the emoji in its place —
+    // execCommand('insertText') here would swallow the space that came before the colon
+    const tn=r.startContainer, at=r.startOffset-back;
+    tn.deleteData(at, back);
+    tn.insertData(at, item.c);
+    const nr=document.createRange(); nr.setStart(tn, at+item.c.length); nr.collapse(true);
+    s.removeAllRanges(); s.addRange(nr);
+  } else {
+    document.execCommand('insertText',false,item.c);
+  }
+  emoBump(item.c);
+  scheduleSave();
+}
+function emoScan(){
+  if(!inBody()){ emoClose(); return; }
+  const tb=textBeforeCaret(); if(!tb.range){ emoClose(); return; }
+  const m=/(?:^|\s)(:([a-zA-Z0-9_+-]{0,24}))$/.exec(tb.txt);
+  if(!m){ emoClose(); return; }
+  emoOpen(m[2]);
+}
+bodyEl.addEventListener('keydown',function(e){
+  if(!emo) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); e.stopPropagation(); emo.i=(emo.i+1)%emo.items.length; emoPaint(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); e.stopPropagation(); emo.i=(emo.i-1+emo.items.length)%emo.items.length; emoPaint(); }
+  else if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); e.stopPropagation(); emoPick(emo.i); }
+  else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); emoClose(); }
+},true);
+bodyEl.addEventListener('blur',function(){ setTimeout(emoClose,120); });
+window.addEventListener('resize',emoClose);
 
 /* ---- "type as you write": - / 1. / [] / # / @date ---- */
 function blockOf(node){ let n=node.nodeType===3?node.parentNode:node; while(n&&n!==bodyEl&&!/^(DIV|P|LI|H1|H2|H3|BLOCKQUOTE)$/.test(n.nodeName)) n=n.parentNode; return n||bodyEl; }
