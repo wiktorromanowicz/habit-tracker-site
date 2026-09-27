@@ -141,6 +141,31 @@
   .sheet td.pre{cursor:default;background:repeating-linear-gradient(135deg,transparent,transparent 5px,rgba(160,150,130,.13) 5px,rgba(160,150,130,.13) 6px);}
   .sheet td.pre:hover{background:repeating-linear-gradient(135deg,transparent,transparent 5px,rgba(160,150,130,.13) 5px,rgba(160,150,130,.13) 6px);}
   .sheet td.pre .dot{display:none;}
+  /* never break twice — one miss is quiet, a second consecutive miss is the alarm */
+  .sheet td.miss2 .dot{border-color:#d98b7a;background:rgba(200,80,55,.13);}
+  .risk{display:flex;flex-direction:column;gap:6px;padding:0 0 14px;}
+  .risk .rrow{display:flex;align-items:center;gap:9px;font-size:13px;padding:9px 13px;border-radius:10px;
+    background:#fdf3ee;border:1px solid #f0d4c6;color:#8a3f28;}
+  .risk .rrow.broke{background:#fbeceb;border-color:#eec6c2;color:#8d3630;}
+  .risk .rrow b{font-weight:650;}
+  .risk .rrow .why{color:#a8705c;}
+  .risk .rrow.calm{background:var(--chip,#f3efe4);border-color:var(--line,#e7e2d6);color:#7d7566;}
+  .risk .rrow.calm .why{color:#9c9484;}
+  .hstat{color:#b0a693;}
+  .hstat b{color:#8c8474;font-weight:600;}
+  .sheet td.habit-col{position:relative;}
+  .hgrip{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:14px;text-align:center;
+    color:#cec5b2;cursor:grab;font-size:13px;line-height:1;opacity:0;user-select:none;}
+  .sheet tbody tr:hover .hgrip{opacity:1;}
+  .hgrip:active{cursor:grabbing;}
+  .sheet tbody tr.dragging{opacity:.45;}
+  .sheet tbody tr.dropinto td{box-shadow:inset 0 2px 0 #c69a4e;}
+  .hidden-wrap{padding:0 0 16px;font-size:13px;}
+  .hidden-wrap .hitem{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:9px;
+    background:var(--chip,#f3efe4);color:#8c8474;margin-top:6px;}
+  .hidden-wrap .hitem b{color:#6b6355;font-weight:600;}
+  .hidden-wrap .hitem button{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:14px;
+    border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .sheet table.d14{min-width:0;}
   .sheet table.d14 td.day{height:46px;}
   .sheet table.d14 th.habit-col,.sheet table.d14 td.habit-col{width:24%;}
@@ -192,14 +217,17 @@
           <button class="ptab" id="viewTab" onclick="toggleView()"></button>
         </div>
       </div>
+      <div class="risk" id="riskBand"></div>
       <div class="sheet-scroll">
         <table>
           <thead><tr id="headRow"></tr></thead>
           <tbody id="body"></tbody>
         </table>
       </div>
+      <div class="hidden-wrap" id="hiddenWrap" style="display:none"></div>
       <div class="sheet-foot">
         <span id="weekStat"></span>
+        <button class="ptab" id="hiddenBtn" onclick="toggleHidden()" style="display:none"></button>
         <button class="ptab" onclick="addHabit()">+ Add habit</button>
       </div>
     </div>
@@ -340,6 +368,70 @@ function viewDays(){
   return out;
 }
 function startedBy(h,date){ return !h.start || iso(date) >= h.start; }
+/* hidden habits keep all their history — they just stop taking up a row, and stop
+   counting towards the percentages and the never-break-twice band */
+function liveHabits(){ return state.habits.filter(h=>!h.hidden); }
+function hideHabit(hid){ const h=state.habits.find(x=>x.id===hid); if(!h) return; h.hidden=true; save(); render(); }
+function unhideHabit(hid){ const h=state.habits.find(x=>x.id===hid); if(!h) return; delete h.hidden; save(); render(); }
+let showHidden=false;
+function toggleHidden(){ showHidden=!showHidden; render(); }
+function renderHidden(){
+  const hid=state.habits.filter(h=>h.hidden), btn=document.getElementById('hiddenBtn'), wrap=document.getElementById('hiddenWrap');
+  if(!btn||!wrap) return;
+  btn.style.display = hid.length ? '' : 'none';
+  btn.textContent = (showHidden?'Hide ':'Show ')+hid.length+' hidden';
+  wrap.style.display = (hid.length && showHidden) ? '' : 'none';
+  wrap.innerHTML = hid.map(h=>'<div class="hitem"><b>'+escapeHtml(h.name)+'</b>'+
+    (h.start?'<span>since '+escapeHtml(h.start)+'</span>':'')+
+    '<button onclick="unhideHabit(\''+h.id+'\')">Bring back</button></div>').join('');
+}
+/* longest run of consecutive ticks this habit has ever had */
+function bestStreak(h){
+  const ks=Object.keys(h.done||{}).filter(k=>h.done[k]).sort();
+  let best=0, run=0, prev=null;
+  ks.forEach(k=>{
+    if(prev && iso(addDays(new Date(prev+'T00:00'),1))===k) run++; else run=1;
+    prev=k; if(run>best) best=run;
+  });
+  return best;
+}
+/* share of the days it has actually been running, over the last 30 */
+function rate30(h){
+  const t=new Date(); t.setHours(0,0,0,0);
+  let cells=0, hit=0;
+  for(let i=0;i<30;i++){ const d=addDays(t,-i); if(!startedBy(h,d)) continue; cells++; if(h.done[iso(d)]) hit++; }
+  return {cells, hit, pct: cells? Math.round(hit/cells*100):0};
+}
+/* how many days in a row have been missed, counting back from yesterday
+   (today is still open, so it never counts as a miss) */
+function missRun(h){
+  const t=new Date(); t.setHours(0,0,0,0);
+  let n=0, d=addDays(t,-1);
+  while(startedBy(h,d) && !h.done[iso(d)]){ n++; d=addDays(d,-1); if(n>60) break; }
+  return n;
+}
+/* the band above the grid: who is one day from a two-day gap, and who is already in one */
+function renderRisk(){
+  const t=new Date(); t.setHours(0,0,0,0); const today0=iso(t);
+  const rows=[];
+  const live=liveHabits();
+  live.forEach(h=>{
+    if(h.done[today0]) return;                       // already done today — nothing at stake
+    const m=missRun(h);
+    if(m===1) rows.push({h, cls:'', txt:'missed yesterday — do it today and the gap stays a blip'});
+    else if(m>=2) rows.push({h, cls:'broke', txt:'missed '+m+' days running — restart it today, however small'});
+  });
+  const el=document.getElementById('riskBand');
+  if(!el) return;
+  if(!live.length){ el.innerHTML=''; return; }
+  if(!rows.length){
+    el.innerHTML='<div class="rrow calm"><b>Never break twice</b><span class="why">'+
+      (live.every(h=>h.done[today0]) ? 'everything ticked today.' : 'nothing has a gap behind it — one miss is fine, two is where habits die.')+'</span></div>';
+    return;
+  }
+  rows.sort((a,b)=>(b.cls?1:0)-(a.cls?1:0));
+  el.innerHTML=rows.map(r=>'<div class="rrow '+r.cls+'"><b>'+escapeHtml(r.h.name)+'</b><span class="why">'+r.txt+'</span></div>').join('');
+}
 
 function currentStreak(h){
   let s=0, d=new Date(); d.setHours(0,0,0,0);
@@ -447,16 +539,26 @@ function render(){
 
   // body
   const body = document.getElementById("body");
-  if(state.habits.length===0){
+  const live = liveHabits();
+  if(live.length===0){
     body.innerHTML = `<tr><td colspan="${days.length+1}" class="empty">No habits yet. Click “+ Add habit”.</td></tr>`;
   } else {
-    body.innerHTML = state.habits.map(h=>{
+    body.innerHTML = live.map(h=>{
       const streak = currentStreak(h);
+      const best = bestStreak(h);
+      const r30 = rate30(h);
+      const bits = [];
+      if(h.target) bits.push(escapeHtml(h.target));
+      bits.push(streak>0 ? `<span class="streak">🔥 ${streak}d</span>` : `<span class="hstat">no run</span>`);
+      if(best>0) bits.push(`<span class="hstat">best <b>${best}d</b></span>`);
+      if(r30.cells>=3) bits.push(`<span class="hstat"><b>${r30.pct}%</b> last ${r30.cells===30?"30 days":r30.cells+" days"}</span>`);
       let row = `<td class="habit-col">
+        <span class="hgrip" draggable="true" title="Drag to reorder">\u283f</span>
         <div class="hname">${escapeHtml(h.name)}</div>
-        <div class="hmeta">${h.target?escapeHtml(h.target):""}${h.target&&streak>0?" · ":""}${streak>0?`<span class="streak">🔥 ${streak}d</span>`:(h.target?"":"no streak")}</div>
+        <div class="hmeta">${bits.join(" · ")}</div>
         <div class="habit-actions">
           <button onclick="editHabit('${h.id}')">Edit</button>
+          <button onclick="hideHabit('${h.id}')">Hide</button>
           <button onclick="delHabit('${h.id}')">Delete</button>
         </div>
       </td>`;
@@ -467,28 +569,71 @@ function render(){
         const done = !!h.done[dstr];
         const isT = sameDay(date,today);
         const we = (date.getDay()===0 || date.getDay()===6);
-        const cls = `day ${done?'done':''} ${future?'future':''} ${pre?'pre':''} ${isT?'today-cell':''} ${we?'wend':''}`;
+        // one miss is quiet; the second in a row is the one worth shouting about
+        const prev = addDays(date,-1);
+        const miss2 = !done && !future && !pre && !isT
+                      && startedBy(h,prev) && !h.done[iso(prev)];
+        const cls = `day ${done?'done':''} ${future?'future':''} ${pre?'pre':''} ${miss2?'miss2':''} ${isT?'today-cell':''} ${we?'wend':''}`;
         row += pre
           ? `<td class="${cls}" title="Not tracked yet — started ${escapeHtml(h.start||'')}"></td>`
           : `<td class="${cls}" onclick="toggle('${h.id}','${dstr}',${future},event)"><div class="dot"></div></td>`;
       });
-      return `<tr>${row}</tr>`;
+      return `<tr data-id="${h.id}">${row}</tr>`;
     }).join("");
   }
 
   // period stat — days before a habit started are not counted against it
   let cells=0, filled=0;
-  state.habits.forEach(h=>{
+  live.forEach(h=>{
     days.forEach(date=>{
       if(date>today || !startedBy(h,date)) return;
       cells++; if(h.done[iso(date)]) filled++;
     });
   });
+  renderRisk();
+  renderHidden();
   const pct = cells? Math.round(filled/cells*100):0;
   document.getElementById("weekStat").textContent =
     `${view==='month'?'This month':'Last 14 days'}: ${filled}/${cells} done (${pct}%)`;
 }
 
+/* drag a row by its grip to reorder — the order is what you see first each morning,
+   so it should be yours to set (weakest habit at the top works well) */
+(function dragRows(){
+  const body=document.getElementById('body'); if(!body) return;
+  let dragId=null;
+  body.addEventListener('dragstart',e=>{
+    const g=e.target.closest&&e.target.closest('.hgrip'); if(!g) return;
+    const tr=g.closest('tr'); if(!tr) return;
+    dragId=tr.dataset.id; tr.classList.add('dragging');
+    try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',dragId); }catch(err){}
+  });
+  body.addEventListener('dragover',e=>{
+    if(!dragId) return; e.preventDefault();
+    const tr=e.target.closest&&e.target.closest('tr'); if(!tr||tr.dataset.id===dragId) return;
+    body.querySelectorAll('tr.dropinto').forEach(x=>x.classList.remove('dropinto'));
+    tr.classList.add('dropinto');
+  });
+  body.addEventListener('dragleave',e=>{
+    const tr=e.target.closest&&e.target.closest('tr'); if(tr) tr.classList.remove('dropinto');
+  });
+  body.addEventListener('drop',e=>{
+    if(!dragId) return; e.preventDefault();
+    const tr=e.target.closest&&e.target.closest('tr');
+    const overId=tr&&tr.dataset.id;
+    body.querySelectorAll('tr.dropinto,tr.dragging').forEach(x=>x.classList.remove('dropinto','dragging'));
+    if(overId && overId!==dragId){
+      const from=state.habits.findIndex(h=>h.id===dragId);
+      const to=state.habits.findIndex(h=>h.id===overId);
+      if(from>=0 && to>=0){ const [m]=state.habits.splice(from,1); state.habits.splice(to,0,m); save(); }
+    }
+    dragId=null; render();
+  });
+  body.addEventListener('dragend',()=>{
+    body.querySelectorAll('tr.dropinto,tr.dragging').forEach(x=>x.classList.remove('dropinto','dragging'));
+    dragId=null;
+  });
+})();
 function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 /* ---- Planner: yearly / monthly goals + bottlenecks (WYSIWYG) ---- */
