@@ -46,7 +46,7 @@
   .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
   .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
   /* typing counter (fed by Apex.app over loopback) */
-  .typing{max-width:1500px;margin:18px auto 30px;padding:0 clamp(16px,4vw,40px);}
+  .typing{max-width:1500px;margin:4px auto 20px;padding:0 clamp(16px,4vw,40px);}
   .typing .card{background:var(--card,#fbf9f4);border:1px solid var(--line,#e7e2d6);border-radius:14px;padding:18px 20px;}
   .typing h2{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a99f8c;}
   .typing .big{font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--ink,#2b2a26);line-height:1.15;}
@@ -85,6 +85,8 @@
     <a href="ideas.html">💡 Ideas</a>
   </nav>
 </div>
+<div class="typing"><div class="card" id="typingCard"></div></div>
+
 <div class="sheet"><div class="sheet-inner">
   <div class="sheet-head">
     <div>
@@ -98,7 +100,6 @@
   <div class="sheet-note">Click a column header to select it, shift-click or drag across headers to select several, then right-click → Hide. A small ◂▸ marker shows where columns are hidden — click it to bring them back. Cmd+Z undoes anything.</div>
 </div></div>
 
-<div class="typing"><div class="card" id="typingCard"></div></div>
 
 <script src="grid.js"></script>
 <script>
