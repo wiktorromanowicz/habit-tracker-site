@@ -138,6 +138,14 @@
     padding:8px 12px;font-size:13px;border-radius:7px;}
   .tmenu-pop button:hover{background:var(--panel2);}
   .tmenu-pop button.danger:hover{background:#fdeaea;color:#ef4444;}
+  /* lists put away — kept, not deleted */
+  .hidden-lists{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}
+  .hidden-lists .hl{display:flex;align-items:center;gap:9px;padding:7px 12px;border-radius:9px;
+    background:var(--chip,#f3efe4);border:1px solid var(--line,#e7e2d6);font-size:13px;color:#8c8474;}
+  .hidden-lists .hl b{color:#6b6355;font-weight:600;}
+  .hidden-lists .hl button{border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;
+    border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+  .hidden-lists .hl button:hover{background:var(--chip,#f3efe4);}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -167,8 +175,10 @@
     <div class="tasks-head">
       <h2>Tasks</h2>
       <button class="tlist-add" id="undoBtn" onclick="undoTasks()" title="Undo the last delete or structural change (⌘Z)" style="display:none">↩︎ Undo</button>
+      <button class="tlist-add" id="hiddenListsBtn" onclick="toggleHiddenLists()" style="display:none"></button>
       <button class="tlist-add" onclick="addList()">+ New list</button>
     </div>
+    <div class="hidden-lists" id="hiddenLists" style="display:none"></div>
     <div class="tasks-board" id="tasksBoard"></div>
   </section>
 
@@ -252,8 +262,10 @@ function ordered(list, parentId){
 
 function renderTasks(){
   board.innerHTML = "";
+  try{ renderHiddenLists(); }catch(e){}
   const fresh = justAdded || []; justAdded = null;
   state.taskLists.forEach(list => {
+    if(list.stashed) return;                       // put away — see the "N hidden" button
     const col = document.createElement("div");
     col.className = "tlist" + (list.collapsedDone ? " collapsed-done" : "") + (list.collapsed ? " collapsed" : "");
     if(list.width) col.style.flexBasis = col.style.width = list.width + "px";
@@ -633,6 +645,34 @@ function closeListMenu(){ if(openMenuEl){ openMenuEl.remove(); openMenuEl = null
 document.addEventListener("click", e => {
   if(openMenuEl && !openMenuEl.contains(e.target) && !e.target.classList.contains("tlist-menu")) closeListMenu();
 });
+/* Hiding a list takes it off the board but keeps every task in it — the opposite of
+   Delete. Hidden lists live behind the "N hidden" button next to + New list. */
+function visibleLists(){ return state.taskLists.filter(l => !l.stashed); }
+function hideList(listId){
+  const l = findList(listId); if(!l) return;
+  if(visibleLists().length <= 1){ toast('That is the only list on the board — keep one visible.'); return; }
+  snapTasks('hide list');
+  l.stashed = true; save(); renderTasks();
+  toast('“' + l.name + '” hidden', {label:'Undo', fn:undoTasks});
+}
+function unhideList(listId){
+  const l = findList(listId); if(!l) return;
+  delete l.stashed; save(); renderTasks();
+}
+let showHiddenLists = false;
+function toggleHiddenLists(){ showHiddenLists = !showHiddenLists; renderHiddenLists(); }
+function renderHiddenLists(){
+  const btn = document.getElementById('hiddenListsBtn'), wrap = document.getElementById('hiddenLists');
+  if(!btn || !wrap) return;
+  const hid = state.taskLists.filter(l => l.stashed);
+  btn.style.display = hid.length ? '' : 'none';
+  btn.textContent = (showHiddenLists ? 'Hide ' : 'Show ') + hid.length + ' hidden';
+  wrap.style.display = (hid.length && showHiddenLists) ? '' : 'none';
+  wrap.innerHTML = hid.map(l =>
+    '<div class="hl"><b>' + esc(l.name) + '</b><span>' + (l.items||[]).filter(i=>!i.done).length + ' open</span>' +
+    '<button onclick="unhideList(\'' + l.id + '\')">Bring back</button></div>').join('');
+}
+
 function openListMenu(e, listId){
   e.stopPropagation();
   closeListMenu();
@@ -640,11 +680,13 @@ function openListMenu(e, listId){
   const pop = document.createElement("div");
   pop.className = "tmenu-pop";
   pop.innerHTML =
-    '<button data-a="hide">' + (l.collapsed ? "Show list" : "Hide list") + '</button>' +
+    '<button data-a="hide">' + (l.collapsed ? "Expand list" : "Collapse list") + '</button>' +
+    '<button data-a="stash">Hide list</button>' +
     '<button data-a="order">' + (l.manualOrder ? "Sort by deadline" : "Manual order") + '</button>' +
     '<button data-a="clear">Clear completed</button>' +
     '<button data-a="del" class="danger">Delete list</button>';
   pop.querySelector('[data-a="hide"]').addEventListener("click", () => { l.collapsed = !l.collapsed; save(); renderTasks(); closeListMenu(); });
+  pop.querySelector('[data-a="stash"]').addEventListener("click", () => { hideList(listId); closeListMenu(); });
   pop.querySelector('[data-a="order"]').addEventListener("click", () => { l.manualOrder = !l.manualOrder; save(); renderTasks(); closeListMenu(); });
   pop.querySelector('[data-a="clear"]').addEventListener("click", () => { snapTasks('clear completed'); clearCompleted(listId); closeListMenu(); toast('Completed tasks cleared',{label:'Undo',fn:undoTasks}); });
   pop.querySelector('[data-a="del"]').addEventListener("click", () => { const l2=findList(listId); const n=l2?l2.items.length:0; snapTasks('delete list'); deleteList(listId); closeListMenu(); toast('List deleted'+(n?' with '+n+' task'+(n>1?'s':''):''),{label:'Undo',fn:undoTasks}); });
