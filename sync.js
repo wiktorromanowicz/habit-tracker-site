@@ -15,7 +15,7 @@
 
   /* localStorage keys that hold Apex data (per tab) */
   var KEYS = ['titan_habits_v1', 'apexTasks', 'wiktorNotes', 'finState', 'wiktorAssets', 'wiktorIdeas',
-              'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin', 'apexNotesFont', 'apexTodayLayout', 'apexTimerQuick'];
+              'apexNavOrder', 'apexNotesSide', 'apexTimer', 'apexLift', 'finRules', 'apexCalPrefs', 'apexTime', 'apexTheme', 'apexSideMin', 'apexNotesFont', 'apexTodayLayout', 'apexTimerQuick', 'apexUsage'];
   var isYearKey = function (k) { return /^wiktorMetrics_\d{4}$/.test(k); };
   // keys that pages can apply without a reload (timer, theme, sidebar, nav order, fonts)
   var LIVE = ['apexTimer', 'apexTheme', 'apexSideMin', 'apexNavOrder', 'apexNotesFont', 'apexTimerQuick'];
@@ -92,7 +92,28 @@
       return JSON.stringify(out);
     } catch (e) { return remoteStr; }
   }
-  var MERGERS = { apexTime: mergeTime };
+  /* usage counts must never be clobbered by the other device's copy: take the
+     larger count for each day and event, so two Macs logging the same day add
+     up to the fuller picture rather than the last one to sync */
+  function mergeUsage(localStr, remoteStr) {
+    try {
+      var a = JSON.parse(localStr) || {}, b = JSON.parse(remoteStr) || {};
+      var out = { d: {} }, days = {};
+      Object.keys(a.d || {}).forEach(function (k) { days[k] = 1; });
+      Object.keys(b.d || {}).forEach(function (k) { days[k] = 1; });
+      Object.keys(days).sort().forEach(function (day) {
+        var x = (a.d || {})[day] || {}, y = (b.d || {})[day] || {}, row = {};
+        Object.keys(x).forEach(function (e) { row[e] = x[e]; });
+        Object.keys(y).forEach(function (e) { row[e] = Math.max(row[e] || 0, y[e]); });
+        out.d[day] = row;
+      });
+      var keys = Object.keys(out.d).sort();
+      while (keys.length > 90) delete out.d[keys.shift()];
+      return JSON.stringify(out);
+    } catch (e) { return remoteStr; }
+  }
+
+  var MERGERS = { apexTime: mergeTime, apexUsage: mergeUsage };
 
   /* ---- pull: newer copy wins ---- */
   var changedKeys = [];

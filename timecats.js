@@ -57,7 +57,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   const mondayOf=d=>{ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
   const isMine=(c,prefs)=>!(prefs.hidden&&prefs.hidden[c.id]) && (c.primary || !(/@/.test(c.id) && !/group\.calendar\.google\.com$|holiday|import\.calendar/.test(c.id)));
-  const usable=ev=>ev && !ev.allDay && ev.start && ev.end && !/^executive summary/i.test(ev.title||ev.t||'') && ev.status!=='declined';
+  const usable=ev=>ev && !ev.allDay && ev.start && ev.end && !/^(executive summary|apex inbox|apex replies)/i.test(ev.title||ev.t||'') && ev.status!=='declined';
 
   /* events the Calendar tab has already cached, for any range overlapping [from,to) */
   function cachedEvents(from,to){
@@ -97,7 +97,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
         const j=await r.json();
         (j.items||[]).forEach(ev=>{
           if(ev.status==='cancelled'||!ev.start||!ev.start.dateTime) return;
-          if(/^executive summary/i.test(ev.summary||'')) return;
+          if(/^(executive summary|apex inbox|apex replies)/i.test(ev.summary||'')) return;
           const me=(ev.attendees||[]).find(a=>a.self);
           if(me&&me.responseStatus==='declined') return;
           out.push({t:ev.summary||'(no title)', s:new Date(ev.start.dateTime), e:new Date(ev.end.dateTime)});

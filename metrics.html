@@ -53,6 +53,17 @@
   .typing .big small{font-size:13px;font-weight:600;color:#9c9484;margin-left:7px;letter-spacing:0;}
   .typing .subs{font-size:12.5px;color:#9c9484;margin-top:3px;}
   .typing .subs b{color:#6b6355;font-weight:600;}
+  .typing .ubars{margin-top:14px;display:flex;flex-direction:column;gap:5px}
+  .typing .urow{display:flex;align-items:center;gap:10px;font-size:12.5px}
+  .typing .ulab{width:120px;flex:none;color:#6b6355}
+  .typing .ubar{flex:1;height:8px;border-radius:5px;background:var(--line,#e7e2d6);overflow:hidden}
+  .typing .ubar i{display:block;height:100%;background:#1a73e8;border-radius:5px}
+  .typing .un{width:34px;text-align:right;color:#9c9484;font-variant-numeric:tabular-nums}
+  .typing .usec{margin-top:16px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a99f8c}
+  .typing .uchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .typing .uchip{font-size:12px;padding:3px 10px;border-radius:12px;background:var(--panel2,#f3efe4);border:1px solid var(--line,#e7e2d6);color:#6b6355}
+  .typing .uchips.dim .uchip{opacity:.7}
+
   .typing .bars{display:flex;align-items:flex-end;gap:5px;height:66px;margin:16px 0 4px;}
   .typing .bars div{flex:1;background:var(--chip,#e9e2d2);border-radius:4px 4px 0 0;min-height:2px;position:relative;}
   .typing .bars div.today{background:#c69a4e;}
@@ -87,6 +98,7 @@
   </nav>
 </div>
 <div class="typing"><div class="card" id="typingCard"></div></div>
+<div class="typing"><div class="card" id="usageCard"></div></div>
 
 <div class="sheet"><div class="sheet-inner">
   <div class="sheet-head">
@@ -185,6 +197,76 @@ function loadYear(y){ curY=y; document.getElementById('mTitle').textContent='Met
 function renderTabs(){ document.getElementById('tabs').innerHTML =
   YEARS.map(y=>`<button class="ptab ${y===curY?'dark':''}" onclick="loadYear(${y})">${y}</button>`).join(''); }
 loadYear(2026);
+</script>
+<script>
+/* ---- how you use Apex -----------------------------------------------------
+   Reads the rolling counts shell.js keeps in apexUsage. No server, no tracking
+   of content — an event name and a day, nothing else. The point of the panel is
+   the uncomfortable half: which tabs you built and never open. */
+(function(){
+  const CARD=document.getElementById('usageCard'); if(!CARD) return;
+  const PAGES={today:'🏠 Today',index:'🎯 Habits',tasks:'✅ Tasks',calendar:'📅 Calendar',time:'⏳ Time',
+    notes:'📝 Notes',timer:'⏱ Timer',lift:'🏋️ Lift',finances:'💰 Net worth',metrics:'📊 Metrics',
+    assets:'🗂️ Assets',ideas:'💡 Ideas',music:'🎵 Music'};
+  const ACTS=[['task:add','Tasks added'],['task:done','Tasks completed'],['habit:tick','Habits ticked'],
+    ['time:slot','Time slots filled'],['note:new','Notes started'],['timer:start','Timers run'],
+    ['shell:solo-open','Mini-windows opened'],['shell:copy-context','Context snapshots']];
+  const pad=n=>String(n).padStart(2,'0');
+  const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+
+  function read(){ try{ return JSON.parse(localStorage.getItem('apexUsage')||'null')||{d:{}}; }catch(e){ return {d:{}}; } }
+  function window_(S,days){
+    const t=new Date(); t.setHours(0,0,0,0); const out={}; let active=0;
+    for(let i=0;i<days;i++){
+      const k=iso(addD(t,-i)), row=S.d[k]; if(!row) continue;
+      let any=false;
+      Object.keys(row).forEach(e=>{ out[e]=(out[e]||0)+row[e]; any=true; });
+      if(any) active++;
+    }
+    return {counts:out, activeDays:active};
+  }
+  function render(){
+    const S=read(), days=Object.keys(S.d||{}).length;
+    if(!days){
+      CARD.innerHTML='<h2>How you use Apex</h2><div class="big">Nothing yet<small>counting starts now</small></div>'+
+        '<div class="note">Apex has just started keeping a count of which tabs you open and which things you do in them — event names and days only, never what you wrote. Come back in a week and this will have something to say.</div>';
+      return;
+    }
+    const w30=window_(S,30), w7=window_(S,7), c=w30.counts;
+    const tabs=Object.keys(c).filter(k=>k.indexOf('tab:')===0)
+      .map(k=>({p:k.slice(4), n:c[k]})).filter(x=>PAGES[x.p]).sort((a,b)=>b.n-a.n);
+    const total=tabs.reduce((n,x)=>n+x.n,0);
+    const never=Object.keys(PAGES).filter(p=>!c['tab:'+p]);
+    const top=tabs[0];
+    const max=top?top.n:1;
+
+    let html='<h2>How you use Apex</h2>';
+    html+='<div class="big">'+(top?PAGES[top.p]:'—')+'<small>your most-opened tab, '+(total?Math.round(top.n/total*100):0)+'% of visits</small></div>';
+    html+='<div class="subs">Last 30 days · <b>'+total+'</b> tab opens over <b>'+w30.activeDays+'</b> active day'+(w30.activeDays===1?'':'s')+' · <b>'+w7.activeDays+'</b> of the last 7</div>';
+
+    html+='<div class="ubars">'+tabs.map(x=>
+      '<div class="urow"><span class="ulab">'+PAGES[x.p]+'</span>'+
+      '<span class="ubar"><i style="width:'+Math.max(3,Math.round(x.n/max*100))+'%"></i></span>'+
+      '<span class="un">'+x.n+'</span></div>').join('')+'</div>';
+
+    const acts=ACTS.filter(a=>c[a[0]]);
+    if(acts.length){
+      html+='<div class="usec">What you did</div><div class="uchips">'+
+        acts.map(a=>'<span class="uchip"><b>'+c[a[0]]+'</b> '+a[1]+'</span>').join('')+'</div>';
+    }
+    if(never.length){
+      html+='<div class="usec">Not opened once in 30 days</div><div class="uchips dim">'+
+        never.map(p=>'<span class="uchip">'+PAGES[p]+'</span>').join('')+'</div>'+
+        '<div class="note">Worth deciding about rather than ignoring: either it earns its place in the sidebar, or you hide it and the app gets simpler.</div>';
+    } else {
+      html+='<div class="note">Every tab has been opened at least once in the last 30 days.</div>';
+    }
+    CARD.innerHTML=html;
+  }
+  render();
+  window.addEventListener('storage',e=>{ if(e.key==='apexUsage') render(); });
+})();
 </script>
 </body>
 </html>

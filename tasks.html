@@ -168,12 +168,17 @@
   .atpop button.on,.atpop button:hover{background:var(--accent-dim)}
   .atpop .av{width:19px;height:19px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800}
   .tasks-board.flatview{display:block!important}
+  .treply{margin-top:6px;font-size:12.5px;line-height:1.5;color:#4b5563;background:#eef4ff;border:1px solid #d6e2fb;border-left:3px solid #1a73e8;border-radius:8px;padding:6px 9px}
+  .treply b{color:#1a4fa3;font-weight:700}
+  .treply .st{font-size:11px;color:#6b7280;background:#fff;border:1px solid #d6e2fb;border-radius:9px;padding:1px 7px;margin-left:4px}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
 <link rel="stylesheet" href="shell.css"/>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
+<script defer src="gauth.js"></script>
+<script defer src="apexinbox.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -345,7 +350,7 @@ function openWhoPop(anchor, it, done){
   const r=anchor.getBoundingClientRect();
   box.style.left=Math.max(8,Math.min(r.left, innerWidth-box.offsetWidth-10))+'px';
   box.style.top=Math.min(r.bottom+4, innerHeight-box.offsetHeight-10)+'px';
-  box.querySelectorAll('[data-n]').forEach(b=>b.addEventListener('click',()=>{ const v=b.dataset.n; if(v) it.who=v; else delete it.who; closeAtPop(); done(); }));
+  box.querySelectorAll('[data-n]').forEach(b=>b.addEventListener('click',()=>{ const v=b.dataset.n; if(v) it.who=v; else delete it.who; closeAtPop(); done(); try{ApexInbox.pushSoon();}catch(e){} }));
   const nb=box.querySelector('#atNew');
   nb.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); const v=nb.value.trim(); if(v) it.who=resolveWho(v); else delete it.who; closeAtPop(); done(); } if(ev.key==='Escape') closeAtPop(); });
   setTimeout(()=>{ if(!names.length) nb.focus(); },0);
@@ -374,9 +379,9 @@ function atSuggest(el, it){
 }
 /* ---- view + filter ---- */
 function currentView(){ try{ return localStorage.getItem(VIEW_KEY)==='date'?'date':'board'; }catch(e){ return 'board'; } }
-function setView(v){ try{ localStorage.setItem(VIEW_KEY,v); }catch(e){} renderTasks(); }
+function setView(v){ try{ApexUse.log('task:view-'+v);}catch(e){}  try{ localStorage.setItem(VIEW_KEY,v); }catch(e){} renderTasks(); }
 function whoFilter(){ try{ return localStorage.getItem(WHO_KEY)||''; }catch(e){ return ''; } }
-function setWhoFilter(v){ try{ localStorage.setItem(WHO_KEY,v); }catch(e){} renderTasks(); }
+function setWhoFilter(v){ try{if(v)ApexUse.log('task:who-filter');}catch(e){}  try{ localStorage.setItem(WHO_KEY,v); }catch(e){} renderTasks(); }
 function passesWho(it){
   const f=whoFilter(); if(!f) return true;
   if(f==='\u0000none') return !it.who;
@@ -601,6 +606,7 @@ function taskRow(listId, it, isSub){
     if(!v){ if(suppressBlurDelete || !li.isConnected) return; deleteTask(listId, it.id, true); return; }
     clearTimeout(_tt);                                  // the debounced input save would put the @name back
     const had = it.who, cleaned = extractWho(it, v);
+    if(had !== it.who){ try{ApexInbox.pushSoon();}catch(e){} }
     it.text = cleaned; e.target.textContent = cleaned; save();
     if(cleaned !== v || had !== it.who){ renderTasks(); }
   });
@@ -634,6 +640,15 @@ function taskRow(listId, it, isSub){
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
   const chip=dueChip(listId,it); if(chip) main.appendChild(chip);
   const wc=whoChip(listId,it); if(wc) main.appendChild(wc);
+  try{
+    const RP=(JSON.parse(localStorage.getItem('apexInboxReplies')||'null')||{}).byId||{};
+    const rep=RP[it.id];
+    if(rep && rep.text){
+      const r=document.createElement('div'); r.className='treply';
+      r.innerHTML='<b>\u{1F916} Apex</b> '+esc(rep.text)+(rep.status?' <span class="st">'+esc(rep.status)+'</span>':'');
+      main.appendChild(r);
+    }
+  }catch(e){}
   li.addEventListener("contextmenu", e=>{ e.preventDefault(); openCtx(e,listId,it.id); });
 
   const actions = document.createElement("div");
@@ -668,7 +683,7 @@ function insertAt(l, afterId){
   return { idx, parent: a.parent };
 }
 let justAdded = null;
-function addTask(listId, afterId){
+function addTask(listId, afterId){ try{ApexUse.log('task:add');}catch(e){} 
   const l = findList(listId); if(!l) return;
   const pos = insertAt(l, afterId);
   const it = { id: uid(), text: "", desc: "", done: false, parent: pos.parent };
@@ -698,7 +713,7 @@ function addTasks(listId, afterId, texts){
   justAdded = items.map(i => i.id); save(); renderTasks();
   const last = board.querySelector('[data-item="'+items[items.length-1].id+'"] .ttext'); if(last) last.focus();
 }
-function toggleTask(listId, itemId){
+function toggleTask(listId, itemId){ try{ApexUse.log('task:done');}catch(e){} 
   const it = findItem(listId, itemId); if(!it) return;
   const l = findList(listId);
   it.done = !it.done;
@@ -808,7 +823,7 @@ function refocus(itemId){
       const s = getSelection(); s.removeAllRanges(); s.addRange(r); }catch(_){}
   }
 }
-function addList(){
+function addList(){ try{ApexUse.log('task:list-add');}catch(e){} 
   state.taskLists.push({ id: uid(), name: "New list", collapsed: false, items: [] });
   save(); renderTasks();
   const cols = board.querySelectorAll(".tlist-title");
@@ -943,7 +958,7 @@ function openCtx(e, listId, itemId){
   box.querySelector('#ctxN').addEventListener('change',applyRepeat);
   days.querySelectorAll('.q').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); applyRepeat(); }));
   const whoIn=box.querySelector('#ctxWho');
-  const setWho=v=>{ const n=(v||'').trim(); if(n) it.who=resolveWho(n); else delete it.who; save(); renderTasks(); };
+  const setWho=v=>{ const n=(v||'').trim(); if(n) it.who=resolveWho(n); else delete it.who; save(); renderTasks(); try{ApexInbox.pushSoon();}catch(e){} };
   whoIn.addEventListener('change',ev=>setWho(ev.target.value));
   whoIn.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); setWho(ev.target.value); closeCtx(); } });
   box.querySelector('#ctxWhoClear').addEventListener('click',()=>{ whoIn.value=''; setWho(''); });
@@ -1071,6 +1086,7 @@ document.addEventListener('keydown',e=>{
 paintUndo();
 window.addEventListener('beforeunload',()=>{ const ae=document.activeElement; if(ae&&ae.isContentEditable) ae.blur(); });
 renderTasks();
+window.addEventListener('apex-inbox-replies', ()=>{ try{ renderTasks(); }catch(e){} });
 (function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
 </script>
 </body>

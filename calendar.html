@@ -356,7 +356,7 @@ async function loadEvents(){
     const q='?singleEvents=true&orderBy=startTime&maxResults=250&timeMin='+encodeURIComponent(s.toISOString())+'&timeMax='+encodeURIComponent(e.toISOString());
     const j=await api('/calendars/'+encodeURIComponent(cal.id)+'/events'+q);
     (j.items||[]).forEach(ev=>{ if(ev.status==='cancelled') return;
-      if(/^executive summary/i.test(ev.summary||'')){                 // carrier event: keep the brief, hide the event
+      if(/^(executive summary|apex inbox|apex replies)/i.test(ev.summary||'')){                 // carrier event: keep the brief, hide the event
         if(cal.primary && ev.start && ev.start.date && ev.description){
           const cur=cache.brief;
           if(!cur || cur.date<=ev.start.date) cache.brief={date:ev.start.date, html:ev.description, ts:Date.now()};
