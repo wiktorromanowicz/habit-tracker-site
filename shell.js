@@ -96,7 +96,7 @@
         '<div class="sb-row"><button class="sb-btn" id="apexPalBtn" title="Command palette"><span>Search</span><kbd>' + MOD + 'K</kbd></button>' +
         '<button class="sb-btn" id="apexThemeBtn" title="Dark / light"><span id="apexThemeLbl"></span></button>' +
         '<button class="sb-btn" id="apexKeysBtn" title="Keyboard shortcuts"><kbd>?</kbd></button></div>' +
-        '<div class="sb-row"><button class="sb-btn wide" id="apexCtxBtn" title="Copy a snapshot of goals, tasks, calendar, habits, time and recent notes">⧉ <span>Copy context</span></button></div>' +
+        '<div class="sb-row"><button class="sb-btn wide" id="apexCtxBtn" title="Build a snapshot you can read and edit before anything is copied">⧉ <span>Copy context</span></button></div>' +
       '</div>';
     document.body.appendChild(side);
     navEl = $('nav', side); foot = $('.sb-foot', side); tw = $('#apexTw', side);
@@ -258,120 +258,248 @@
   /* ---- context snapshot -------------------------------------------------
      Puts a readable summary of where you are right now on the clipboard, so you
      can paste it into a chat and get help without explaining the setup first.
-     It reads only what is already in this browser, it never sends anything, and
-     a note whose title starts with a padlock is left out entirely. */
+
+     Rules this block is built to keep:
+       * nothing is sent anywhere — it reads this browser and writes the clipboard
+       * nothing reaches the clipboard unseen: the text is shown in a preview you
+         can edit, and only the Copy button in that preview copies it
+       * every section can be switched off, and the choice is remembered
+       * note bodies are OFF by default — titles only, until you ask for more
+       * a note marked private (or titled with a padlock) is never included
+       * with redaction on, e-mail addresses, long numbers and links that carry a
+         token are replaced before you see the text
+     ------------------------------------------------------------------------ */
   var CTX_PRIVATE = /^\s*(🔒|private\b)/i;
+  var CTX_KEY = 'apexCtxOpts';
+  var CTX_DEFAULTS = { goals: true, tasks: true, calendar: true, habits: true, time: true, notes: true, noteBodies: false, redact: true };
+  function ctxOpts() {
+    var o = {}, k;
+    for (k in CTX_DEFAULTS) o[k] = CTX_DEFAULTS[k];
+    try {
+      var s = JSON.parse(localStorage.getItem(CTX_KEY) || 'null');
+      if (s) for (k in CTX_DEFAULTS) if (typeof s[k] === 'boolean') o[k] = s[k];
+    } catch (e) {}
+    return o;
+  }
+  function ctxSaveOpts(o) { try { localStorage.setItem(CTX_KEY, JSON.stringify(o)); } catch (e) {} }
+
   function ctxDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function ctxAddDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function ctxStrip(html) { return String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h[1-3])>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\n{3,}/g, '\n\n').trim(); }
   function ctxClip(t, n) { t = String(t || '').trim(); return t.length > n ? t.slice(0, n).trim() + '…' : t; }
 
-  function buildContext() {
+  /* the things you would not want to paste by accident */
+  function ctxRedact(t) {
+    return String(t || '')
+      .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
+      .replace(/https?:\/\/\S*(?:token|key|secret|password|passwd|auth|session|sig)=\S*/gi, '[link with a token]')
+      .replace(/\b(?:\d[ -]?){12,19}\b/g, '[long number]')
+      .replace(/(?:\+\d{1,3}[ -]?)?(?:\(\d{2,4}\)[ -]?)?\d{3}[ -]\d{3}[ -]?\d{2,4}\b/g, '[number]');
+  }
+
+  function buildContext(o) {
+    o = o || ctxOpts();
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var T = ctxDate(today), out = [];
     out.push('# Apex context — ' + today.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
     out.push('_Snapshot from Apex. Everything below is current as of ' + new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + '._');
 
-    /* goals — the frame everything else should be judged against */
     var H = ls.get('titan_habits_v1', {}) || {};
-    var yr = ctxStrip((H.goalsYear || {})[today.getFullYear()]);
-    var mk = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-    var mo = ctxStrip((H.goals || {})[mk]);
-    var bn = ctxStrip(H.bottlenecks);
-    if (yr || mo || bn) {
-      out.push('\n## Goals');
-      if (yr) out.push('**This year**\n' + ctxClip(yr, 900));
-      if (mo) out.push('**This month**\n' + ctxClip(mo, 900));
-      if (bn) out.push('**Bottlenecks**\n' + ctxClip(bn, 700));
+
+    /* goals — the frame everything else should be judged against */
+    if (o.goals) {
+      var yr = ctxStrip((H.goalsYear || {})[today.getFullYear()]);
+      var mk = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+      var mo = ctxStrip((H.goals || {})[mk]);
+      var bn = ctxStrip(H.bottlenecks);
+      if (yr || mo || bn) {
+        out.push('\n## Goals');
+        if (yr) out.push('**This year**\n' + ctxClip(yr, 900));
+        if (mo) out.push('**This month**\n' + ctxClip(mo, 900));
+        if (bn) out.push('**Bottlenecks**\n' + ctxClip(bn, 700));
+      }
     }
 
     /* tasks — open only, overdue first, hidden lists left out */
-    var TK = ls.get('apexTasks', {}) || {}, lists = (TK.taskLists || []).filter(function (l) { return !l.stashed; });
-    var open = [];
-    lists.forEach(function (l) {
-      (l.items || []).forEach(function (it) { if (!it.done) open.push({ list: l.name, text: it.text, due: it.due }); });
-    });
-    out.push('\n## Open tasks (' + open.length + ')');
-    if (!open.length) out.push('- nothing open');
-    else {
-      var overdue = open.filter(function (t) { return t.due && t.due < T; });
-      var due = open.filter(function (t) { return t.due === T; });
-      var rest = open.filter(function (t) { return !t.due || t.due > T; });
-      if (overdue.length) out.push('**Overdue**\n' + overdue.map(function (t) { return '- ' + t.text + '  _(' + t.list + ', due ' + t.due + ')_'; }).join('\n'));
-      if (due.length) out.push('**Due today**\n' + due.map(function (t) { return '- ' + t.text + '  _(' + t.list + ')_'; }).join('\n'));
-      if (rest.length) out.push('**Everything else**\n' + rest.slice(0, 40).map(function (t) { return '- ' + t.text + '  _(' + t.list + (t.due ? ', due ' + t.due : '') + ')_'; }).join('\n'));
+    if (o.tasks) {
+      var TKs = ls.get('apexTasks', {}) || {}, lists = (TKs.taskLists || []).filter(function (l) { return !l.stashed; });
+      var open = [];
+      lists.forEach(function (l) {
+        (l.items || []).forEach(function (it) { if (!it.done) open.push({ list: l.name, text: it.text, due: it.due }); });
+      });
+      out.push('\n## Open tasks (' + open.length + ')');
+      if (!open.length) out.push('- nothing open');
+      else {
+        var overdue = open.filter(function (t) { return t.due && t.due < T; });
+        var due = open.filter(function (t) { return t.due === T; });
+        var rest = open.filter(function (t) { return !t.due || t.due > T; });
+        if (overdue.length) out.push('**Overdue**\n' + overdue.map(function (t) { return '- ' + t.text + '  _(' + t.list + ', due ' + t.due + ')_'; }).join('\n'));
+        if (due.length) out.push('**Due today**\n' + due.map(function (t) { return '- ' + t.text + '  _(' + t.list + ')_'; }).join('\n'));
+        if (rest.length) out.push('**Everything else**\n' + rest.slice(0, 40).map(function (t) { return '- ' + t.text + '  _(' + t.list + (t.due ? ', due ' + t.due : '') + ')_'; }).join('\n'));
+      }
     }
 
     /* today's calendar, from the cache the Calendar tab keeps */
-    var cal = ls.get('apexCal', {}) || {}, evs = [];
-    Object.keys(cal.events || {}).forEach(function (k) {
-      (cal.events[k] || []).forEach(function (e) {
-        var st = new Date(e.start);
-        if (ctxDate(st) === T && !/^executive summary/i.test(e.title || '')) evs.push({ s: st, e: new Date(e.end), t: e.title, all: e.allDay });
+    if (o.calendar) {
+      var cal = ls.get('apexCal', {}) || {}, evs = [];
+      Object.keys(cal.events || {}).forEach(function (k) {
+        (cal.events[k] || []).forEach(function (e) {
+          var st = new Date(e.start);
+          if (ctxDate(st) === T && !/^executive summary/i.test(e.title || '')) evs.push({ s: st, e: new Date(e.end), t: e.title, all: e.allDay });
+        });
       });
-    });
-    evs.sort(function (a, b) { return a.s - b.s; });
-    var seen = {}; evs = evs.filter(function (e) { var k = e.t + '@' + e.s; if (seen[k]) return false; seen[k] = 1; return true; });
-    out.push('\n## Today\'s calendar');
-    out.push(evs.length ? evs.map(function (e) {
-      var hm = function (d) { return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
-      return '- ' + (e.all ? 'all day' : hm(e.s) + '–' + hm(e.e)) + ' · ' + e.t;
-    }).join('\n') : '- nothing in the cached calendar (open the Calendar tab to refresh it)');
+      evs.sort(function (a, b) { return a.s - b.s; });
+      var seen = {}; evs = evs.filter(function (e) { var k = e.t + '@' + e.s; if (seen[k]) return false; seen[k] = 1; return true; });
+      out.push('\n## Today\'s calendar');
+      out.push(evs.length ? evs.map(function (e) {
+        var hm = function (d) { return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+        return '- ' + (e.all ? 'all day' : hm(e.s) + '–' + hm(e.e)) + ' · ' + e.t;
+      }).join('\n') : '- nothing in the cached calendar (open the Calendar tab to refresh it)');
+    }
 
     /* habits — where the streaks actually are */
-    var habits = (H.habits || []).filter(function (h) { return !h.hidden; });
-    if (habits.length) {
-      out.push('\n## Habits');
-      out.push(habits.map(function (h) {
-        var run = 0, d = new Date(today); if (!(h.done || {})[ctxDate(d)]) d = ctxAddDays(d, -1);
-        while ((h.done || {})[ctxDate(d)]) { run++; d = ctxAddDays(d, -1); }
-        var cells = 0, hit = 0;
-        for (var i = 0; i < 30; i++) { var dd = ctxAddDays(today, -i); if (h.start && ctxDate(dd) < h.start) continue; cells++; if ((h.done || {})[ctxDate(dd)]) hit++; }
-        return '- ' + h.name + ' — ' + ((h.done || {})[T] ? 'done today' : 'not yet today') +
-               ', ' + run + '-day run, ' + (cells ? Math.round(hit / cells * 100) : 0) + '% of the last ' + cells + ' days';
-      }).join('\n'));
+    if (o.habits) {
+      var habits = (H.habits || []).filter(function (h) { return !h.hidden; });
+      if (habits.length) {
+        out.push('\n## Habits');
+        out.push(habits.map(function (h) {
+          var run = 0, d = new Date(today); if (!(h.done || {})[ctxDate(d)]) d = ctxAddDays(d, -1);
+          while ((h.done || {})[ctxDate(d)]) { run++; d = ctxAddDays(d, -1); }
+          var cells = 0, hit = 0;
+          for (var i = 0; i < 30; i++) { var dd = ctxAddDays(today, -i); if (h.start && ctxDate(dd) < h.start) continue; cells++; if ((h.done || {})[ctxDate(dd)]) hit++; }
+          return '- ' + h.name + ' — ' + ((h.done || {})[T] ? 'done today' : 'not yet today') +
+                 ', ' + run + '-day run, ' + (cells ? Math.round(hit / cells * 100) : 0) + '% of the last ' + cells + ' days';
+        }).join('\n'));
+      }
     }
 
     /* time — what today and this week actually went on */
-    var TM = ls.get('apexTime', {}) || {}, wk = new Date(today); wk.setDate(wk.getDate() - ((wk.getDay() + 6) % 7));
-    var week = (TM.weeks || {})[ctxDate(wk)] || {}, per = {}, todayCat = {}, hoursWeek = 0, hoursToday = 0;
-    var dow = (today.getDay() + 6) % 7;
-    Object.keys(week).forEach(function (k) {
-      if (k.indexOf('_') < 1 || /^(wake|night)/.test(k)) return;
-      var v = week[k]; if (!v || !v.t) return;
-      var d = +k.split('_')[0], c = v.c || 'uncategorised';
-      per[c] = (per[c] || 0) + 0.5; hoursWeek += 0.5;
-      if (d === dow) { todayCat[c] = (todayCat[c] || 0) + 0.5; hoursToday += 0.5; }
-    });
-    if (hoursWeek) {
-      out.push('\n## Time');
-      out.push('- today: ' + hoursToday + ' h logged' + (Object.keys(todayCat).length ? ' (' + Object.keys(todayCat).sort(function (a, b) { return todayCat[b] - todayCat[a]; }).map(function (c) { return c + ' ' + todayCat[c] + 'h'; }).join(', ') + ')' : ''));
-      out.push('- this week: ' + hoursWeek + ' h — ' + Object.keys(per).sort(function (a, b) { return per[b] - per[a]; }).map(function (c) { return c + ' ' + per[c] + 'h'; }).join(', '));
+    if (o.time) {
+      var TM = ls.get('apexTime', {}) || {}, wk = new Date(today); wk.setDate(wk.getDate() - ((wk.getDay() + 6) % 7));
+      var week = (TM.weeks || {})[ctxDate(wk)] || {}, per = {}, todayCat = {}, hoursWeek = 0, hoursToday = 0;
+      var dow = (today.getDay() + 6) % 7;
+      Object.keys(week).forEach(function (k) {
+        if (k.indexOf('_') < 1 || /^(wake|night)/.test(k)) return;
+        var v = week[k]; if (!v || !v.t) return;
+        var d = +k.split('_')[0], c = v.c || 'uncategorised';
+        per[c] = (per[c] || 0) + 0.5; hoursWeek += 0.5;
+        if (d === dow) { todayCat[c] = (todayCat[c] || 0) + 0.5; hoursToday += 0.5; }
+      });
+      if (hoursWeek) {
+        out.push('\n## Time');
+        out.push('- today: ' + hoursToday + ' h logged' + (Object.keys(todayCat).length ? ' (' + Object.keys(todayCat).sort(function (a, b) { return todayCat[b] - todayCat[a]; }).map(function (c) { return c + ' ' + todayCat[c] + 'h'; }).join(', ') + ')' : ''));
+        out.push('- this week: ' + hoursWeek + ' h — ' + Object.keys(per).sort(function (a, b) { return per[b] - per[a]; }).map(function (c) { return c + ' ' + per[c] + 'h'; }).join(', '));
+      }
     }
 
-    /* notes — the recent ones, trimmed, with anything marked private left out */
-    var N = ls.get('wiktorNotes', {}) || {}, notes = (N.notes || []).slice()
-      .filter(function (n) { return !CTX_PRIVATE.test(n.title || ''); })
-      .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
-    if (notes.length) {
-      out.push('\n## Recent notes');
-      out.push(notes.slice(0, 8).map(function (n) {
-        var body = ctxClip(ctxStrip(n.body), 400);
-        return '### ' + ((n.title || '').trim() || 'Untitled') + (n.updated ? '  _(' + ctxDate(new Date(n.updated)) + ')_' : '') + (body ? '\n' + body : '');
-      }).join('\n\n'));
+    /* notes — titles only unless you ask for bodies; private ones never */
+    var held = 0;
+    if (o.notes) {
+      var N = ls.get('wiktorNotes', {}) || {}, all = (N.notes || []).slice();
+      var notes = all.filter(function (n) {
+        var priv = n.private === true || CTX_PRIVATE.test(n.title || '');
+        if (priv) held++;
+        return !priv;
+      }).sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+      if (notes.length) {
+        out.push('\n## Recent notes' + (o.noteBodies ? '' : ' _(titles only)_'));
+        out.push(notes.slice(0, 8).map(function (n) {
+          var head = '### ' + ((n.title || '').trim() || 'Untitled') + (n.updated ? '  _(' + ctxDate(new Date(n.updated)) + ')_' : '');
+          if (!o.noteBodies) return head;
+          var body = ctxClip(ctxStrip(n.body), 400);
+          return head + (body ? '\n' + body : '');
+        }).join(o.noteBodies ? '\n\n' : '\n'));
+      }
+      if (held) out.push('_' + held + ' note' + (held > 1 ? 's' : '') + ' marked private and left out._');
     }
 
-    out.push('\n---\n_Notes titled with a padlock are never included. Nothing here left your browser until you pasted it._');
-    return out.join('\n\n');
+    var off = Object.keys(CTX_DEFAULTS).filter(function (k) { return k !== 'noteBodies' && k !== 'redact' && !o[k]; });
+    out.push('\n---\n_Built in the browser and nothing here was sent anywhere; you copied it yourself._' +
+      (off.length ? ' Left out on purpose: ' + off.join(', ') + '.' : '') +
+      (o.redact ? ' E-mail addresses, long numbers and links carrying tokens were replaced.' : ''));
+
+    var text = out.join('\n\n');
+    return o.redact ? ctxRedact(text) : text;
   }
 
+  /* ---- the preview: nothing is copied until you press Copy here ---- */
+  var ctxOv = null;
+  function closeCtx() { if (ctxOv) { ctxOv.remove(); ctxOv = null; document.removeEventListener('keydown', ctxEsc, true); } }
+  function ctxEsc(e) { if (e.key === 'Escape') { e.stopPropagation(); closeCtx(); } }
+
   function copyContext() {
+    if (ctxOv) { closeCtx(); return; }
+    var o = ctxOpts();
     var text;
-    try { text = buildContext(); } catch (e) { toastShell('Could not build the snapshot: ' + e.message); return; }
-    var done = function () { toastShell('Context copied — paste it into a chat with Claude'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
-    } else fallbackCopy(text, done);
+    try { text = buildContext(o); } catch (e) { toastShell('Could not build the snapshot: ' + e.message); return; }
+
+    var ov = document.createElement('div');
+    ctxOv = ov;
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,18,14,.45);display:flex;align-items:center;justify-content:center;padding:18px;font-family:inherit';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--card,#fff);color:inherit;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden';
+    ov.appendChild(card);
+
+    var head = document.createElement('div');
+    head.style.cssText = 'padding:16px 18px 10px;border-bottom:1px solid var(--line,#e7e2d8)';
+    head.innerHTML = '<div style="font-weight:650;font-size:15px">Context snapshot</div>' +
+      '<div style="font-size:12.5px;opacity:.7;margin-top:3px">Read it, edit it, then copy. Nothing is on your clipboard yet, and nothing has been sent anywhere.</div>';
+    card.appendChild(head);
+
+    var togs = document.createElement('div');
+    togs.style.cssText = 'padding:10px 18px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;border-bottom:1px solid var(--line,#e7e2d8)';
+    var LABELS = { goals: 'Goals', tasks: 'Tasks', calendar: 'Calendar', habits: 'Habits', time: 'Time', notes: 'Notes', noteBodies: 'Note bodies', redact: 'Hide e-mails & numbers' };
+    var ta;
+    function rebuild() {
+      try { ta.value = buildContext(o); } catch (e) { toastShell('Could not rebuild: ' + e.message); }
+      count();
+    }
+    Object.keys(LABELS).forEach(function (k) {
+      var lab = document.createElement('label');
+      lab.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:pointer' + (k === 'noteBodies' ? ';margin-left:auto' : '');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!o[k];
+      cb.onchange = function () { o[k] = cb.checked; ctxSaveOpts(o); rebuild(); };
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(LABELS[k]));
+      if (k === 'noteBodies') lab.title = 'Off by default — only note titles are included';
+      if (k === 'redact') lab.title = 'Replaces e-mail addresses, long numbers and links that carry a token';
+      togs.appendChild(lab);
+    });
+    card.appendChild(togs);
+
+    ta = document.createElement('textarea');
+    ta.value = text;
+    ta.spellcheck = false;
+    ta.style.cssText = 'flex:1;min-height:38vh;margin:0;border:0;outline:0;resize:none;padding:14px 18px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;background:transparent;color:inherit';
+    card.appendChild(ta);
+
+    var foot = document.createElement('div');
+    foot.style.cssText = 'padding:12px 18px;border-top:1px solid var(--line,#e7e2d8);display:flex;align-items:center;gap:10px';
+    var info = document.createElement('div');
+    info.style.cssText = 'font-size:12px;opacity:.65;margin-right:auto';
+    function count() { info.textContent = ta.value.length.toLocaleString() + ' characters'; }
+    ta.addEventListener('input', count); count();
+    var cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    cancel.style.cssText = 'padding:7px 14px;border-radius:9px;border:1px solid var(--line,#ddd8cd);background:transparent;color:inherit;cursor:pointer;font-size:13px';
+    cancel.onclick = closeCtx;
+    var go = document.createElement('button');
+    go.textContent = 'Copy';
+    go.style.cssText = 'padding:7px 16px;border-radius:9px;border:0;background:#2b2a26;color:#fff;cursor:pointer;font-size:13px;font-weight:600';
+    go.onclick = function () {
+      var t = ta.value;
+      var done = function () { closeCtx(); toastShell('Copied — paste it into a chat with Claude'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { fallbackCopy(t, done); });
+      else fallbackCopy(t, done);
+    };
+    foot.appendChild(info); foot.appendChild(cancel); foot.appendChild(go);
+    card.appendChild(foot);
+
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) closeCtx(); });
+    document.addEventListener('keydown', ctxEsc, true);
+    document.body.appendChild(ov);
+    go.focus();
   }
   function fallbackCopy(text, done) {
     var ta = document.createElement('textarea');
@@ -383,7 +511,7 @@
   function toastShell(msg) {
     var el = document.createElement('div');
     el.textContent = msg;
-    el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9999;background:#2b2a26;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-family:inherit';
+    el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:10001;background:#2b2a26;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-family:inherit';
     document.body.appendChild(el);
     setTimeout(function () { el.remove(); }, 2600);
   }
@@ -403,7 +531,7 @@
     out.push({ g: 'Actions', em: '⏱', t: 'Change the quick timers', sub: 'Sidebar', run: function () { twEditor(); } });
     out.push({ g: 'Actions', em: theme === 'dark' ? '☀︎' : '☾', t: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: toggleTheme });
     out.push({ g: 'Actions', em: '⌨', t: 'Keyboard shortcuts', sub: '?', run: openKeys });
-    out.push({ g: 'Actions', em: '⧉', t: 'Copy context for Claude', sub: 'goals, tasks, calendar, habits, time, notes', run: copyContext });
+    out.push({ g: 'Actions', em: '⧉', t: 'Copy context for Claude', sub: 'preview it first, then copy', run: copyContext });
     // notes & tasks search
     var qq = q.trim().toLowerCase();
     if (qq.length >= 2) {

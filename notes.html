@@ -207,6 +207,7 @@
         <span id="edMeta"></span>
         <span class="sp"></span>
         <button id="pinBtn" onclick="togglePin()" title="Pin (⌘⇧P)">📌 Pin</button>
+        <button id="privBtn" onclick="togglePrivate()" title="Private — never included in a context snapshot">🔓 Private</button>
         <button onclick="insertDateChip(null,true)" title="Insert date (⌘⇧D)">📅 Date</button>
         <button onclick="deleteNote()" title="Delete note (⌘⇧⌫)">🗑 Delete</button>
       </div>
@@ -313,7 +314,7 @@ function renderList(){
   items.forEach(n=>{
     const el=document.createElement('div'); el.className='nitem'+(n.id===S.active?' active':''); el.dataset.id=n.id;
     const snip=textOf(n.body).slice(0,80);
-    el.innerHTML='<div class="t">'+(n.pinned?'<span class="pin">📌</span>':'')+(esc(n.title)||'Untitled')+'</div>'+
+    el.innerHTML='<div class="t">'+(n.pinned?'<span class="pin">📌</span>':'')+(n.private?'<span class="pin">🔒</span>':'')+(esc(n.title)||'Untitled')+'</div>'+
       '<div class="m"><span class="d">'+fmtWhen(n.updated)+'</span><span class="s">'+esc(snip||'No additional text')+'</span></div>';
     el.addEventListener('click',()=>open(n.id));
     list.appendChild(el);
@@ -410,6 +411,8 @@ function renderMeta(){
   const words=textOf(n.body).split(' ').filter(Boolean).length;
   $('wc').textContent=words+' word'+(words===1?'':'s');
   $('pinBtn').classList.toggle('on',!!n.pinned); $('pinBtn').textContent=n.pinned?'📌 Pinned':'📌 Pin';
+  const pb=$('privBtn'); if(pb){ pb.classList.toggle('on',!!n.private); pb.textContent=n.private?'🔒 Private':'🔓 Private';
+    pb.title=n.private?'Private — left out of every context snapshot':'Mark private so it is never included in a context snapshot'; }
 }
 /* the saved HTML keeps data-img ids, not the temporary blob: URLs behind them */
 function serializeBody(){
@@ -473,6 +476,11 @@ function deleteNote(){
   if(!S.notes.length){ S.notes.push({id:uid(),title:'',body:'',pinned:false,created:Date.now(),updated:Date.now()}); }
   S.active=sorted()[0].id; save(); open(S.active);
   toast('Note deleted', 'Undo', ()=>{ if(!undoBuf) return; S.notes.splice(Math.min(undoBuf.idx,S.notes.length),0,undoBuf.note); S.active=undoBuf.note.id; undoBuf=null; save(); open(S.active); });
+}
+function togglePrivate(){
+  const n=cur(); if(!n) return;
+  if(n.private) delete n.private; else n.private=true;
+  n.updated=Date.now(); save(); renderList(); renderMeta();
 }
 function togglePin(){ const n=cur(); if(!n) return; n.pinned=!n.pinned; save(); renderList(); renderMeta(); }
 function step(dir){
