@@ -162,6 +162,7 @@
     wireReorder();
   }
   function openSolo(href) {
+    try{ApexUse.log('shell:solo-open');}catch(e){}
     var name = href.replace(/\.html$/, '');
     // capture pages want a narrow column you can park beside something else;
     // the grid pages need room to be readable
@@ -255,6 +256,71 @@
   setInterval(paintTw, 500);
   window.addEventListener('storage', function (e) { if (e.key === TK) paintTw(); });
 
+  /* ---- usage log ---------------------------------------------------------
+     Apex keeping an honest record of how Apex actually gets used, so the
+     question "which of this do I really touch?" has an answer that is not a
+     guess. Counts only: an event name and a day, never what was typed, named
+     or written. One rolling key, 90 days, synced with everything else.
+       apexUsage = { d: { "YYYY-MM-DD": { "tab:notes": 3, "task:add": 7 } } }
+     Anything can log with ApexUse.log('thing:done'), and a page view is
+     recorded automatically for every page the shell runs on. */
+  var USE_KEY = 'apexUsage', USE_DAYS = 90;
+  var useMem = null, useDirty = false;
+  function useToday() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function useLoad() {
+    if (useMem) return useMem;
+    try { useMem = JSON.parse(localStorage.getItem(USE_KEY) || 'null') || {}; } catch (e) { useMem = {}; }
+    if (!useMem.d) useMem.d = {};
+    return useMem;
+  }
+  function useTrim(S) {
+    var keys = Object.keys(S.d).sort();
+    while (keys.length > USE_DAYS) { delete S.d[keys.shift()]; }
+  }
+  /* merge rather than overwrite: another tab, or a sync pull from your other
+     Mac, may have written a fuller copy while this page sat open, and blindly
+     saving our in-memory version would throw those days away */
+  function useFlush() {
+    if (!useDirty || !useMem) return;
+    useDirty = false;
+    var disk = {};
+    try { disk = JSON.parse(localStorage.getItem(USE_KEY) || 'null') || {}; } catch (e) {}
+    var d = disk.d || {}, out = {};
+    Object.keys(d).forEach(function (day) { out[day] = Object.assign({}, d[day]); });
+    Object.keys(useMem.d).forEach(function (day) {
+      var mine = useMem.d[day], row = out[day] || (out[day] = {});
+      Object.keys(mine).forEach(function (e) { row[e] = Math.max(row[e] || 0, mine[e]); });
+    });
+    var keys = Object.keys(out).sort();
+    while (keys.length > USE_DAYS) delete out[keys.shift()];
+    useMem = { d: out };
+    try { localStorage.setItem(USE_KEY, JSON.stringify(useMem)); } catch (e) {}
+  }
+  function useLog(name, n) {
+    if (!name) return;
+    var S = useLoad(), t = useToday();
+    if (!S.d[t]) { S.d[t] = {}; useTrim(S); }
+    S.d[t][name] = (S.d[t][name] || 0) + (n || 1);
+    useDirty = true;
+  }
+  /* written on a timer and when the page goes away — never on every keystroke,
+     because a localStorage write per event is exactly the kind of thing that
+     makes an app feel slow for no visible benefit */
+  setInterval(useFlush, 4000);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) useFlush(); });
+  window.addEventListener('pagehide', useFlush);
+  window.ApexUse = {
+    log: useLog,
+    flush: useFlush,
+    read: function () { return JSON.parse(JSON.stringify(useLoad())); }
+  };
+  /* one page view per page load, named after the file */
+  (function () {
+    var p = (location.pathname.split('/').pop() || 'today.html').replace(/\.html$/, '') || 'today';
+    useLog('tab:' + p);
+    if (/[?&]solo=1/.test(location.search)) useLog('solo:' + p);
+  })();
+
   /* ---- context snapshot -------------------------------------------------
      Puts a readable summary of where you are right now on the clipboard, so you
      can paste it into a chat and get help without explaining the setup first.
@@ -345,7 +411,7 @@
       Object.keys(cal.events || {}).forEach(function (k) {
         (cal.events[k] || []).forEach(function (e) {
           var st = new Date(e.start);
-          if (ctxDate(st) === T && !/^executive summary/i.test(e.title || '')) evs.push({ s: st, e: new Date(e.end), t: e.title, all: e.allDay });
+          if (ctxDate(st) === T && !/^(executive summary|apex inbox|apex replies)/i.test(e.title || '')) evs.push({ s: st, e: new Date(e.end), t: e.title, all: e.allDay });
         });
       });
       evs.sort(function (a, b) { return a.s - b.s; });
@@ -428,6 +494,7 @@
   function ctxEsc(e) { if (e.key === 'Escape') { e.stopPropagation(); closeCtx(); } }
 
   function copyContext() {
+    try{ApexUse.log('shell:copy-context');}catch(e){}
     if (ctxOv) { closeCtx(); return; }
     var o = ctxOpts();
     var text;

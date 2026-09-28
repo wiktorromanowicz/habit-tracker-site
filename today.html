@@ -91,6 +91,40 @@
   .qa a,.qa button{text-decoration:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
   .qa a:hover,.qa button:hover{border-color:var(--accent);color:var(--accent)}
   @media (max-width:700px){ body{padding:14px} .hello h1{font-size:22px} }
+  /* ---- Planner editors (bottlenecks, monthly + yearly goals) ---- */
+  .toolbar{position:fixed;left:0;top:0;z-index:60;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin:0;flex-wrap:nowrap;
+    box-shadow:0 6px 22px rgba(20,22,35,.16);opacity:0;pointer-events:none;
+    transform:translate(-50%,-100%) scale(.96);transition:opacity .1s ease,transform .1s ease;}
+  .toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1);}
+  .block{background:var(--panel);border-radius:12px;padding:16px 18px 18px;border:1px solid var(--line);}
+  .block-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .block-head h2{flex:1;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .block-head .ghost{padding:5px 9px;}
+  .toolbar{display:flex;gap:4px;margin-left:auto;}
+  .toolbar button{width:34px;height:30px;padding:0;font-size:14px;background:var(--panel2);
+    color:var(--text);display:flex;align-items:center;justify-content:center;}
+  .toolbar button:hover{background:#e6e8ec;}
+  .toolbar .sep{width:1px;background:var(--line);margin:0 4px;}
+  .editor{min-height:48px;height:220px;max-height:80vh;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.7;color:var(--text);
+    outline:none;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere;
+    resize:vertical;overflow:auto;}
+  .editor:focus{border-color:#b8bec9;}
+  .editor:empty:before{content:attr(data-ph);color:#8b94a7;}
+  .toolbar .swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);padding:0;}
+  .toolbar .swatch:hover{border-color:#9aa1ad;}
+  .toolbar input[type=color]{width:32px;height:30px;padding:2px;border:none;border-radius:8px;
+    background:var(--panel2);cursor:pointer;}
+  .editor h3{font-size:15px;margin:14px 0 6px;color:var(--text);}
+  .editor ul,.editor ol{margin:6px 0 6px 4px;padding-left:22px;}
+  .editor li{margin:3px 0;}
+  .editor a{color:var(--today);}
+  .card .editor{height:150px;}
+  .card .block-head{display:flex;align-items:center;gap:8px;}
+  .card h2 .ghost{background:var(--panel2,#f3efe4);border:1px solid var(--line);color:var(--muted,#8c8474);
+    border-radius:7px;padding:2px 8px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px;}
+  .card h2 .ghost:hover{background:var(--chip2,#ece6d7);}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -100,6 +134,7 @@
 <script src="gauth.js"></script>
 <script defer src="pwa.js"></script>
 <script defer src="shell.js"></script>
+<script defer src="planner.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -123,9 +158,32 @@
     <div class="qa"><a href="tasks.html?new=1">+ Task</a><a href="notes.html?new=1">+ Note</a><a href="calendar.html?new=1">+ Event</a></div>
   </div>
 
+  <div class="toolbar" id="toolbar">
+    <button onmousedown="fmt(event,'formatBlock','h3')" title="Heading">H</button>
+    <button onmousedown="fmt(event,'bold')" title="Bold"><b>B</b></button>
+    <button onmousedown="fmt(event,'italic')" title="Italic"><i>I</i></button>
+    <button onmousedown="fmt(event,'strikeThrough')" title="Strikethrough"><s>S</s></button>
+    <span class="sep"></span>
+    <button onmousedown="fmt(event,'insertUnorderedList')" title="Bulleted list">&bull;</button>
+    <button onmousedown="fmt(event,'insertOrderedList')" title="Numbered list">1.</button>
+    <span class="sep"></span>
+    <button class="swatch" style="background:#000000" onmousedown="fmtColor(event,'#000000')" title="Black"></button>
+    <button class="swatch" style="background:#4ade80" onmousedown="fmtColor(event,'#4ade80')" title="Green"></button>
+    <button class="swatch" style="background:#3b82f6" onmousedown="fmtColor(event,'#3b82f6')" title="Blue"></button>
+    <button class="swatch" style="background:#f59e0b" onmousedown="fmtColor(event,'#f59e0b')" title="Amber"></button>
+    <button class="swatch" style="background:#ef4444" onmousedown="fmtColor(event,'#ef4444')" title="Red"></button>
+    <button class="swatch" style="background:#a855f7" onmousedown="fmtColor(event,'#a855f7')" title="Purple"></button>
+    <input type="color" title="Custom color" onmousedown="rememberSel()" oninput="fmtColorCustom(this.value)">
+    <span class="sep"></span>
+    <button onmousedown="fmt(event,'removeFormat')" title="Clear formatting">&#9003;</button>
+  </div>
+
   <div class="grid" id="grid">
     <div class="col" data-col="a">
       <div class="card" data-card="brief"><h2 draggable="true" title="Drag to move this card">Executive summary <a href="notes.html">Open in Notes →</a></h2><div class="brief" id="brief"></div></div>
+      <div class="card" data-card="goalsMonth"><h2 draggable="true" title="Drag to move this card"><span id="monthLabel">Monthly goals</span> <button type="button" class="ghost" onclick="shiftMonth(-1)">‹</button><button type="button" class="ghost" onclick="shiftMonth(1)">›</button><button type="button" class="ghost" onclick="thisMonth()">This month</button></h2><div id="goalEditor" class="editor" contenteditable="true" spellcheck="true"></div></div>
+      <div class="card" data-card="bottlenecks"><h2 draggable="true" title="Drag to move this card">Current bottlenecks</h2><div id="bottleEditor" class="editor" contenteditable="true" spellcheck="true"></div></div>
+      <div class="card" data-card="goalsYear"><h2 draggable="true" title="Drag to move this card"><span id="yearLabel">Yearly goals</span> <button type="button" class="ghost" onclick="shiftYear(-1)">‹</button><button type="button" class="ghost" onclick="shiftYear(1)">›</button></h2><div id="yearEditor" class="editor" contenteditable="true" spellcheck="true"></div></div>
       <div class="card" data-card="tasks"><h2 draggable="true" title="Drag to move this card">Tasks <a href="tasks.html">All tasks →</a></h2><div id="tasks"></div></div>
     </div>
     <div class="col" data-col="b">
@@ -188,7 +246,7 @@ async function fetchBriefFromCalendar(){
     const min=new Date(); min.setDate(min.getDate()-7); min.setHours(0,0,0,0);
     const url='https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&q='+encodeURIComponent('Executive summary')+'&timeMin='+encodeURIComponent(min.toISOString());
     const r = window.ApexG ? await window.ApexG.fetch(url) : null;
-    if(!r||!r.ok) return briefFromCache(); const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^executive summary/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
+    if(!r||!r.ok) return briefFromCache(); const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^(executive summary|apex inbox|apex replies)/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
     const live=evs[0]?{date:evs[0].start.date,html:evs[0].description}:null, cached=briefFromCache();
     if(live&&cached) return live.date>=cached.date?live:cached;
     return live||cached; }catch(e){ return briefFromCache(); }
@@ -236,7 +294,7 @@ async function fetchBriefFromCalendar(){
   const mine=c=>!(prefs.hidden&&prefs.hidden[c.id]) && (c.primary || !(/@/.test(c.id) && !/group\.calendar\.google\.com$|holiday|import\.calendar/.test(c.id)));
   const myCals=(cache.calendars||[]).filter(mine); const myIds=new Set(myCals.map(c=>c.id));
   const paint=evs=>{
-    const list=evs.filter(e=>!/^executive summary/i.test(e.title||'') && (!e.calId||myIds.has(e.calId)) && (isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now))).sort((a,b)=>new Date(a.start)-new Date(b.start));
+    const list=evs.filter(e=>!/^(executive summary|apex inbox|apex replies)/i.test(e.title||'') && (!e.calId||myIds.has(e.calId)) && (isoDay(new Date(e.start))===today || (e.allDay && new Date(e.start)<=now && new Date(e.end)>now))).sort((a,b)=>new Date(a.start)-new Date(b.start));
     if(!list.length){ el.innerHTML='<div class="empty">Nothing on the calendar today.</div>'; return; }
     el.innerHTML=list.map(e=>{ const s=new Date(e.start), en=new Date(e.end); const past=en<now, cur=s<=now&&en>now;
       return '<div class="ev'+(past?' past':cur?' now':'')+'"><span class="t">'+(e.allDay?'All day':s.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false})+'–'+en.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}))+'</span><span class="dot" style="background:'+esc(e.color||'#a9741f')+'"></span><span class="n">'+esc(e.title)+(e.location?'<small>'+esc(e.location)+'</small>':'')+'</span>'+(e.meet?'<a class="join" href="'+esc(e.meet)+'" target="_blank" rel="noopener">Join</a>':'')+'</div>'; }).join('');
