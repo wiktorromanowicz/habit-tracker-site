@@ -325,7 +325,7 @@
       var TKs = ls.get('apexTasks', {}) || {}, lists = (TKs.taskLists || []).filter(function (l) { return !l.stashed; });
       var open = [];
       lists.forEach(function (l) {
-        (l.items || []).forEach(function (it) { if (!it.done) open.push({ list: l.name, text: it.text, due: it.due }); });
+        (l.items || []).forEach(function (it) { if (!it.done) open.push({ list: l.name, text: it.text, due: it.due, who: it.who }); });
       });
       out.push('\n## Open tasks (' + open.length + ')');
       if (!open.length) out.push('- nothing open');
@@ -333,9 +333,9 @@
         var overdue = open.filter(function (t) { return t.due && t.due < T; });
         var due = open.filter(function (t) { return t.due === T; });
         var rest = open.filter(function (t) { return !t.due || t.due > T; });
-        if (overdue.length) out.push('**Overdue**\n' + overdue.map(function (t) { return '- ' + t.text + '  _(' + t.list + ', due ' + t.due + ')_'; }).join('\n'));
-        if (due.length) out.push('**Due today**\n' + due.map(function (t) { return '- ' + t.text + '  _(' + t.list + ')_'; }).join('\n'));
-        if (rest.length) out.push('**Everything else**\n' + rest.slice(0, 40).map(function (t) { return '- ' + t.text + '  _(' + t.list + (t.due ? ', due ' + t.due : '') + ')_'; }).join('\n'));
+        if (overdue.length) out.push('**Overdue**\n' + overdue.map(function (t) { return '- ' + t.text + (t.who ? ' — ' + t.who : '') + '  _(' + t.list + ', due ' + t.due + ')_'; }).join('\n'));
+        if (due.length) out.push('**Due today**\n' + due.map(function (t) { return '- ' + t.text + (t.who ? ' — ' + t.who : '') + '  _(' + t.list + ')_'; }).join('\n'));
+        if (rest.length) out.push('**Everything else**\n' + rest.slice(0, 40).map(function (t) { return '- ' + t.text + (t.who ? ' — ' + t.who : '') + '  _(' + t.list + (t.due ? ', due ' + t.due : '') + ')_'; }).join('\n'));
       }
     }
 

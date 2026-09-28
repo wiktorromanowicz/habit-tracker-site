@@ -146,6 +146,28 @@
   .hidden-lists .hl button{border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;
     border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
   .hidden-lists .hl button:hover{background:var(--chip,#f3efe4);}
+  /* --- who chips, list chips, view switch, date groups --- */
+  .twho{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:2px 9px 2px 3px;border-radius:12px;margin-top:4px;margin-left:6px;cursor:pointer;border:1px solid transparent}
+  .twho .av{width:17px;height:17px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:800;letter-spacing:.02em}
+  .titem.done .twho{opacity:.5}
+  .tlistchip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:4px;margin-left:6px;background:var(--panel2);color:#8c8474;border:1px solid var(--line);cursor:pointer}
+  .tviews{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-right:2px}
+  .tviews button{background:var(--panel);border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:5px 11px;cursor:pointer}
+  .tviews button.on{background:var(--accent);color:#fff}
+  #whoFilter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);cursor:pointer}
+  .tdategroup{margin:18px 0 6px;display:flex;align-items:baseline;gap:9px}
+  .tdategroup h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .tdategroup h3.over{color:#c1362c} .tdategroup h3.today{color:#8a5a0f}
+  .tdategroup .n{font-size:12px;color:var(--muted);opacity:.75}
+  .tflat{list-style:none;margin:0;padding:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .tflat .titem{border-bottom:1px solid var(--line)} .tflat .titem:last-child{border-bottom:0}
+  .tflat .thandle{visibility:hidden}
+  .tempty{color:var(--muted);font-size:13.5px;padding:24px 4px}
+  .atpop{position:fixed;z-index:95;background:var(--surface,#fff);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(20,22,35,.2);padding:4px;min-width:150px;max-height:240px;overflow:auto}
+  .atpop button{display:flex;align-items:center;gap:7px;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:13px;text-align:left;padding:6px 8px;border-radius:7px;cursor:pointer}
+  .atpop button.on,.atpop button:hover{background:var(--accent-dim)}
+  .atpop .av{width:19px;height:19px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800}
+  .tasks-board.flatview{display:block!important}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -176,6 +198,11 @@
       <h2>Tasks</h2>
       <button class="tlist-add" id="undoBtn" onclick="undoTasks()" title="Undo the last delete or structural change (⌘Z)" style="display:none">↩︎ Undo</button>
       <button class="tlist-add" id="hiddenListsBtn" onclick="toggleHiddenLists()" style="display:none"></button>
+      <span class="tviews" id="tViews">
+        <button data-v="board" onclick="setView('board')" title="Lists side by side">▦ Board</button>
+        <button data-v="date" onclick="setView('date')" title="Everything in one list, by date">≡ By date</button>
+      </span>
+      <select id="whoFilter" onchange="setWhoFilter(this.value)" title="Show only one person's tasks"></select>
       <button class="tlist-add" onclick="addList()">+ New list</button>
     </div>
     <div class="hidden-lists" id="hiddenLists" style="display:none"></div>
@@ -260,10 +287,170 @@ function ordered(list, parentId){
   }).map(x=>x.it);
 }
 
+/* ---- people ------------------------------------------------------------
+   A task can carry one person: `it.who`, a plain string. There is no team
+   set-up — a name exists because you typed it. Type "@jimmy" anywhere in a
+   task and it becomes the owner; the @word is taken out of the text. Known
+   names come from the tasks themselves, so the list stays honest. */
+const VIEW_KEY='apexTasksView', WHO_KEY='apexTasksWho';
+function allItems(){ const out=[]; (state.taskLists||[]).forEach(l=>{ if(l.stashed) return; (l.items||[]).forEach(it=>out.push({list:l,it})); }); return out; }
+function people(){
+  const seen=new Map();
+  allItems().forEach(({it})=>{ const w=(it.who||'').trim(); if(w && !seen.has(w.toLowerCase())) seen.set(w.toLowerCase(), w); });
+  return [...seen.values()].sort((a,b)=>a.localeCompare(b));
+}
+function whoHue(n){ let h=0; for(let i=0;i<n.length;i++) h=(h*31+n.charCodeAt(i))%360; return h; }
+function whoInitials(n){ const p=n.trim().split(/\s+/); return ((p[0]||'')[0]||'?').toUpperCase()+(p[1]?p[1][0].toUpperCase():''); }
+function avatar(n){
+  const h=whoHue(n);
+  return '<span class="av" style="background:hsl('+h+' 52% 46%)">'+esc(whoInitials(n))+'</span>';
+}
+/* resolve a typed fragment against names already in use, so "@jim" finds "Jimmy" */
+function resolveWho(frag){
+  const f=frag.trim().toLowerCase(); if(!f) return '';
+  const all=people();
+  return all.find(p=>p.toLowerCase()===f) || all.find(p=>p.toLowerCase().startsWith(f)) ||
+         frag.trim().replace(/^./,c=>c.toUpperCase());
+}
+/* pull "@name" out of a task's text and make it the owner */
+const AT_RE=/(^|\s)@([\p{L}][\p{L}\p{N}'’.-]*)/u;
+function extractWho(it, raw){
+  const m=raw.match(AT_RE); if(!m) return raw;
+  it.who=resolveWho(m[2]);
+  return raw.replace(AT_RE,'$1').replace(/\s{2,}/g,' ').trim();
+}
+function whoChip(listId,it){
+  if(!it.who) return null;
+  const c=document.createElement('span'); c.className='twho';
+  const h=whoHue(it.who);
+  c.style.background='hsl('+h+' 60% 95%)'; c.style.color='hsl('+h+' 55% 30%)'; c.style.borderColor='hsl('+h+' 45% 82%)';
+  c.innerHTML=avatar(it.who)+esc(it.who);
+  c.title=it.who+' — click to change, right-click the task for more';
+  c.addEventListener('click',e=>{ e.stopPropagation(); openWhoPop(e.currentTarget, it, ()=>{ save(); renderTasks(); }); });
+  return c;
+}
+/* a small picker: the people you already use, plus "nobody" and a free field */
+let atPop=null;
+function closeAtPop(){ if(atPop){ atPop.remove(); atPop=null; } }
+document.addEventListener('click',e=>{ if(atPop && !atPop.contains(e.target)) closeAtPop(); }, true);
+function openWhoPop(anchor, it, done){
+  closeAtPop();
+  const box=document.createElement('div'); box.className='atpop';
+  const names=people();
+  box.innerHTML = names.map(n=>'<button data-n="'+esc(n)+'"'+(n===it.who?' class="on"':'')+'>'+avatar(n)+esc(n)+'</button>').join('')
+    + (names.length?'<div style="height:1px;background:var(--line);margin:4px 2px"></div>':'')
+    + '<button data-n="">✕ Nobody</button>'
+    + '<div style="padding:4px"><input id="atNew" placeholder="Someone else…" style="width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface,#fff);color:var(--text)"></div>';
+  document.body.appendChild(box); atPop=box;
+  const r=anchor.getBoundingClientRect();
+  box.style.left=Math.max(8,Math.min(r.left, innerWidth-box.offsetWidth-10))+'px';
+  box.style.top=Math.min(r.bottom+4, innerHeight-box.offsetHeight-10)+'px';
+  box.querySelectorAll('[data-n]').forEach(b=>b.addEventListener('click',()=>{ const v=b.dataset.n; if(v) it.who=v; else delete it.who; closeAtPop(); done(); }));
+  const nb=box.querySelector('#atNew');
+  nb.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); const v=nb.value.trim(); if(v) it.who=resolveWho(v); else delete it.who; closeAtPop(); done(); } if(ev.key==='Escape') closeAtPop(); });
+  setTimeout(()=>{ if(!names.length) nb.focus(); },0);
+}
+/* live suggestions while you are typing "@…" inside a task */
+function atSuggest(el, it){
+  const raw=el.textContent||'';
+  const m=raw.match(/@([\p{L}][\p{L}\p{N}'’.-]*)?$/u);
+  if(!m){ closeAtPop(); return; }
+  const frag=(m[1]||'').toLowerCase();
+  const hits=people().filter(p=>p.toLowerCase().startsWith(frag)).slice(0,6);
+  if(!hits.length){ closeAtPop(); return; }
+  closeAtPop();
+  const box=document.createElement('div'); box.className='atpop';
+  box.innerHTML=hits.map((n,i)=>'<button data-n="'+esc(n)+'"'+(i===0?' class="on"':'')+'>'+avatar(n)+esc(n)+'</button>').join('');
+  document.body.appendChild(box); atPop=box;
+  const r=el.getBoundingClientRect();
+  box.style.left=Math.max(8,Math.min(r.left+12, innerWidth-box.offsetWidth-10))+'px';
+  box.style.top=Math.min(r.bottom+4, innerHeight-box.offsetHeight-10)+'px';
+  box.querySelectorAll('[data-n]').forEach(b=>b.addEventListener('mousedown',ev=>{
+    ev.preventDefault();
+    it.who=b.dataset.n;
+    el.textContent=(el.textContent||'').replace(/@[\p{L}\p{N}'’.-]*$/u,'').replace(/\s{2,}/g,' ').trim();
+    it.text=el.textContent.trim(); save(); closeAtPop(); renderTasks();
+  }));
+}
+/* ---- view + filter ---- */
+function currentView(){ try{ return localStorage.getItem(VIEW_KEY)==='date'?'date':'board'; }catch(e){ return 'board'; } }
+function setView(v){ try{ localStorage.setItem(VIEW_KEY,v); }catch(e){} renderTasks(); }
+function whoFilter(){ try{ return localStorage.getItem(WHO_KEY)||''; }catch(e){ return ''; } }
+function setWhoFilter(v){ try{ localStorage.setItem(WHO_KEY,v); }catch(e){} renderTasks(); }
+function passesWho(it){
+  const f=whoFilter(); if(!f) return true;
+  if(f==='\u0000none') return !it.who;
+  return (it.who||'').toLowerCase()===f.toLowerCase();
+}
+function paintControls(){
+  document.querySelectorAll('#tViews button').forEach(b=>b.classList.toggle('on', b.dataset.v===currentView()));
+  const sel=document.getElementById('whoFilter'); if(!sel) return;
+  const f=whoFilter(), ppl=people();
+  sel.innerHTML='<option value="">Everyone</option>'+ppl.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('')+
+    (ppl.length?'<option value="\u0000none">Nobody assigned</option>':'');
+  sel.value=f; if(sel.value!==f) { sel.value=''; try{ localStorage.setItem(WHO_KEY,''); }catch(e){} }
+  sel.style.display=ppl.length?'':'none';
+}
+
+/* ---- the "by date" view -------------------------------------------------
+   Everything open, from every list you have not put away, in one column and
+   in the order the dates actually demand. Each row keeps its own chips, plus
+   a small chip naming the list it came from, so nothing loses its home. */
+function renderByDate(fresh){
+  const t=todayIso(), wkEnd=addDays(t,7);
+  const rows=[];
+  state.taskLists.forEach(list=>{
+    if(list.stashed) return;
+    (list.items||[]).forEach(it=>{ if(!it.done && passesWho(it)) rows.push({list,it}); });
+  });
+  const bucket=r=>{
+    const d=r.it.due;
+    if(!d) return 'none';
+    if(d<t) return 'over';
+    if(d===t) return 'today';
+    if(d===addDays(t,1)) return 'tom';
+    if(d<=wkEnd) return 'week';
+    return 'later';
+  };
+  const GROUPS=[['over','Overdue'],['today','Today'],['tom','Tomorrow'],['week','This week'],['later','Later'],['none','No date']];
+  const by={}; rows.forEach(r=>{ (by[bucket(r)]=by[bucket(r)]||[]).push(r); });
+  const rank=r=>(r.it.due||'9999-99-99')+' '+(r.it.time||'99:99');
+  let shown=0;
+  GROUPS.forEach(([k,label])=>{
+    const g=by[k]; if(!g || !g.length) return;
+    g.sort((a,b)=> rank(a).localeCompare(rank(b)) || a.list.name.localeCompare(b.list.name));
+    const h=document.createElement('div'); h.className='tdategroup';
+    h.innerHTML='<h3 class="'+(k==='over'?'over':k==='today'?'today':'')+'">'+esc(label)+'</h3><span class="n">'+g.length+'</span>';
+    board.appendChild(h);
+    const ul=document.createElement('ul'); ul.className='titems tflat';
+    g.forEach(({list,it})=>{
+      const li=taskRow(list.id, it, false);
+      li.draggable=false;                                   // order here is the dates', not yours
+      const lc=document.createElement('span'); lc.className='tlistchip';
+      lc.textContent=list.name; lc.title='In "'+list.name+'" — click to open the board there';
+      lc.addEventListener('click',e=>{ e.stopPropagation(); setView('board'); setTimeout(()=>{
+        const el=document.querySelector('.titem[data-item="'+it.id+'"]');
+        if(el){ el.scrollIntoView({block:'center'}); el.style.background='var(--accent-dim)'; setTimeout(()=>el.style.background='',1400); }
+      },60); });
+      const main=li.querySelector('.tmain'); if(main) main.appendChild(lc);
+      ul.appendChild(li); shown++;
+    });
+    board.appendChild(ul);
+  });
+  if(!shown){
+    const e=document.createElement('div'); e.className='tempty';
+    e.textContent = whoFilter() ? 'Nothing open for that person.' : 'Nothing open. The board view still has your lists and anything completed.';
+    board.appendChild(e);
+  }
+}
+
 function renderTasks(){
   board.innerHTML = "";
   try{ renderHiddenLists(); }catch(e){}
+  try{ paintControls(); }catch(e){}
   const fresh = justAdded || []; justAdded = null;
+  board.classList.toggle('flatview', currentView()==='date');
+  if(currentView()==='date'){ renderByDate(fresh); return; }
   state.taskLists.forEach(list => {
     if(list.stashed) return;                       // put away — see the "N hidden" button
     const col = document.createElement("div");
@@ -407,11 +594,15 @@ function taskRow(listId, it, isSub){
   txt.className = "ttext";
   txt.contentEditable = "true"; txt.spellcheck = false;
   txt.textContent = it.text;
-  let _tt=null; txt.addEventListener("input", e => { clearTimeout(_tt); _tt=setTimeout(()=>{ const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } },400); });
+  let _tt=null; txt.addEventListener("input", e => { try{ atSuggest(e.target, it); }catch(err){}
+    clearTimeout(_tt); _tt=setTimeout(()=>{ const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } },400); });
   txt.addEventListener("blur", e => {
     const v = e.target.textContent.trim();
     if(!v){ if(suppressBlurDelete || !li.isConnected) return; deleteTask(listId, it.id, true); return; }
-    it.text = v; save();
+    clearTimeout(_tt);                                  // the debounced input save would put the @name back
+    const had = it.who, cleaned = extractWho(it, v);
+    it.text = cleaned; e.target.textContent = cleaned; save();
+    if(cleaned !== v || had !== it.who){ renderTasks(); }
   });
   txt.addEventListener("paste", e => {
     const t=(e.clipboardData||window.clipboardData).getData("text/plain")||"";
@@ -424,7 +615,7 @@ function taskRow(listId, it, isSub){
   });
   txt.addEventListener("keydown", e => {
     if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); desc.focus(); }
-    else if(e.key === "Enter"){ e.preventDefault(); const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } addTask(listId, v?it.id:null); }
+    else if(e.key === "Enter"){ e.preventDefault(); closeAtPop(); clearTimeout(_tt); const v=e.target.textContent.trim(); if(v){ it.text=extractWho(it, v); e.target.textContent=it.text; save(); } addTask(listId, v?it.id:null); }
     else if(e.key === "Tab"){ e.preventDefault(); clearTimeout(_tt);
       if(!(e.target.textContent||'').trim()){ toast('Give the task a name first'); return; }
       if(e.shiftKey) outdentTask(listId, it.id, e.target); else indentTask(listId, it.id, e.target); }
@@ -442,6 +633,7 @@ function taskRow(listId, it, isSub){
   desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
   const chip=dueChip(listId,it); if(chip) main.appendChild(chip);
+  const wc=whoChip(listId,it); if(wc) main.appendChild(wc);
   li.addEventListener("contextmenu", e=>{ e.preventDefault(); openCtx(e,listId,it.id); });
 
   const actions = document.createElement("div");
@@ -718,6 +910,9 @@ function openCtx(e, listId, itemId){
       [['none','Does not repeat'],['daily','Daily'],['weekdays','Every weekday (Mon\u2013Fri)'],['weekly','Weekly on '+DOW[dow]],['monthly','Monthly on day '+dom],['yearly','Yearly'],['custom','Custom\u2026']].map(o=>'<option value="'+o[0]+'"'+((rep.custom?o[0]==='custom':rep.freq===o[0])?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></div>'+
     '<div class="line" id="ctxCustom" style="display:'+(rep.custom?'flex':'none')+'"><span>Every</span><input type="number" id="ctxN" min="1" value="'+(rep.interval||1)+'" style="width:60px"><select id="ctxUnit"><option value="daily"'+(rep.freq==='daily'?' selected':'')+'>days</option><option value="weekly"'+(rep.freq==='weekly'?' selected':'')+'>weeks</option><option value="monthly"'+(rep.freq==='monthly'?' selected':'')+'>months</option></select></div>'+
     '<div class="quick" id="ctxDays" style="display:'+(rep.freq==='weekly'&&rep.custom?'flex':'none')+'">'+[1,2,3,4,5,6,0].map(d=>'<button class="q'+((rep.days||[]).includes(d)?' on':'')+'" data-day="'+d+'">'+DOW[d]+'</button>').join('')+'</div>'+
+    '<div class="sec">Person</div>'+
+    '<div class="line"><input id="ctxWho" list="apexPeopleList" placeholder="Nobody \u2014 type a name" value="'+esc(it.who||'')+'" style="flex:1"><button class="q" id="ctxWhoClear" title="Unassign">\u2715</button></div>'+
+    '<datalist id="apexPeopleList">'+people().map(n=>'<option value="'+esc(n)+'">').join('')+'</datalist>'+
     '<div class="sep"></div>'+
     '<button class="it" data-a="sub">+ Add subtask'+(it.parent===null?'':' (sibling)')+'</button>'+
     '<div class="row2">'+(it.parent===null?'<button class="it" data-a="indent">\u21e5 Make subtask</button>':'<button class="it" data-a="outdent">\u21e4 Promote</button>')+'<button class="it" data-a="dup">\u29c9 Duplicate</button></div>'+
@@ -747,6 +942,11 @@ function openCtx(e, listId, itemId){
   unitSel.addEventListener('change',()=>{ days.style.display=unitSel.value==='weekly'?'flex':'none'; applyRepeat(); });
   box.querySelector('#ctxN').addEventListener('change',applyRepeat);
   days.querySelectorAll('.q').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); applyRepeat(); }));
+  const whoIn=box.querySelector('#ctxWho');
+  const setWho=v=>{ const n=(v||'').trim(); if(n) it.who=resolveWho(n); else delete it.who; save(); renderTasks(); };
+  whoIn.addEventListener('change',ev=>setWho(ev.target.value));
+  whoIn.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); setWho(ev.target.value); closeCtx(); } });
+  box.querySelector('#ctxWhoClear').addEventListener('click',()=>{ whoIn.value=''; setWho(''); });
   box.querySelector('#ctxMove').addEventListener('change',ev=>{ moveItem({listId,itemId:it.id}, ev.target.value, null, true, it.done); closeCtx(); });
   box.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{ const a=b.dataset.a;
     if(a==='sub'){ closeCtx(); addSubtask(listId,it.id); return; }
