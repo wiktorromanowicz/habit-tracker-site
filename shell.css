@@ -125,3 +125,24 @@ html[data-sb="min"] #apexSide .sb-btn{padding:6px 0}
   #apexPhoneBar .pb-chips span{margin-left:0!important}
   #apexPhoneBar .sb-btn{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted,#8c8474);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;font-family:inherit}
 }
+
+#apexSide nav a{position:relative}
+#apexSide nav a .sb-pop{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;
+  color:var(--muted,#8c8474);font-size:12px;line-height:1;padding:4px 5px;border-radius:6px;cursor:pointer;opacity:0}
+#apexSide nav a:hover .sb-pop{opacity:.75}
+#apexSide nav a .sb-pop:hover{opacity:1;background:var(--chip,#f3efe4);color:var(--ink,#2b2a26)}
+html[data-sb="min"] #apexSide nav a .sb-pop{display:none}
+
+/* ---- solo windows (notes.html?solo=1 / tasks.html?solo=1) -------------------
+   A lean capture window to keep on the side: the sidebar, the timer widget and
+   the phone bar all go, and the page gets the whole width. Everything else on
+   the page behaves exactly as it does inside Apex. */
+html[data-solo] #apexSide,
+html[data-solo] #apexPhoneBar,
+html[data-solo] #apexTw { display:none!important }
+html[data-solo]{ --sb:0px }
+html[data-solo] body{ padding-left:14px!important; padding-right:14px!important; padding-bottom:14px!important }
+html[data-solo] .sheet{ width:100vw!important; margin-left:-50vw!important }
+html[data-solo] .wrap{ padding-top:8px }
+html[data-solo] .solo-only{ display:inline-flex!important }
+.solo-only{ display:none }

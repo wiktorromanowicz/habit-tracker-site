@@ -146,10 +146,27 @@
     links.forEach(function (l, i) {
       var a = document.createElement('a'); a.href = l.href; a.className = l.active ? 'active' : ''; a.draggable = true; a.dataset.href = l.href;
       a.innerHTML = '<span class="em">' + l.em + '</span><span class="lb">' + l.lb + '</span>' + (i < 9 ? '<span class="kb">' + MOD + (i + 1) + '</span>' : '');
-      a.title = l.lb; navEl.appendChild(a);
+      a.title = l.lb;
+      // Notes and Tasks get a ↗ that opens them as a lean window you can park beside
+      // whatever else you are doing — same data, no sidebar, no chrome
+      if (/(notes|tasks)\.html$/.test(l.href)) {
+        var pop = document.createElement('button');
+        pop.className = 'sb-pop'; pop.type = 'button';
+        pop.textContent = '\u2197';
+        pop.title = 'Open ' + l.lb + ' in a window on the side';
+        pop.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openSolo(l.href); });
+        a.appendChild(pop);
+      }
+      navEl.appendChild(a);
     });
     wireReorder();
   }
+  function openSolo(href) {
+    var name = href.replace(/\.html$/, '');
+    window.open(href + '?solo=1', 'apex-' + name,
+      'width=470,height=760,menubar=no,toolbar=no,location=no,status=no');
+  }
+  window.apexOpenSolo = openSolo;
   function paintFoot() { var l = $('#apexThemeLbl', side); if (l) l.textContent = theme === 'dark' ? '☀︎ Light' : '☾ Dark'; }
 
   // vertical drag-to-reorder, saved in the same key the old tab row used
