@@ -96,6 +96,7 @@
         '<div class="sb-row"><button class="sb-btn" id="apexPalBtn" title="Command palette"><span>Search</span><kbd>' + MOD + 'K</kbd></button>' +
         '<button class="sb-btn" id="apexThemeBtn" title="Dark / light"><span id="apexThemeLbl"></span></button>' +
         '<button class="sb-btn" id="apexKeysBtn" title="Keyboard shortcuts"><kbd>?</kbd></button></div>' +
+        '<div class="sb-row"><button class="sb-btn wide" id="apexCtxBtn" title="Copy a snapshot of goals, tasks, calendar, habits, time and recent notes">⧉ <span>Copy context</span></button></div>' +
       '</div>';
     document.body.appendChild(side);
     navEl = $('nav', side); foot = $('.sb-foot', side); tw = $('#apexTw', side);
@@ -104,6 +105,7 @@
     $('#apexPalBtn', side).addEventListener('click', openPalette);
     $('#apexThemeBtn', side).addEventListener('click', toggleTheme);
     $('#apexKeysBtn', side).addEventListener('click', openKeys);
+    $('#apexCtxBtn', side).addEventListener('click', copyContext);
     paintFoot(); paintMusic();
     window.addEventListener('apex-music', paintMusic);
     // phone: the sidebar footer is hidden, so sync chips / theme / search get a slim bar above the page
@@ -253,6 +255,141 @@
   setInterval(paintTw, 500);
   window.addEventListener('storage', function (e) { if (e.key === TK) paintTw(); });
 
+  /* ---- context snapshot -------------------------------------------------
+     Puts a readable summary of where you are right now on the clipboard, so you
+     can paste it into a chat and get help without explaining the setup first.
+     It reads only what is already in this browser, it never sends anything, and
+     a note whose title starts with a padlock is left out entirely. */
+  var CTX_PRIVATE = /^\s*(🔒|private\b)/i;
+  function ctxDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function ctxAddDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function ctxStrip(html) { return String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h[1-3])>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\n{3,}/g, '\n\n').trim(); }
+  function ctxClip(t, n) { t = String(t || '').trim(); return t.length > n ? t.slice(0, n).trim() + '…' : t; }
+
+  function buildContext() {
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var T = ctxDate(today), out = [];
+    out.push('# Apex context — ' + today.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    out.push('_Snapshot from Apex. Everything below is current as of ' + new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) + '._');
+
+    /* goals — the frame everything else should be judged against */
+    var H = ls.get('titan_habits_v1', {}) || {};
+    var yr = ctxStrip((H.goalsYear || {})[today.getFullYear()]);
+    var mk = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+    var mo = ctxStrip((H.goals || {})[mk]);
+    var bn = ctxStrip(H.bottlenecks);
+    if (yr || mo || bn) {
+      out.push('\n## Goals');
+      if (yr) out.push('**This year**\n' + ctxClip(yr, 900));
+      if (mo) out.push('**This month**\n' + ctxClip(mo, 900));
+      if (bn) out.push('**Bottlenecks**\n' + ctxClip(bn, 700));
+    }
+
+    /* tasks — open only, overdue first, hidden lists left out */
+    var TK = ls.get('apexTasks', {}) || {}, lists = (TK.taskLists || []).filter(function (l) { return !l.stashed; });
+    var open = [];
+    lists.forEach(function (l) {
+      (l.items || []).forEach(function (it) { if (!it.done) open.push({ list: l.name, text: it.text, due: it.due }); });
+    });
+    out.push('\n## Open tasks (' + open.length + ')');
+    if (!open.length) out.push('- nothing open');
+    else {
+      var overdue = open.filter(function (t) { return t.due && t.due < T; });
+      var due = open.filter(function (t) { return t.due === T; });
+      var rest = open.filter(function (t) { return !t.due || t.due > T; });
+      if (overdue.length) out.push('**Overdue**\n' + overdue.map(function (t) { return '- ' + t.text + '  _(' + t.list + ', due ' + t.due + ')_'; }).join('\n'));
+      if (due.length) out.push('**Due today**\n' + due.map(function (t) { return '- ' + t.text + '  _(' + t.list + ')_'; }).join('\n'));
+      if (rest.length) out.push('**Everything else**\n' + rest.slice(0, 40).map(function (t) { return '- ' + t.text + '  _(' + t.list + (t.due ? ', due ' + t.due : '') + ')_'; }).join('\n'));
+    }
+
+    /* today's calendar, from the cache the Calendar tab keeps */
+    var cal = ls.get('apexCal', {}) || {}, evs = [];
+    Object.keys(cal.events || {}).forEach(function (k) {
+      (cal.events[k] || []).forEach(function (e) {
+        var st = new Date(e.start);
+        if (ctxDate(st) === T && !/^executive summary/i.test(e.title || '')) evs.push({ s: st, e: new Date(e.end), t: e.title, all: e.allDay });
+      });
+    });
+    evs.sort(function (a, b) { return a.s - b.s; });
+    var seen = {}; evs = evs.filter(function (e) { var k = e.t + '@' + e.s; if (seen[k]) return false; seen[k] = 1; return true; });
+    out.push('\n## Today\'s calendar');
+    out.push(evs.length ? evs.map(function (e) {
+      var hm = function (d) { return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+      return '- ' + (e.all ? 'all day' : hm(e.s) + '–' + hm(e.e)) + ' · ' + e.t;
+    }).join('\n') : '- nothing in the cached calendar (open the Calendar tab to refresh it)');
+
+    /* habits — where the streaks actually are */
+    var habits = (H.habits || []).filter(function (h) { return !h.hidden; });
+    if (habits.length) {
+      out.push('\n## Habits');
+      out.push(habits.map(function (h) {
+        var run = 0, d = new Date(today); if (!(h.done || {})[ctxDate(d)]) d = ctxAddDays(d, -1);
+        while ((h.done || {})[ctxDate(d)]) { run++; d = ctxAddDays(d, -1); }
+        var cells = 0, hit = 0;
+        for (var i = 0; i < 30; i++) { var dd = ctxAddDays(today, -i); if (h.start && ctxDate(dd) < h.start) continue; cells++; if ((h.done || {})[ctxDate(dd)]) hit++; }
+        return '- ' + h.name + ' — ' + ((h.done || {})[T] ? 'done today' : 'not yet today') +
+               ', ' + run + '-day run, ' + (cells ? Math.round(hit / cells * 100) : 0) + '% of the last ' + cells + ' days';
+      }).join('\n'));
+    }
+
+    /* time — what today and this week actually went on */
+    var TM = ls.get('apexTime', {}) || {}, wk = new Date(today); wk.setDate(wk.getDate() - ((wk.getDay() + 6) % 7));
+    var week = (TM.weeks || {})[ctxDate(wk)] || {}, per = {}, todayCat = {}, hoursWeek = 0, hoursToday = 0;
+    var dow = (today.getDay() + 6) % 7;
+    Object.keys(week).forEach(function (k) {
+      if (k.indexOf('_') < 1 || /^(wake|night)/.test(k)) return;
+      var v = week[k]; if (!v || !v.t) return;
+      var d = +k.split('_')[0], c = v.c || 'uncategorised';
+      per[c] = (per[c] || 0) + 0.5; hoursWeek += 0.5;
+      if (d === dow) { todayCat[c] = (todayCat[c] || 0) + 0.5; hoursToday += 0.5; }
+    });
+    if (hoursWeek) {
+      out.push('\n## Time');
+      out.push('- today: ' + hoursToday + ' h logged' + (Object.keys(todayCat).length ? ' (' + Object.keys(todayCat).sort(function (a, b) { return todayCat[b] - todayCat[a]; }).map(function (c) { return c + ' ' + todayCat[c] + 'h'; }).join(', ') + ')' : ''));
+      out.push('- this week: ' + hoursWeek + ' h — ' + Object.keys(per).sort(function (a, b) { return per[b] - per[a]; }).map(function (c) { return c + ' ' + per[c] + 'h'; }).join(', '));
+    }
+
+    /* notes — the recent ones, trimmed, with anything marked private left out */
+    var N = ls.get('wiktorNotes', {}) || {}, notes = (N.notes || []).slice()
+      .filter(function (n) { return !CTX_PRIVATE.test(n.title || ''); })
+      .sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+    if (notes.length) {
+      out.push('\n## Recent notes');
+      out.push(notes.slice(0, 8).map(function (n) {
+        var body = ctxClip(ctxStrip(n.body), 400);
+        return '### ' + ((n.title || '').trim() || 'Untitled') + (n.updated ? '  _(' + ctxDate(new Date(n.updated)) + ')_' : '') + (body ? '\n' + body : '');
+      }).join('\n\n'));
+    }
+
+    out.push('\n---\n_Notes titled with a padlock are never included. Nothing here left your browser until you pasted it._');
+    return out.join('\n\n');
+  }
+
+  function copyContext() {
+    var text;
+    try { text = buildContext(); } catch (e) { toastShell('Could not build the snapshot: ' + e.message); return; }
+    var done = function () { toastShell('Context copied — paste it into a chat with Claude'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else fallbackCopy(text, done);
+  }
+  function fallbackCopy(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toastShell('Copy failed — your browser blocked it'); }
+    ta.remove();
+  }
+  function toastShell(msg) {
+    var el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9999;background:#2b2a26;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-family:inherit';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 2600);
+  }
+  window.apexCopyContext = copyContext;
+  window.apexBuildContext = buildContext;
+
   /* ---- command palette ---- */
   var ov = null;
   function closeOv() { if (ov) { ov.remove(); ov = null; } }
@@ -266,6 +403,7 @@
     out.push({ g: 'Actions', em: '⏱', t: 'Change the quick timers', sub: 'Sidebar', run: function () { twEditor(); } });
     out.push({ g: 'Actions', em: theme === 'dark' ? '☀︎' : '☾', t: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: toggleTheme });
     out.push({ g: 'Actions', em: '⌨', t: 'Keyboard shortcuts', sub: '?', run: openKeys });
+    out.push({ g: 'Actions', em: '⧉', t: 'Copy context for Claude', sub: 'goals, tasks, calendar, habits, time, notes', run: copyContext });
     // notes & tasks search
     var qq = q.trim().toLowerCase();
     if (qq.length >= 2) {

@@ -126,6 +126,8 @@ html[data-sb="min"] #apexSide .sb-btn{padding:6px 0}
   #apexPhoneBar .sb-btn{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted,#8c8474);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;font-family:inherit}
 }
 
+#apexSide .sb-btn.wide{flex:1;justify-content:center;gap:6px}
+html[data-sb="min"] #apexSide .sb-btn.wide span{display:none}
 #apexSide nav a{position:relative}
 #apexSide nav a .sb-pop{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;
   color:var(--muted,#8c8474);font-size:12px;line-height:1;padding:4px 5px;border-radius:6px;cursor:pointer;opacity:0}
