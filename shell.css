@@ -143,8 +143,13 @@ html[data-solo] #apexSide,
 html[data-solo] #apexPhoneBar,
 html[data-solo] #apexTw { display:none!important }
 html[data-solo]{ --sb:0px }
-html[data-solo] body{ padding-left:14px!important; padding-right:14px!important; padding-bottom:14px!important }
+html[data-solo] body{ padding-left:14px!important; padding-right:14px!important; padding-bottom:14px!important; padding-top:10px!important }
+/* a solo window is all title bar and content — the page's own top margin, sized for
+   a full window with a sidebar above it, just wastes the first inch */
+html[data-solo] .wrap > *:first-child{ margin-top:0!important }
+html[data-solo] .tasks-wrap, html[data-solo] .notes-wrap, html[data-solo] .planner{ margin-top:0!important }
+html[data-solo] .hello{ margin-bottom:10px!important }
 html[data-solo] .sheet{ width:100vw!important; margin-left:-50vw!important }
-html[data-solo] .wrap{ padding-top:8px }
+html[data-solo] .wrap{ padding-top:0 }
 html[data-solo] .solo-only{ display:inline-flex!important }
 .solo-only{ display:none }
