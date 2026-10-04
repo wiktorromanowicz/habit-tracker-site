@@ -295,6 +295,8 @@
     });
   }
 
+  var soloN = 0;
+  function soloSeq() { soloN++; return Date.now().toString(36) + soloN; }   // unique even within one millisecond
   function openSolo(href) {
     try{ApexUse.log('shell:solo-open');}catch(e){}
     var name = href.replace(/\.html$/, '');
@@ -303,8 +305,20 @@
     var narrow = /^(notes|tasks|timer|music)\.html$/.test(href);
     var w = narrow ? 470 : Math.min(1180, Math.max(900, Math.round(screen.availWidth * 0.7)));
     var h = Math.min(900, Math.max(620, Math.round(screen.availHeight * 0.85)));
-    window.open(href + '?solo=1', 'apex-' + name,
+    /* WebKit keys named windows on the web view that was opened, and inside
+       Apex.app that view can outlive the window you closed — so the second ↗
+       targeted a window nobody could see and nothing happened until the app was
+       restarted. In the app, use a fresh name every time; in a browser keep the
+       stable name so a second click focuses the window you already have. */
+    var inApp = / Apex\b/.test(navigator.userAgent) || !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.apexDrag);
+    var winName = 'apex-' + name + (inApp ? '-' + soloSeq() : '');
+    var opened = window.open(href + '?solo=1', winName,
       'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no,status=no');
+    // a blocked or stale handle: try once more with a name nothing can be holding
+    if (!opened) {
+      window.open(href + '?solo=1', 'apex-' + name + '-' + soloSeq(),
+        'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no,status=no');
+    } else { try { opened.focus(); } catch (e) {} }
   }
   window.apexOpenSolo = openSolo;
   function paintFoot() { var l = $('#apexThemeLbl', side); if (l) l.textContent = theme === 'dark' ? '☀︎ Light' : '☾ Dark'; }

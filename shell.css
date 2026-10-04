@@ -207,9 +207,27 @@ html[data-sb="min"] #apexSide .mp-time{display:none}
    the note body, the goal and bottleneck boxes on Home, the brief, your own
    Home cards, and the Ideas and Assets fields. */
 :root{ --apex-write: 15px; }
-html[data-font="inter"]  .apexwrite{font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif}
-html[data-font="roboto"] .apexwrite{font-family:"Roboto",-apple-system,BlinkMacSystemFont,sans-serif}
-html[data-font="lora"]   .apexwrite{font-family:"Lora",Georgia,"Times New Roman",serif;line-height:1.62}
-html[data-font="mono"]   .apexwrite{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
-.apexwrite{font-size:var(--apex-write)!important;line-height:1.55}
-.apexwrite h3{font-size:calc(var(--apex-write) * 1.12)}
+.apexwrite,
+.editor, .brief-edit, #nbody, .nbody, .ntitle, .mycard,
+.editor *, .brief-edit *, #nbody *, .mycard *{
+  font-family:inherit;
+}
+html[data-font="inter"]  .apexwrite, html[data-font="inter"]  .editor, html[data-font="inter"]  .brief-edit,
+html[data-font="inter"]  #nbody, html[data-font="inter"]  .ntitle, html[data-font="inter"]  .mycard{
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif}
+html[data-font="roboto"] .apexwrite, html[data-font="roboto"] .editor, html[data-font="roboto"] .brief-edit,
+html[data-font="roboto"] #nbody, html[data-font="roboto"] .ntitle, html[data-font="roboto"] .mycard{
+  font-family:"Roboto",-apple-system,BlinkMacSystemFont,sans-serif}
+html[data-font="lora"]   .apexwrite, html[data-font="lora"]   .editor, html[data-font="lora"]   .brief-edit,
+html[data-font="lora"]   #nbody, html[data-font="lora"]   .ntitle, html[data-font="lora"]   .mycard{
+  font-family:"Lora",Georgia,"Times New Roman",serif;line-height:1.62}
+html[data-font="mono"]   .apexwrite, html[data-font="mono"]   .editor, html[data-font="mono"]   .brief-edit,
+html[data-font="mono"]   #nbody, html[data-font="mono"]   .ntitle, html[data-font="mono"]   .mycard{
+  font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.apexwrite, .editor, .brief-edit, #nbody, .mycard{font-size:var(--apex-write)!important;line-height:1.55}
+/* content pasted from elsewhere carries its own face and size — strip both so a
+   card is one piece of writing, not a scrapbook */
+.editor [style*="font-family"], .brief-edit [style*="font-family"], #nbody [style*="font-family"], .mycard [style*="font-family"]{font-family:inherit!important}
+.editor [style*="font-size"], .brief-edit [style*="font-size"], #nbody [style*="font-size"], .mycard [style*="font-size"]{font-size:inherit!important}
+.editor font, .brief-edit font, #nbody font, .mycard font{font-family:inherit!important;font-size:inherit!important}
+.apexwrite h3, .editor h3, .brief-edit h3, #nbody h3, .mycard h3{font-size:calc(var(--apex-write) * 1.12)}

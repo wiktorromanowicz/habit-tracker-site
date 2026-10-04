@@ -102,6 +102,13 @@
     transition:opacity .12s ease,transform .14s cubic-bezier(.2,.8,.2,1);}
   .toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) translateY(-10px) scale(1);}
   .toolbar.below{transform:translate(-50%,0) translateY(10px) scale(1);}
+  /* docked mode: a slim bar across the top of the box you are editing */
+  .toolbar.docked{border-radius:10px 10px 0 0;padding:4px 7px;justify-content:flex-start;
+    transform:translateY(-6px);box-shadow:0 2px 10px rgba(20,24,35,.08);
+    border-bottom-color:transparent;background:var(--panel,#fff);}
+  .toolbar.docked.show{transform:translateY(-100%);}
+  .toolbar.docked.gone{opacity:0;pointer-events:none;}
+  .toolbar.docked .sep{margin:0 5px}
   .block{background:var(--panel);border-radius:12px;padding:16px 18px 18px;border:1px solid var(--line);}
   .block-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
   .block-head h2{flex:1;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
@@ -128,6 +135,7 @@
   .editor li{margin:3px 0;}
   .editor a{color:var(--today);}
   .card .editor{height:150px;}
+  .card .editor:focus{border-color:#aab6cc;box-shadow:0 0 0 3px rgba(26,115,232,.08)}
   .card .block-head{display:flex;align-items:center;gap:8px;}
   .card h2 .ghost{background:var(--panel2,#eef2f8);border:1px solid var(--line);color:var(--muted,#7a8496);
     border-radius:7px;padding:2px 8px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px;}
@@ -136,6 +144,12 @@
   .layout-foot button{margin-left:14px}
   .layout-foot #cardAdd{text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
   .layout-foot #cardAdd:hover{background:var(--panel2,#eef2f8)}
+  .toolbar .swatch.more{background:conic-gradient(#ef4444,#f59e0b,#4ade80,#3b82f6,#a855f7,#ef4444);
+    color:transparent;font-size:0;width:15px;height:15px;}
+  .palettepop{position:fixed;z-index:9100;background:var(--panel,#fff);border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 14px 36px rgba(20,24,35,.2);padding:8px;display:grid;grid-template-columns:repeat(6,22px);gap:6px}
+  .palettepop button{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(0,0,0,.08);padding:0;cursor:pointer}
+  .palettepop button:hover{transform:scale(1.14)}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -186,7 +200,8 @@
     <button class="swatch" style="background:#f59e0b" onmousedown="fmtColor(event,'#f59e0b')" title="Amber"></button>
     <button class="swatch" style="background:#ef4444" onmousedown="fmtColor(event,'#ef4444')" title="Red"></button>
     <button class="swatch" style="background:#a855f7" onmousedown="fmtColor(event,'#a855f7')" title="Purple"></button>
-    <input type="color" title="Custom color" onmousedown="rememberSel()" oninput="fmtColorCustom(this.value)">
+    <button type="button" class="swatch more" title="More colours" onmousedown="openPalette(event)">⋯</button>
+    <button type="button" title="Back to the default colour" onmousedown="fmtColor(event,'')">⊘</button>
     <span class="sep"></span>
     <button onmousedown="fmt(event,'removeFormat')" title="Clear formatting">&#9003;</button>
   </div>

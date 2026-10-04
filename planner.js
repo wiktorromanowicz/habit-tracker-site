@@ -85,55 +85,127 @@
 
   /* ---- formatting ---- */
   function ensureActive() { if (!activeEditor || !editorSaves.has(activeEditor)) activeEditor = editorSaves.keys().next().value; }
-  window.fmt = function (ev, cmd, val) { ev.preventDefault(); ensureActive(); activeEditor.focus(); document.execCommand(cmd, false, val || null); saveActive(); };
+  /* With the toolbar always on screen you reach for it with the caret sitting in
+     a line, not with text selected — and execCommand on a collapsed caret only
+     arms the style for whatever you type next, which looks exactly like a dead
+     button. If nothing is selected, act on the line the caret is in. */
+  function lineOf(node, root) {
+    while (node && node !== root) {
+      if (node.nodeType === 1 && node.parentNode === root) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function withLine(run) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) { run(); return; }
+    var r = sel.getRangeAt(0);
+    if (!r.collapsed) { run(); return; }
+    var line = lineOf(r.startContainer, activeEditor);
+    if (!line || !(line.textContent || '').trim()) { run(); return; }
+    var keep = r.cloneRange();
+    var whole = document.createRange(); whole.selectNodeContents(line);
+    sel.removeAllRanges(); sel.addRange(whole);
+    run();
+    try { sel.removeAllRanges(); sel.addRange(keep); } catch (e) {}
+  }
+  window.fmt = function (ev, cmd, val) {
+    ev.preventDefault(); ensureActive(); activeEditor.focus();
+    withLine(function () { document.execCommand(cmd, false, val || null); });
+    saveActive();
+  };
   function applyColor(c) { document.execCommand('styleWithCSS', false, true); document.execCommand('foreColor', false, c); }
-  window.fmtColor = function (ev, c) { ev.preventDefault(); ensureActive(); activeEditor.focus(); applyColor(c); saveActive(); };
+  window.fmtColor = function (ev, c) {
+    ev.preventDefault(); ensureActive(); activeEditor.focus();
+    withLine(function () {
+      if (!c) document.execCommand('removeFormat', false, null);
+      else applyColor(c);
+    });
+    saveActive();
+  };
   var savedRange = null;
   window.rememberSel = function () {
     var s = window.getSelection();
     if (s.rangeCount && activeEditor && activeEditor.contains(s.anchorNode)) savedRange = s.getRangeAt(0).cloneRange();
   };
+  /* a small palette instead of the OS colour panel */
+  var PAL = ['#232833','#5e6675','#c1362c','#d97706','#15803d','#1a73e8',
+             '#7c3aed','#be185d','#0f766e','#a16207','#475569','#0ea5e9'];
+  var palEl = null;
+  function closePal() { if (palEl) { palEl.remove(); palEl = null; } }
+  document.addEventListener('mousedown', function (e) { if (palEl && !palEl.contains(e.target)) closePal(); }, true);
+  window.openPalette = function (ev) {
+    ev.preventDefault(); rememberSel(); closePal();
+    var box = document.createElement('div'); palEl = box; box.className = 'palettepop';
+    box.innerHTML = PAL.map(function (c) { return '<button type="button" data-c="' + c + '" style="background:' + c + '" title="' + c + '"></button>'; }).join('');
+    document.body.appendChild(box);
+    var r = ev.currentTarget.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(r.left - 60, window.innerWidth - box.offsetWidth - 8)) + 'px';
+    box.style.top = (r.bottom + 6 + box.offsetHeight > window.innerHeight ? r.top - box.offsetHeight - 6 : r.bottom + 6) + 'px';
+    box.querySelectorAll('[data-c]').forEach(function (b) {
+      b.addEventListener('mousedown', function (e2) {
+        e2.preventDefault();
+        ensureActive(); activeEditor.focus();
+        if (savedRange) { var s2 = window.getSelection(); s2.removeAllRanges(); s2.addRange(savedRange); }
+        withLine(function () { applyColor(b.dataset.c); }); saveActive(); closePal();
+      });
+    });
+  };
+
   window.fmtColorCustom = function (c) {
     ensureActive(); activeEditor.focus();
     if (savedRange) { var s = window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }
     applyColor(c); saveActive();
   };
 
-  /* floating toolbar, shown only while text is selected inside one of the boxes */
-  (function selectionToolbar() {
+  /* The toolbar used to appear wherever your selection happened to be, which on
+     the first line of a card meant across its heading. It now docks to the top of
+     whatever you are editing, appears when you put the cursor in a box and leaves
+     when you click away — one predictable place instead of a moving target. */
+  (function dockedToolbar() {
     var bar = document.getElementById('toolbar'); if (!bar) return;
-    function selInEditor() {
-      var s = window.getSelection();
-      if (!s || s.rangeCount === 0 || s.isCollapsed) return null;
-      var hit = null;
-      editorSaves.forEach(function (_, el) { if (!hit && el.contains(s.anchorNode) && el.contains(s.focusNode)) hit = el; });
-      return hit;
+    var host = null, raf = 0;
+
+    function place() {
+      if (!host) return;
+      var r = host.getBoundingClientRect();
+      bar.style.left = Math.round(r.left) + 'px';
+      bar.style.top = Math.round(r.top) + 'px';
+      bar.style.width = Math.round(r.width) + 'px';
+      // out of sight once the box has scrolled past
+      var off = r.bottom < 60 || r.top > window.innerHeight - 20;
+      bar.classList.toggle('gone', off);
     }
-    function updateBar() {
-      var el = selInEditor();
-      if (!el) { bar.classList.remove('show'); return; }
-      activeEditor = el;
-      var r = window.getSelection().getRangeAt(0).getBoundingClientRect();
-      if (r.width === 0 && r.height === 0) { bar.classList.remove('show'); return; }
-      bar.classList.add('show');                       // measure it at full size
-      var w = bar.offsetWidth || 240, h = bar.offsetHeight || 32;
-      /* keep it on screen, and drop it below the selection rather than letting it
-         sit on top of the card heading when there is no room above */
-      var cx = Math.round(r.left + r.width / 2);
-      bar.style.left = Math.max(w / 2 + 8, Math.min(cx, window.innerWidth - w / 2 - 8)) + 'px';
-      /* "Above" has to clear the card's own heading too, not just the window —
-         selecting the first line used to park the bar across "MONTHLY GOALS". */
-      var guard = 8;
-      var card = el.closest && el.closest('.card, .block');
-      var head = card && card.querySelector('h2, .block-head');
-      if (head) guard = Math.max(guard, head.getBoundingClientRect().bottom + 4);
-      var above = r.top - h - 12 > guard;
-      bar.classList.toggle('below', !above);
-      bar.style.top = (above ? Math.round(r.top) : Math.round(r.bottom)) + 'px';
+    function follow() { cancelAnimationFrame(raf); raf = requestAnimationFrame(place); }
+
+    function show(el) {
+      host = el; activeEditor = el;
+      bar.classList.add('docked');
+      place();
+      bar.classList.add('show');
     }
-    document.addEventListener('selectionchange', function () { requestAnimationFrame(updateBar); });
-    document.addEventListener('scroll', function () { if (bar.classList.contains('show')) updateBar(); }, true);
-    window.addEventListener('resize', function () { if (bar.classList.contains('show')) updateBar(); });
+    function hide() {
+      host = null;
+      bar.classList.remove('show', 'gone');
+    }
+
+    editorSaves.forEach(function (_, el) {
+      el.addEventListener('focus', function () { show(el); });
+      el.addEventListener('blur', function () {
+        // clicking a toolbar button must not count as leaving the box
+        setTimeout(function () {
+          var a = document.activeElement;
+          if (a && (bar.contains(a) || editorSaves.has(a))) return;
+          if (bar.matches(':hover')) return;
+          hide();
+        }, 120);
+      });
+    });
+    // mousedown on the bar keeps the caret where it is
+    bar.addEventListener('mousedown', function (e) { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
+    window.addEventListener('scroll', follow, true);
+    window.addEventListener('resize', follow);
+
     editorSaves.forEach(function (saveFn, el) {
       el.addEventListener('keydown', function (e) {
         if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
