@@ -15,7 +15,7 @@
    travels once you have named Apex as its owner. */
 (function () {
   var TITLE_IN = 'Apex inbox', TITLE_OUT = 'Apex replies';
-  var STATE = 'apexInbox', REPLIES = 'apexInboxReplies';
+  var STATE = 'apexInbox', REPLIES = 'apexInboxReplies', LOG = 'apexInboxLog';
   var API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -106,15 +106,28 @@
       var byId = {};
       (data.replies || []).forEach(function (r) { if (r && r.id) byId[r.id] = r; });
       set(REPLIES, { at: Date.now(), updated: data.updated || '', byId: byId });
+      /* keep what changed, dated, so the Apex tab can show how a task moved over
+         days instead of only the sentence that happens to be current */
+      var log = get(LOG, {}) || {};
+      var day = (data.updated || new Date().toISOString()).slice(0, 10);
+      Object.keys(byId).forEach(function (id) {
+        var r = byId[id], entries = log[id] = log[id] || [];
+        var last = entries[entries.length - 1];
+        if (last && last.text === r.text && last.status === r.status) return;   // nothing new to say
+        entries.push({ at: data.updated || new Date().toISOString(), day: day, text: r.text || '', status: r.status || '' });
+        while (entries.length > 40) entries.shift();
+      });
+      set(LOG, log);
       try { window.dispatchEvent(new Event('apex-inbox-replies')); } catch (e) {}
       return byId;
     }).catch(function () { return null; });
   }
   function replies() { return (get(REPLIES, {}) || {}).byId || {}; }
+  function history(id) { var l = get(LOG, {}) || {}; return id ? (l[id] || []) : l; }
 
   window.ApexInbox = {
     isApex: isApex, payload: payload, push: push, pushSoon: pushSoon,
-    pull: pullReplies, replies: replies, TITLE_IN: TITLE_IN, TITLE_OUT: TITLE_OUT,
+    pull: pullReplies, replies: replies, history: history, TITLE_IN: TITLE_IN, TITLE_OUT: TITLE_OUT,
     state: function () { return get(STATE, {}); }
   };
 

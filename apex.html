@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Apex · Apex</title>
+<style>
+  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;--blue:#1a73e8;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:28px;min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;}
+  .brand{font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:10px;}
+  .nav{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
+  .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+  .nav a:not(.active):hover{background:var(--chip)}
+
+  .ahead{display:flex;align-items:baseline;gap:12px;margin:22px 0 4px}
+  .ahead h1{margin:0;font-size:21px;font-weight:650;letter-spacing:-.01em}
+  .ahead .sub{font-size:13px;color:var(--muted)}
+  .filters{display:flex;gap:6px;margin:14px 0 6px;flex-wrap:wrap}
+  .filters button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:20px;
+    border:1px solid var(--line);background:var(--surface,#fff);color:var(--muted);cursor:pointer}
+  .filters button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  .proj{margin-top:26px}
+  .proj > h2{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .item{background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:10px}
+  .item .top{display:flex;align-items:flex-start;gap:10px}
+  .item h3{margin:0;font-size:15.5px;font-weight:620;line-height:1.35;flex:1}
+  .st{flex:none;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid;white-space:nowrap}
+  .st.need{background:#fff3d6;color:#8a5a0f;border-color:#f0d79a}
+  .st.prog{background:#eef4ff;color:#1a4fa3;border-color:#d6e2fb}
+  .st.done{background:#e8f6ee;color:#15803d;border-color:#c8ead6}
+  .st.blocked{background:#fdeaea;color:#c1362c;border-color:#f5c6c6}
+  .st.quiet{background:var(--chip);color:var(--muted);border-color:var(--line)}
+  .meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .meta b{color:#6b6355;font-weight:600}
+  .say{margin-top:11px;font-size:14px;line-height:1.6;color:#3f3b33}
+  .say.none{color:var(--muted);font-style:italic}
+  .acts{display:flex;gap:14px;margin-top:11px;align-items:center}
+  .acts a,.acts button{font:inherit;font-size:12.5px;font-weight:600;color:var(--blue);background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
+  .acts a:hover,.acts button:hover{text-decoration:underline}
+  .hist{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:none}
+  .item.open .hist{display:block}
+  .hrow{display:flex;gap:10px;font-size:13px;line-height:1.55;padding:5px 0;color:#55504a}
+  .hrow .d{flex:none;width:76px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;padding-top:1px}
+  .empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:26px 22px;color:var(--muted);font-size:14px;line-height:1.65}
+  .empty b{color:var(--ink)}
+  .foot{margin:28px 0 10px;font-size:12px;color:var(--muted);line-height:1.6}
+  [data-theme=dark] body{--bg:#17161a;--card:#1e1d22;--ink:#ece9e3;--muted:#9a9388;--line:#2e2c33;--chip:#26242b;--surface:#1e1d22;}
+  [data-theme=dark] .item .say{color:#d4cfc6}
+  [data-theme=dark] .hrow{color:#b5afa6}
+</style>
+<script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
+<script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
+<link rel="stylesheet" href="shell.css"/>
+<script defer src="pwa.js"></script>
+<script defer src="shell.js"></script>
+<script defer src="cal-config.js"></script>
+<script defer src="gauth.js"></script>
+<script defer src="apexinbox.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">⚡ Apex</div>
+  <nav class="nav">
+    <a href="today.html">🏠 Today</a>
+    <a href="index.html">🎯 Habits</a>
+    <a href="tasks.html">✅ Tasks</a>
+    <a href="apex.html" class="active">🤖 Apex</a>
+    <a href="calendar.html">📅 Calendar</a>
+    <a href="time.html">⏳ Time</a>
+    <a href="notes.html">📝 Notes</a>
+    <a href="timer.html">⏱ Timer</a>
+    <a href="lift.html">🏋️ Lift</a>
+    <a href="finances.html">💰 Net worth</a>
+    <a href="metrics.html">📊 Metrics</a>
+    <a href="assets.html">🗂️ Assets</a>
+    <a href="ideas.html">💡 Ideas</a>
+  </nav>
+
+  <div class="ahead"><h1>What Apex is working on</h1><span class="sub" id="asub"></span></div>
+  <div class="filters" id="afilters"></div>
+  <div id="abody"></div>
+  <div class="foot" id="afoot"></div>
+</div>
+
+<script>
+/* The Apex tab ---------------------------------------------------------------
+   Everything Claude has written about the tasks you handed it, in one place and
+   grouped by the list the task lives in. The Tasks board only carries a chip;
+   the writing belongs here, where you come to read it rather than meeting it
+   mid-scroll while you are trying to tick things off. */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } };
+const FILTER_KEY='apexTabFilter';
+const isApex=w=>{ const s=String(w||'').trim().toLowerCase(); return s==='apex'||s==='claude'; };
+const stClass=s=>{ s=String(s||'').toLowerCase();
+  return s==='needs you'?'need':s==='done'?'done':s==='blocked'?'blocked':s==='in progress'?'prog':'quiet'; };
+
+function tasks(){
+  const S=ls('apexTasks',{})||{}, out=[];
+  (S.taskLists||[]).forEach(l=>{ if(l.stashed) return;
+    (l.items||[]).forEach(it=>{ if(isApex(it.who)) out.push({list:l.name, it:it}); }); });
+  return out;
+}
+function replies(){ return (ls('apexInboxReplies',{})||{}).byId||{}; }
+function histOf(id){ return (ls('apexInboxLog',{})||{})[id]||[]; }
+function lastRun(){ const R=ls('apexInboxReplies',null); return R&&R.updated?new Date(R.updated):null; }
+
+function filterNow(){ try{ return localStorage.getItem(FILTER_KEY)||'all'; }catch(e){ return 'all'; } }
+function setFilter(v){ try{ localStorage.setItem(FILTER_KEY,v); }catch(e){} render(); }
+
+function when(iso){
+  if(!iso) return '';
+  const d=new Date(iso); if(isNaN(d)) return '';
+  const t=new Date(); t.setHours(0,0,0,0);
+  const days=Math.round((t-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/86400000);
+  if(days===0) return 'today';
+  if(days===1) return 'yesterday';
+  if(days>1&&days<7) return days+' days ago';
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short'});
+}
+
+function render(){
+  const rows=tasks(), RP=replies(), f=filterNow();
+  const run=lastRun();
+  $('asub').textContent = rows.length
+    ? rows.length+' task'+(rows.length===1?'':'s')+' handed over'+(run?' · last run '+when(run.toISOString()):'')
+    : '';
+
+  /* filters only earn their place once there is something to filter */
+  const counts={all:rows.length, need:0, prog:0, done:0};
+  rows.forEach(r=>{ const c=stClass((RP[r.it.id]||{}).status); if(counts[c]!=null&&c!=='all') counts[c]++; });
+  $('afilters').innerHTML = rows.length>2 ? [
+    ['all','Everything',counts.all],['need','Waiting on you',counts.need],
+    ['prog','In progress',counts.prog],['done','Done',counts.done]
+  ].filter(x=>x[0]==='all'||x[2]).map(x=>
+    '<button data-f="'+x[0]+'"'+(f===x[0]?' class="on"':'')+'>'+x[1]+' ('+x[2]+')</button>').join('') : '';
+  $('afilters').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>setFilter(b.dataset.f));
+
+  const shown=rows.filter(r=>f==='all'||stClass((RP[r.it.id]||{}).status)===f);
+
+  if(!rows.length){
+    $('abody').innerHTML='<div class="empty">Nothing handed over yet.<br><br>'+
+      'Assign a task to <b>Apex</b> — type <b>@apex</b> in the task, or right-click it and put Apex in the Person field — and it travels to Claude overnight. '+
+      'Whatever comes back is written here, grouped by the list the task lives in. The Tasks board only gets a small chip.</div>';
+    $('afoot').textContent=''; return;
+  }
+  if(!shown.length){
+    $('abody').innerHTML='<div class="empty">Nothing in that state right now.</div>';
+  } else {
+    const byList={};
+    shown.forEach(r=>{ (byList[r.list]=byList[r.list]||[]).push(r); });
+    const rank=x=>{ const c=stClass((RP[x.it.id]||{}).status); return c==='need'?0:c==='blocked'?1:c==='prog'?2:c==='quiet'?3:4; };
+    /* the list with something waiting on you comes first — reading order should
+       match what you have to act on, not the alphabet */
+    const order=Object.keys(byList).sort((a,c)=>
+      Math.min(...byList[a].map(rank)) - Math.min(...byList[c].map(rank)) || a.localeCompare(c));
+    $('abody').innerHTML=order.map(list=>{
+      const items=byList[list].sort((a,b)=> rank(a)-rank(b) || (a.it.due||'9999').localeCompare(b.it.due||'9999'));
+      return '<section class="proj"><h2>'+esc(list)+'</h2>'+items.map(card).join('')+'</section>';
+    }).join('');
+  }
+  $('abody').querySelectorAll('[data-hist]').forEach(b=>b.onclick=()=>{
+    const card=b.closest('.item'); const open=card.classList.toggle('open');
+    b.textContent=open?'Hide earlier updates':b.dataset.label;
+  });
+  const waiting=counts.need;
+  $('afoot').innerHTML='Apex runs once each morning and writes back here. '+
+    (waiting?'<b>'+waiting+'</b> item'+(waiting===1?'':'s')+' needs something from you. ':'')+
+    'It drafts, researches and breaks work down — it never sends email or changes your calendar.';
+}
+
+function card({list,it}){
+  const rep=replies()[it.id]||null;
+  const log=histOf(it.id);
+  const earlier=log.length>1?log.slice(0,-1).reverse():[];
+  const cls=stClass(rep&&rep.status);
+  return '<article class="item" id="t-'+esc(it.id)+'">'+
+    '<div class="top"><h3>'+esc(it.text||'Untitled task')+'</h3>'+
+      '<span class="st '+cls+'">'+esc(rep&&rep.status?rep.status:'not looked at yet')+'</span></div>'+
+    '<div class="meta">'+(it.due?'Due <b>'+esc(it.due)+'</b> · ':'')+
+      (log.length?'last update <b>'+esc(when(log[log.length-1].at))+'</b>':'waiting for the next run')+'</div>'+
+    (it.desc?'<div class="meta" style="margin-top:6px">'+esc(it.desc)+'</div>':'')+
+    '<div class="say'+(rep&&rep.text?'':' none')+'">'+
+      (rep&&rep.text?esc(rep.text):'Apex has not written about this yet — it goes out with the next morning run.')+'</div>'+
+    '<div class="acts">'+
+      '<a href="tasks.html?focus='+encodeURIComponent(it.id)+'">Open in Tasks →</a>'+
+      (earlier.length?'<button data-hist="1" data-label="'+earlier.length+' earlier update'+(earlier.length===1?'':'s')+'">'+
+        earlier.length+' earlier update'+(earlier.length===1?'':'s')+'</button>':'')+
+    '</div>'+
+    (earlier.length?'<div class="hist">'+earlier.map(h=>
+      '<div class="hrow"><span class="d">'+esc(when(h.at))+'</span><span>'+esc(h.text)+'</span></div>').join('')+'</div>':'')+
+  '</article>';
+}
+
+render();
+/* a fresh pull from the calendar, or another tab, redraws this page */
+window.addEventListener('apex-inbox-replies', render);
+window.addEventListener('storage', e=>{ if(['apexInboxReplies','apexInboxLog','apexTasks'].indexOf(e.key)>=0) render(); });
+setTimeout(()=>{ try{ ApexInbox.pull(); }catch(e){} }, 2200);
+
+/* arriving from a chip on the Tasks board: scroll to that one and mark it */
+(function(){
+  const q=new URLSearchParams(location.search).get('task'); if(!q) return;
+  const el=document.getElementById('t-'+q); if(!el) return;
+  el.scrollIntoView({block:'center'});
+  el.style.boxShadow='0 0 0 2px var(--blue)';
+  setTimeout(()=>el.style.boxShadow='',1600);
+  history.replaceState(null,'',location.pathname);
+})();
+</script>
+</body>
+</html>

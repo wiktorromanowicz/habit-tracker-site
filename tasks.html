@@ -168,9 +168,12 @@
   .atpop button.on,.atpop button:hover{background:var(--accent-dim)}
   .atpop .av{width:19px;height:19px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800}
   .tasks-board.flatview{display:block!important}
-  .treply{margin-top:6px;font-size:12.5px;line-height:1.5;color:#4b5563;background:#eef4ff;border:1px solid #d6e2fb;border-left:3px solid #1a73e8;border-radius:8px;padding:6px 9px}
-  .treply b{color:#1a4fa3;font-weight:700}
-  .treply .st{font-size:11px;color:#6b7280;background:#fff;border:1px solid #d6e2fb;border-radius:9px;padding:1px 7px;margin-left:4px}
+  .tapexchip{display:inline-flex;align-items:center;font-size:11.5px;font-weight:650;padding:2px 9px;border-radius:12px;margin-top:4px;margin-left:6px;cursor:pointer;border:1px solid}
+  .tapexchip.need{background:#fff3d6;color:#8a5a0f;border-color:#f0d79a}
+  .tapexchip.prog{background:#eef4ff;color:#1a4fa3;border-color:#d6e2fb}
+  .tapexchip.done{background:#e8f6ee;color:#15803d;border-color:#c8ead6}
+  .tapexchip.blocked{background:#fdeaea;color:#c1362c;border-color:#f5c6c6}
+  .titem.done .tapexchip{opacity:.5}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -187,6 +190,7 @@
     <a href="today.html">🏠 Today</a>
     <a href="index.html">🎯 Habits</a>
     <a href="tasks.html" class="active">✅ Tasks</a>
+    <a href="apex.html">🤖 Apex</a>
     <a href="calendar.html">📅 Calendar</a>
     <a href="time.html">⏳ Time</a>
     <a href="notes.html">📝 Notes</a>
@@ -640,13 +644,19 @@ function taskRow(listId, it, isSub){
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
   const chip=dueChip(listId,it); if(chip) main.appendChild(chip);
   const wc=whoChip(listId,it); if(wc) main.appendChild(wc);
+  /* Apex's own writing lives on the Apex tab — the board only says there is
+     something there, and whether it is waiting on you */
   try{
     const RP=(JSON.parse(localStorage.getItem('apexInboxReplies')||'null')||{}).byId||{};
     const rep=RP[it.id];
     if(rep && rep.text){
-      const r=document.createElement('div'); r.className='treply';
-      r.innerHTML='<b>\u{1F916} Apex</b> '+esc(rep.text)+(rep.status?' <span class="st">'+esc(rep.status)+'</span>':'');
-      main.appendChild(r);
+      const c=document.createElement('span');
+      const st=(rep.status||'in progress').toLowerCase();
+      c.className='tapexchip '+(st==='needs you'?'need':st==='done'?'done':st==='blocked'?'blocked':'prog');
+      c.textContent='\u{1F916} '+(rep.status||'update');
+      c.title='Apex has written about this — open the Apex tab';
+      c.addEventListener('click',e=>{ e.stopPropagation(); location.href='apex.html?task='+encodeURIComponent(it.id); });
+      main.appendChild(c);
     }
   }catch(e){}
   li.addEventListener("contextmenu", e=>{ e.preventDefault(); openCtx(e,listId,it.id); });
