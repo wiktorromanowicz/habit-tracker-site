@@ -52,6 +52,11 @@
   [data-theme=dark] body{--bg:#17161a;--card:#1e1d22;--ink:#ece9e3;--muted:#9a9388;--line:#2e2c33;--chip:#26242b;--surface:#1e1d22;}
   [data-theme=dark] .item .say{color:#d4cfc6}
   [data-theme=dark] .hrow{color:#b5afa6}
+  .item.weekly{border-left:3px solid var(--blue);background:var(--card)}
+  .item.weekly .say{white-space:pre-wrap}
+  .privacy{margin:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .privacy label{display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:600;margin-bottom:5px;cursor:pointer}
+  .privacy span{display:block;max-width:62ch}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -83,8 +88,13 @@
 
   <div class="ahead"><h1>What Apex is working on</h1><span class="sub" id="asub"></span></div>
   <div class="filters" id="afilters"></div>
+  <div id="weekly"></div>
   <div id="abody"></div>
   <div class="foot" id="afoot"></div>
+  <div class="privacy">
+    <label><input type="checkbox" id="usageOpt"> Let Claude see how I use Apex</label>
+    <span>Counts only — how many times each tab was opened, how many tasks added, how many time slots filled. Never a title, a note, a task or anything you wrote. It rides along with the tasks you assign to Apex, and turning it off takes effect on the next sync.</span>
+  </div>
 </div>
 
 <script>
@@ -144,6 +154,7 @@ function render(){
 
   const shown=rows.filter(r=>f==='all'||stClass((RP[r.it.id]||{}).status)===f);
 
+  renderWeekly();
   if(!rows.length){
     $('abody').innerHTML='<div class="empty">Nothing handed over yet.<br><br>'+
       'Assign a task to <b>Apex</b> — type <b>@apex</b> in the task, or right-click it and put Apex in the Person field — and it travels to Claude overnight. '+
@@ -175,6 +186,23 @@ function render(){
     'It drafts, researches and breaks work down — it never sends email or changes your calendar.';
 }
 
+/* Claude's weekly read of how Apex is actually being used. It arrives as a reply
+   with the reserved id __weekly, so it needs no task behind it. */
+function renderWeekly(){
+  const w=replies()['__weekly'];
+  const host=$('weekly'); if(!host) return;
+  if(!w||!w.text){ host.innerHTML=''; return; }
+  const log=histOf('__weekly'), earlier=log.length>1?log.slice(0,-1).reverse():[];
+  host.innerHTML='<article class="item weekly">'+
+    '<div class="top"><h3>What Apex noticed this week</h3><span class="st quiet">'+esc(when(w.at||(log[log.length-1]||{}).at||''))+'</span></div>'+
+    '<div class="say">'+esc(w.text).replace(/\n/g,'<br>')+'</div>'+
+    (earlier.length?'<div class="acts"><button data-wk="1">'+earlier.length+' earlier review'+(earlier.length===1?'':'s')+'</button></div>'+
+      '<div class="hist">'+earlier.map(h=>'<div class="hrow"><span class="d">'+esc(when(h.at))+'</span><span>'+esc(h.text).replace(/\n/g,'<br>')+'</span></div>').join('')+'</div>':'')+
+  '</article>';
+  const btn=host.querySelector('[data-wk]');
+  if(btn) btn.onclick=()=>{ const c=btn.closest('.item'); const open=c.classList.toggle('open'); btn.textContent=open?'Hide earlier reviews':earlier.length+' earlier review'+(earlier.length===1?'':'s'); };
+}
+
 function card({list,it}){
   const rep=replies()[it.id]||null;
   const log=histOf(it.id);
@@ -203,6 +231,11 @@ render();
 window.addEventListener('apex-inbox-replies', render);
 window.addEventListener('storage', e=>{ if(['apexInboxReplies','apexInboxLog','apexTasks'].indexOf(e.key)>=0) render(); });
 setTimeout(()=>{ try{ ApexInbox.pull(); }catch(e){} }, 2200);
+setTimeout(()=>{
+  const cb=$('usageOpt'); if(!cb||!window.ApexInbox) return;
+  cb.checked = ApexInbox.usageOn();
+  cb.onchange = ()=>{ ApexInbox.setUsage(cb.checked); };
+}, 900);
 
 /* arriving from a chip on the Tasks board: scroll to that one and mark it */
 (function(){

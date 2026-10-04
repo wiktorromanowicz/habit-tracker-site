@@ -25,6 +25,66 @@
   function set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function isApex(w) { var s = String(w || '').trim().toLowerCase(); return s === 'apex' || s === 'claude'; }
 
+  /* ---- the usage digest -------------------------------------------------
+     Claude cannot see how Apex is actually used, so any advice about it is
+     guesswork. This sends COUNTS ONLY — how many times a tab was opened, how
+     many tasks were added, how many time slots filled. No titles, no text, no
+     note or task content, nothing about what any of it was about. It rides
+     along in the same inbox event, and the switch on the Apex tab turns it off.
+     ---------------------------------------------------------------------- */
+  var USAGE_OPT = 'apexInboxUsage';
+  function usageOn() {
+    try { var raw = localStorage.getItem(USAGE_OPT); return raw === null ? true : JSON.parse(raw) !== false; }
+    catch (e) { return true; }
+  }
+  function setUsage(on) { set(USAGE_OPT, !!on); push(true); }
+
+  function digest() {
+    if (!usageOn()) return null;
+    var U = get('apexUsage', { d: {} }) || { d: {} }, days = U.d || {};
+    var t = today(), from = iso(addDays(t, -29));
+    var tot = {}, active = 0, perDay = {};
+    Object.keys(days).forEach(function (k) {
+      if (k < from) return;
+      var row = days[k], any = false;
+      Object.keys(row).forEach(function (e) { tot[e] = (tot[e] || 0) + row[e]; any = true; });
+      if (any) { active++; perDay[k] = Object.keys(row).reduce(function (n, e) { return n + row[e]; }, 0); }
+    });
+    if (!active) return null;
+
+    // volume only — how much is in each store, never what is in it
+    var T = get('apexTasks', {}) || {}, lists = (T.taskLists || []);
+    var openN = 0, doneN = 0, overdue = 0, withDue = 0, assigned = 0;
+    var todayIso = iso(t);
+    lists.forEach(function (l) { (l.items || []).forEach(function (it) {
+      if (it.done) { doneN++; return; }
+      openN++; if (it.due) { withDue++; if (it.due < todayIso) overdue++; } if (it.who) assigned++;
+    }); });
+    var H = get('titan_habits_v1', {}) || {}, habits = (H.habits || []);
+    var N = get('wiktorNotes', {}) || {}, notes = (N.notes || []);
+    var TM = get('apexTime', {}) || {}, weeks = Object.keys(TM.weeks || {});
+    var slots = 0;
+    weeks.forEach(function (w) { var wk = TM.weeks[w]; Object.keys(wk).forEach(function (k) {
+      if (/^(wake|night)/.test(k)) return; var v = wk[k]; if (v && v.t) slots++; }); });
+
+    return {
+      window: { from: from, to: todayIso, activeDays: active },
+      events: tot,
+      busiestDays: Object.keys(perDay).sort(function (a, b) { return perDay[b] - perDay[a]; }).slice(0, 3)
+        .map(function (k) { return { day: k, events: perDay[k] }; }),
+      hiddenTabs: (function () { try { var h = JSON.parse(localStorage.getItem('apexNavHidden') || '[]'); return Array.isArray(h) ? h : []; } catch (e) { return []; } })(),
+      volume: {
+        lists: lists.filter(function (l) { return !l.stashed; }).length,
+        listsPutAway: lists.filter(function (l) { return l.stashed; }).length,
+        openTasks: openN, doneTasks: doneN, overdue: overdue, withDueDate: withDue, assigned: assigned,
+        habits: habits.filter(function (h) { return !h.hidden; }).length,
+        habitsHidden: habits.filter(function (h) { return !!h.hidden; }).length,
+        notes: notes.length, notesPrivate: notes.filter(function (n) { return n.private; }).length,
+        timeWeeksLogged: weeks.length, timeSlotsFilled: slots
+      }
+    };
+  }
+
   /* what we would send right now */
   function payload() {
     var S = get('apexTasks', {}), out = [];
@@ -42,10 +102,12 @@
     var lines = tasks.length
       ? tasks.map(function (t, i) { return (i + 1) + '. ' + t.text + (t.due ? '  (due ' + t.due + ')' : '') + '  [' + t.list + ']' + (t.desc ? '\n   ' + t.desc : ''); }).join('\n')
       : 'Nothing assigned to Apex right now.';
+    var d = digest();
     return 'Tasks Wiktor has assigned to Apex. Written by the Apex web app; read by Claude.\n' +
-      'Reply by writing a separate all-day event titled "' + TITLE_OUT + '" whose description holds the APEX-REPLIES JSON block.\n\n' +
-      lines + '\n\n<!--APEX-INBOX v1\n' +
-      JSON.stringify({ updated: new Date().toISOString(), tasks: tasks }) + '\n-->';
+      'Reply by writing a separate all-day event titled "' + TITLE_OUT + '" whose description holds the APEX-REPLIES JSON block.\n' +
+      (d ? 'It also carries a counts-only record of how Apex itself is used — no titles, no text, no content of any kind.\n' : '') +
+      '\n' + lines + '\n\n<!--APEX-INBOX v1\n' +
+      JSON.stringify({ updated: new Date().toISOString(), tasks: tasks, usage: d }) + '\n-->';
   }
 
   /* find the carrier event, wherever it drifted to */
@@ -69,7 +131,7 @@
   var lastSent = null, pending = null;
   function push(force) {
     if (!window.ApexG) return Promise.resolve(false);
-    var tasks = payload(), sig = JSON.stringify(tasks);
+    var tasks = payload(), sig = JSON.stringify(tasks) + '|' + usageOn() + '|' + iso(today());
     var st = get(STATE, {});
     if (!force && sig === (lastSent || st.sig)) return Promise.resolve(false);
     var t = today();
@@ -128,6 +190,7 @@
   window.ApexInbox = {
     isApex: isApex, payload: payload, push: push, pushSoon: pushSoon,
     pull: pullReplies, replies: replies, history: history, TITLE_IN: TITLE_IN, TITLE_OUT: TITLE_OUT,
+    digest: digest, usageOn: usageOn, setUsage: setUsage,
     state: function () { return get(STATE, {}); }
   };
 
