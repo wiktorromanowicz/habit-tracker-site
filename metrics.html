@@ -63,6 +63,9 @@
   .typing .uchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
   .typing .uchip{font-size:12px;padding:3px 10px;border-radius:12px;background:var(--panel2,#f3efe4);border:1px solid var(--line,#e7e2d6);color:#6b6355}
   .typing .uchips.dim .uchip{opacity:.7}
+  .typing .uchip.put{cursor:pointer}
+  .typing .uchip.put:hover{opacity:1;border-color:#c8c0ae}
+  .typing .uchip.put b{opacity:.5;font-weight:600}
 
   .typing .bars{display:flex;align-items:flex-end;gap:5px;height:66px;margin:16px 0 4px;}
   .typing .bars div{flex:1;background:var(--chip,#e9e2d2);border-radius:4px 4px 0 0;min-height:2px;position:relative;}
@@ -258,13 +261,20 @@ loadYear(2026);
     }
     if(never.length){
       html+='<div class="usec">Not opened once in 30 days</div><div class="uchips dim">'+
-        never.map(p=>'<span class="uchip">'+PAGES[p]+'</span>').join('')+'</div>'+
-        '<div class="note">Worth deciding about rather than ignoring: either it earns its place in the sidebar, or you hide it and the app gets simpler.</div>';
+        never.map(p=>'<span class="uchip put" data-put="'+p+'.html" title="Put this tab away — it leaves the sidebar but stays in Search and under More">'+PAGES[p]+' <b>\u2296</b></span>').join('')+'</div>'+
+        '<div class="note">Click one to put it away: it leaves the sidebar but stays in \u2318K and under More, where one click brings it back.</div>';
     } else {
       html+='<div class="note">Every tab has been opened at least once in the last 30 days.</div>';
     }
     CARD.innerHTML=html;
   }
+  function wirePut(){
+    CARD.querySelectorAll('[data-put]').forEach(el=>el.onclick=()=>{
+      if(!window.apexHideTab) return;
+      if(window.apexHideTab(el.dataset.put)){ el.style.opacity='.35'; el.style.textDecoration='line-through'; }
+    });
+  }
+  const _render=render; render=function(){ _render(); try{ wirePut(); }catch(e){} };
   render();
   window.addEventListener('storage',e=>{ if(e.key==='apexUsage') render(); });
 })();

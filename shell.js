@@ -74,6 +74,30 @@
   // Today is the home screen: it always sits first
   (function () { var i = links.findIndex(function (l) { return l.href === 'today.html'; }); if (i > 0) links.unshift(links.splice(i, 1)[0]); })();
 
+  /* ---- tabs you have put away ------------------------------------------
+     Like an iPhone home screen: a tab you do not use leaves the sidebar but
+     the app is still installed. It stays in the ⌘K palette, and the "More"
+     row at the bottom of the sidebar opens a drawer holding everything you
+     put away, one click from coming back. Today and the page you are on are
+     never hideable — losing the way back is not a feature. */
+  var HID_KEY = 'apexNavHidden';
+  function hiddenSet() { var a = ls.get(HID_KEY, []); return Array.isArray(a) ? a : []; }
+  function isHidden(href) { return hiddenSet().indexOf(href) >= 0; }
+  function canHide(href) { return href !== 'today.html' && href !== here; }
+  function hideTab(href) {
+    if (!canHide(href)) return false;
+    var h = hiddenSet(); if (h.indexOf(href) < 0) h.push(href);
+    // never let the sidebar empty out
+    if (links.filter(function (l) { return h.indexOf(l.href) < 0; }).length < 3) return false;
+    ls.set(HID_KEY, h); renderNav(); return true;
+  }
+  function showTab(href) { ls.set(HID_KEY, hiddenSet().filter(function (x) { return x !== href; })); renderNav(); }
+  window.apexHideTab = hideTab; window.apexShowTab = showTab;
+  window.apexHiddenTabs = hiddenSet;
+  window.addEventListener('storage', function (e) {
+    if ((e.key === HID_KEY || e.key === 'apexNavOrder') && navEl) { try { renderNav(); } catch (err) {} }
+  });
+
   /* ---- music engine (IndexedDB library + one audio element), loaded once per page ---- */
   (function () {
     if (window.ApexMusic) return;
@@ -145,7 +169,9 @@
   function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   function renderNav() {
     navEl.innerHTML = '';
-    links.forEach(function (l, i) {
+    var hid = hiddenSet();
+    var shown = links.filter(function (l) { return hid.indexOf(l.href) < 0 || l.href === here; });
+    shown.forEach(function (l, i) {
       var a = document.createElement('a'); a.href = l.href; a.className = l.active ? 'active' : ''; a.draggable = true; a.dataset.href = l.href;
       a.innerHTML = '<span class="em">' + l.em + '</span><span class="lb">' + l.lb + '</span>' + (i < 9 ? '<span class="kb">' + MOD + (i + 1) + '</span>' : '');
       a.title = l.lb;
@@ -157,10 +183,69 @@
       pop.title = 'Open ' + l.lb + ' on its own';
       pop.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openSolo(l.href); });
       a.appendChild(pop);
+      if (canHide(l.href)) {
+        a.addEventListener('contextmenu', function (e) { e.preventDefault(); openNavMenu(e, l); });
+      }
       navEl.appendChild(a);
     });
+    renderMore(hid);
     wireReorder();
   }
+  /* the "More" row and the drawer behind it */
+  function renderMore(hid) {
+    var away = links.filter(function (l) { return hid.indexOf(l.href) >= 0 && l.href !== here; });
+    if (!away.length) return;
+    var row = document.createElement('button');
+    row.type = 'button'; row.className = 'sb-more'; row.id = 'apexMoreBtn';
+    row.innerHTML = '<span class="em">\u22EF</span><span class="lb">More</span><span class="n">' + away.length + '</span>';
+    row.title = away.length + ' tab' + (away.length === 1 ? '' : 's') + ' put away';
+    row.addEventListener('click', function (e) { e.preventDefault(); openDrawer(away); });
+    navEl.appendChild(row);
+  }
+  var drawerEl = null;
+  function closeDrawer() { if (drawerEl) { drawerEl.remove(); drawerEl = null; document.removeEventListener('keydown', drawerEsc, true); } }
+  function drawerEsc(e) { if (e.key === 'Escape') { e.stopPropagation(); closeDrawer(); } }
+  function openDrawer(away) {
+    if (drawerEl) { closeDrawer(); return; }
+    var ov = document.createElement('div'); drawerEl = ov; ov.className = 'apex-drawer';
+    ov.innerHTML = '<div class="dr-card"><div class="dr-head">Put away' +
+      '<span>Click one to open it. Put it back and it returns to the sidebar.</span></div>' +
+      '<div class="dr-grid"></div></div>';
+    var grid = ov.querySelector('.dr-grid');
+    away.forEach(function (l) {
+      var cell = document.createElement('div'); cell.className = 'dr-cell';
+      var go = document.createElement('a'); go.href = l.href; go.className = 'dr-app';
+      go.innerHTML = '<span class="ic">' + l.em + '</span><span class="nm">' + l.lb + '</span>';
+      var back = document.createElement('button'); back.type = 'button'; back.className = 'dr-back';
+      back.textContent = 'Put back'; back.title = 'Show ' + l.lb + ' in the sidebar again';
+      back.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); showTab(l.href); closeDrawer(); });
+      cell.appendChild(go); cell.appendChild(back); grid.appendChild(cell);
+    });
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) closeDrawer(); });
+    document.addEventListener('keydown', drawerEsc, true);
+    document.body.appendChild(ov);
+  }
+  /* right-click a sidebar tab */
+  var navMenu = null;
+  function closeNavMenu() { if (navMenu) { navMenu.remove(); navMenu = null; } }
+  document.addEventListener('click', function (e) { if (navMenu && !navMenu.contains(e.target)) closeNavMenu(); }, true);
+  function openNavMenu(e, l) {
+    closeNavMenu();
+    var m = document.createElement('div'); navMenu = m; m.className = 'apex-navmenu';
+    m.innerHTML = '<button data-a="solo">\u2197 Open on its own</button>' +
+                  '<button data-a="hide">\u2296 Put away</button>';
+    document.body.appendChild(m);
+    m.style.left = Math.min(e.clientX, innerWidth - m.offsetWidth - 10) + 'px';
+    m.style.top = Math.min(e.clientY, innerHeight - m.offsetHeight - 10) + 'px';
+    m.querySelectorAll('[data-a]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.a === 'solo') openSolo(l.href);
+        else if (!hideTab(l.href)) toastShell('Keep at least three tabs in the sidebar');
+        closeNavMenu();
+      });
+    });
+  }
+
   function openSolo(href) {
     try{ApexUse.log('shell:solo-open');}catch(e){}
     var name = href.replace(/\.html$/, '');
@@ -590,7 +675,8 @@
   function closeOv() { if (ov) { ov.remove(); ov = null; } }
   function actions(q) {
     var out = [];
-    links.forEach(function (l) { out.push({ g: 'Go to', em: l.em, t: l.lb, sub: 'tab', run: function () { location.href = l.href; } }); });
+    links.forEach(function (l) { out.push({ g: 'Go to', em: l.em, t: l.lb, sub: isHidden(l.href) ? 'put away' : 'tab', run: function () { location.href = l.href; } }); });
+    hiddenSet().forEach(function (h) { var l = links.filter(function (x) { return x.href === h; })[0]; if (l) out.push({ g: 'Actions', em: l.em, t: 'Put ' + l.lb + ' back in the sidebar', sub: 'sidebar', run: function () { showTab(h); } }); });
     out.push({ g: 'Actions', em: '➕', t: 'New task', sub: 'Tasks', run: function () { location.href = 'tasks.html?new=1'; } });
     out.push({ g: 'Actions', em: '📝', t: 'New note', sub: 'Notes', run: function () { location.href = 'notes.html?new=1'; } });
     out.push({ g: 'Actions', em: '📅', t: 'New event', sub: 'Calendar', run: function () { location.href = 'calendar.html?new=1'; } });
