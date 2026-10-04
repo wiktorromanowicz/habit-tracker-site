@@ -192,6 +192,8 @@
   /* the "More" row and the drawer behind it */
   function renderMore(hid) {
     var away = links.filter(function (l) { return hid.indexOf(l.href) >= 0 && l.href !== here; });
+    // the page you are on stays in the sidebar even when it is on the put-away
+    // list, so it is correctly absent here — the count below matches the drawer
     if (!away.length) return;
     var row = document.createElement('button');
     row.type = 'button'; row.className = 'sb-more'; row.id = 'apexMoreBtn';
@@ -354,12 +356,14 @@
      Anything can log with ApexUse.log('thing:done'), and a page view is
      recorded automatically for every page the shell runs on. */
   var USE_KEY = 'apexUsage', USE_DAYS = 90;
-  var useMem = null, useDirty = false;
+  var useMem = null, useDirty = false, flushed = {};
   function useToday() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function useLoad() {
     if (useMem) return useMem;
     try { useMem = JSON.parse(localStorage.getItem(USE_KEY) || 'null') || {}; } catch (e) { useMem = {}; }
     if (!useMem.d) useMem.d = {};
+    // the counts we started from are not ours to add again on the first flush
+    Object.keys(useMem.d).forEach(function (day) { flushed[day] = Object.assign({}, useMem.d[day]); });
     return useMem;
   }
   function useTrim(S) {
@@ -378,10 +382,18 @@
     Object.keys(d).forEach(function (day) { out[day] = Object.assign({}, d[day]); });
     Object.keys(useMem.d).forEach(function (day) {
       var mine = useMem.d[day], row = out[day] || (out[day] = {});
-      Object.keys(mine).forEach(function (e) { row[e] = Math.max(row[e] || 0, mine[e]); });
+      /* max() lost a second window's counts entirely (3 on disk, 1 here → still 3).
+         Add only what this page has counted since its last flush. */
+      Object.keys(mine).forEach(function (e) {
+        var since = mine[e] - ((flushed[day] || {})[e] || 0);
+        if (since > 0) row[e] = (row[e] || 0) + since;
+        else if (!row[e]) row[e] = mine[e];
+      });
     });
     var keys = Object.keys(out).sort();
     while (keys.length > USE_DAYS) delete out[keys.shift()];
+    // remember what we have already contributed, so the next flush adds only the delta
+    Object.keys(useMem.d).forEach(function (day) { flushed[day] = Object.assign({}, useMem.d[day]); });
     useMem = { d: out };
     try { localStorage.setItem(USE_KEY, JSON.stringify(useMem)); } catch (e) {}
   }
@@ -606,8 +618,14 @@
     togs.style.cssText = 'padding:10px 18px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;border-bottom:1px solid var(--line,#e7e2d8)';
     var LABELS = { goals: 'Goals', tasks: 'Tasks', calendar: 'Calendar', habits: 'Habits', time: 'Time', notes: 'Notes', noteBodies: 'Note bodies', redact: 'Hide e-mails & numbers' };
     var ta;
+    var lastBuilt = null;
     function rebuild() {
-      try { ta.value = buildContext(o); } catch (e) { toastShell('Could not rebuild: ' + e.message); }
+      /* If you deleted a client's name from the text and then ticked a box, the
+         rebuild used to put the name straight back into what you copy. Only
+         replace text you have not touched. */
+      var edited = lastBuilt !== null && ta.value !== lastBuilt;
+      if (edited && !confirm('You have edited this text. Rebuilding with the new sections will discard those edits — continue?')) return;
+      try { ta.value = buildContext(o); lastBuilt = ta.value; } catch (e) { toastShell('Could not rebuild: ' + e.message); }
       count();
     }
     Object.keys(LABELS).forEach(function (k) {
@@ -625,7 +643,7 @@
     card.appendChild(togs);
 
     ta = document.createElement('textarea');
-    ta.value = text;
+    ta.value = text; lastBuilt = text;
     ta.spellcheck = false;
     ta.style.cssText = 'flex:1;min-height:38vh;margin:0;border:0;outline:0;resize:none;padding:14px 18px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;background:transparent;color:inherit';
     card.appendChild(ta);

@@ -247,22 +247,53 @@ async function fetchBriefFromCalendar(){
     const min=new Date(); min.setDate(min.getDate()-7); min.setHours(0,0,0,0);
     const url='https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&q='+encodeURIComponent('Executive summary')+'&timeMin='+encodeURIComponent(min.toISOString());
     const r = window.ApexG ? await window.ApexG.fetch(url) : null;
-    if(!r||!r.ok) return briefFromCache(); const j=await r.json(); const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&/^(executive summary|apex inbox|apex replies)/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
+    if(!r||!r.ok) return briefFromCache(); const j=await r.json(); const mine=e=>(e.organizer&&e.organizer.self)||(e.creator&&e.creator.self)||(!e.organizer&&!e.creator);
+    const evs=(j.items||[]).filter(e=>e.status!=='cancelled'&&mine(e)&&/^(executive summary|apex inbox|apex replies)/i.test(e.summary||'')&&e.start&&e.start.date&&e.description).sort((a,c)=>a.start.date<c.start.date?1:-1);
     const live=evs[0]?{date:evs[0].start.date,html:evs[0].description}:null, cached=briefFromCache();
     if(live&&cached) return live.date>=cached.date?live:cached;
     return live||cached; }catch(e){ return briefFromCache(); }
 }
+
+/* ---- the brief is HTML from a Google Calendar event, so it is untrusted -------
+   Anyone who can get an event onto your calendar — anyone who can invite you —
+   can put HTML in its description. Stripping <script> is not enough: <img onerror>,
+   <svg onload> and friends run just as happily, and this page then saved the
+   payload into your notes, where it ran again on every device. Keep the text and
+   the harmless formatting; drop everything that can execute or phone home. */
+function apexClean(html){
+  var doc;
+  try{ doc = new DOMParser().parseFromString('<body>'+(html||'')+'</body>','text/html'); }
+  catch(e){ return String(html||'').replace(/<[^>]*>/g,''); }
+  var KILL = /^(script|iframe|object|embed|link|meta|style|form|input|button|base|svg|math)$/i;
+  var walk = doc.body.querySelectorAll('*');
+  for (var i = walk.length - 1; i >= 0; i--) {
+    var el = walk[i];
+    if (KILL.test(el.tagName)) { el.remove(); continue; }
+    for (var j = el.attributes.length - 1; j >= 0; j--) {
+      var a = el.attributes[j], n = a.name.toLowerCase(), v = (a.value || '').trim();
+      if (n.indexOf('on') === 0) { el.removeAttribute(a.name); continue; }          // every event handler
+      if ((n === 'href' || n === 'src' || n === 'xlink:href') && /^(javascript|data|vbscript):/i.test(v)) el.removeAttribute(a.name);
+      if (n === 'srcdoc' || n === 'formaction') el.removeAttribute(a.name);
+    }
+  }
+  return doc.body.innerHTML;
+}
 (async function(){
   let S=ls('wiktorNotes',null); let n=S&&S.notes&&S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary');
   let m=n&&(n.body||'').match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/);
-  if(!m||m[1]!==today){ const b=await fetchBriefFromCalendar(); if(b&&(!m||b.date>m[1])){ S=S||{notes:[]}; S.notes=S.notes||[];
+  if(!m||m[1]!==today){ const b=await fetchBriefFromCalendar(); if(b&&(!m||b.date>m[1])){
+      /* the fetch above is a network round trip — anything written to the notes in
+         another tab meanwhile would be destroyed by writing back the copy we read
+         before it, so read the store again here */
+      S=ls('wiktorNotes',null)||{notes:[]}; S.notes=S.notes||[];
+      n=S.notes.find(x=>(x.title||'').trim().toLowerCase()==='executive summary')||null;
       if(!n){ n={id:Math.random().toString(36).slice(2,9),title:'Executive summary',pinned:true,created:Date.now(),updated:Date.now(),body:''}; S.notes.unshift(n); }
       const cur=n.body||''; const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
-      n.body='<div class="brief" data-brief="'+b.date+'">'+b.html+'</div><hr class="brief-end">'+rest; n.updated=Date.now(); n.pinned=true; localStorage.setItem('wiktorNotes',JSON.stringify(S));
+      n.body='<div class="brief" data-brief="'+b.date+'">'+apexClean(b.html)+'</div><hr class="brief-end">'+rest; n.updated=Date.now(); n.pinned=true; localStorage.setItem('wiktorNotes',JSON.stringify(S));
       m=n.body.match(/<div class="brief" data-brief="([^"]*)">([\s\S]*?)<\/div><hr class="brief-end">/); } }
   if(!m){ $('brief').innerHTML='<div class="empty">No summary yet — it lands here every morning at 07:30.</div>'; return; }
   const fresh = m[1]===today;
-  $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px" contenteditable="false">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+'<div class="brief-edit" contenteditable="true" spellcheck="true">'+m[2].replace(/<script[\s\S]*?<\/script>/gi,'')+'</div>';
+  $('brief').innerHTML=(fresh?'':'<div class="empty" style="padding:0 0 6px" contenteditable="false">From '+esc(m[1])+' — today’s hasn’t arrived yet.</div>')+'<div class="brief-edit" contenteditable="true" spellcheck="true">'+apexClean(m[2])+'</div>';
   // edits here flow straight back into the note (debounced)
   const ed=$('brief').querySelector('.brief-edit'); let t0=null;
   ed.addEventListener('input',()=>{ clearTimeout(t0); t0=setTimeout(()=>{ const S2=ls('wiktorNotes',null); const n2=S2&&S2.notes&&S2.notes.find(x=>x.id===n.id); if(!n2) return;
@@ -372,14 +403,31 @@ window.addEventListener('focus',refreshNowCard);
 /* habits — today's checkboxes */
 (function(){
   const st=ls('titan_habits_v1',null); if(!st||!st.habits||!st.habits.length){ $('habits').innerHTML='<div class="empty">No habits set up.</div>'; return; }
-  const hiso=d=>isoDay(d); const htoday=today;   // Habits now stores plain local dates (migrated on the Habits page)
-  const streak=h=>{ let s=0; const d=new Date(now); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
+  const hiso=d=>isoDay(d);
+  /* Apex.app keeps this page alive for days. `today` was captured when the page
+     loaded, so after midnight a tick landed on yesterday and the checkbox showed
+     the wrong day. Ask the clock at the moment of the click instead. */
+  const htodayNow=()=>isoDay(new Date());
+  const streak=h=>{ let s=0; const d=new Date(); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
+  const paintHabits=()=>{ const s2=ls('titan_habits_v1',null)||{habits:[]}; const ht=htodayNow();
+    (s2.habits||[]).forEach(h=>{ const c=$('habits').querySelector('.chk[data-id="'+h.id+'"]'); if(!c) return;
+      const on=!!(h.done&&h.done[ht]); c.classList.toggle('on',on); c.setAttribute('aria-checked',on?'true':'false'); }); };
+  const htoday=htodayNow();
   $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" role="checkbox" aria-checked="'+(h.done&&h.done[htoday]?'true':'false')+'" tabindex="0" aria-label="'+esc(h.name)+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
   $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); if(!s) return;
     if(!s.dateKeysLocal){ // same migration as the Habits page, so a tick written here is never shifted later
       const off=new Date(); off.setHours(0,0,0,0); if(off.toISOString().slice(0,10)!==isoDay(off)){ s.habits.forEach(x=>{ const nd={}; Object.keys(x.done||{}).forEach(k=>{ const [y,m,d]=k.split('-').map(Number); nd[isoDay(new Date(y,m-1,d+1))]=x.done[k]; }); x.done=nd; }); }
-      s.dateKeysLocal=true; s.dateKeysFix2=true; }
-    const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{}; if(h.done[htoday]) delete h.done[htoday]; else h.done[htoday]=true; localStorage.setItem('titan_habits_v1',JSON.stringify(s)); c.classList.toggle('on',!!h.done[htoday]); });
+      s.dateKeysLocal=true; }   /* NOT dateKeysFix2 — that is a different fix the Habits page still has to run */
+    const ht=htodayNow();
+    const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{};
+    if(h.done[ht]) delete h.done[ht]; else h.done[ht]=true;
+    localStorage.setItem('titan_habits_v1',JSON.stringify(s));
+    c.classList.toggle('on',!!h.done[ht]); c.setAttribute('aria-checked',h.done[ht]?'true':'false'); });
+  /* another tab ticked it: repaint, or the next click here would untick what you
+     just ticked over there */
+  window.addEventListener('storage',e=>{ if(e.key==='titan_habits_v1') paintHabits(); });
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) paintHabits(); });
+  window.addEventListener('focus',paintHabits);
 })();
 // keyboard: Space/Enter on any checkbox-like control acts like a click
 document.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter') && e.target.getAttribute && e.target.getAttribute('role')==='checkbox'){ e.preventDefault(); e.target.click(); e.target.setAttribute('aria-checked', e.target.classList.contains('on')||e.target.style.background?'true':'false'); } });

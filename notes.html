@@ -853,6 +853,21 @@ searchEl.addEventListener('input',renderList);
 searchEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.nitem'); if(f) open(f.dataset.id,true); } });
 
 /* ---- Executive summary: pulled from the private Supabase table apex_brief into the note 'Executive summary' ---- */
+function apexClean(html){
+  var doc;
+  try{ doc = new DOMParser().parseFromString('<body>'+(html||'')+'</body>','text/html'); }
+  catch(e){ return String(html||'').replace(/<[^>]*>/g,''); }
+  var KILL=/^(script|iframe|object|embed|link|meta|style|form|input|button|base|svg|math)$/i;
+  var all=doc.body.querySelectorAll('*');
+  for(var i=all.length-1;i>=0;i--){ var el=all[i];
+    if(KILL.test(el.tagName)){ el.remove(); continue; }
+    for(var j=el.attributes.length-1;j>=0;j--){ var a=el.attributes[j], n=a.name.toLowerCase(), v=(a.value||'').trim();
+      if(n.indexOf('on')===0){ el.removeAttribute(a.name); continue; }
+      if((n==='href'||n==='src'||n==='xlink:href')&&/^(javascript|data|vbscript):/i.test(v)) el.removeAttribute(a.name);
+      if(n==='srcdoc'||n==='formaction') el.removeAttribute(a.name);
+    } }
+  return doc.body.innerHTML;
+}
 let briefPending=false, briefBusy=false;
 async function pullBrief(){
   if(briefBusy) return;                 // the 5-minute timer and visibilitychange can overlap
@@ -879,7 +894,7 @@ async function pullBriefInner(){
   const cur=n.body||''; const m=cur.match(/<div class="brief" data-brief="([^"]*)"/);
   if(m&&m[1]===b.brief_date) return;
   const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
-  n.body='<div class="brief" data-brief="'+b.brief_date+'">'+b.html+'</div><hr class="brief-end">'+rest;
+  n.body='<div class="brief" data-brief="'+b.brief_date+'">'+apexClean(b.html)+'</div><hr class="brief-end">'+rest;
   n.updated=Date.now(); n.pinned=true; save();
   if(S.active===n.id){
     /* replacing innerHTML under the caret throws away whatever is still inside

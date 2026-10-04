@@ -403,7 +403,10 @@ function commit(td){
   setCell(d,r,t,c); paint(td);
   if(pendingRange&&d>=pendingRange.d0&&d<=pendingRange.d1&&r>=pendingRange.a&&r<=pendingRange.b){ const pr=pendingRange; pendingRange=null;
     tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
-    if(t){ for(let dd=pr.d0;dd<=pr.d1;dd++) for(let rr=pr.a;rr<=pr.b;rr++){ setCell(dd,rr,t,c); const x=tdAt(dd,rr); if(x) paint(x); } } }
+    if(t){
+      let over=0; for(let dd=pr.d0;dd<=pr.d1;dd++) for(let rr=pr.a;rr<=pr.b;rr++){ const ex=cellData(dd,rr); if(ex&&ex.t&&!(dd===d&&rr===r)) over++; }
+      if(over){ try{ window.ApexTime.snapshot('fill over '+over+' slot'+(over>1?'s':'')); }catch(e){} }
+      for(let dd=pr.d0;dd<=pr.d1;dd++) for(let rr=pr.a;rr<=pr.b;rr++){ setCell(dd,rr,t,c); const x=tdAt(dd,rr); if(x) paint(x); } } }
   renderPanel();
 }
 function paint(td){
@@ -527,8 +530,12 @@ const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEven
       const [a,b]=[Math.min(fill.last.r,fill.src.r),Math.max(fill.last.r,fill.src.r)];
       const [c0,c1]=[Math.min(fill.last.d,fill.src.d),Math.max(fill.last.d,fill.src.d)];
       const slots=(b-a+1)*(c1-c0+1), days=c1-c0+1;
-      if(src.t){ for(let dd=c0;dd<=c1;dd++) for(let r=a;r<=b;r++){ setCell(dd,r,src.t||'',src.c); const x=tdAt(dd,r); if(x) paint(x); }
-        renderPanel(); toast(days>1? ('Copied to '+days+' days ('+(slots/2)+' h)') : ('Stretched to '+((b-a+1)/2)+' h'));
+      if(src.t){
+        // this writes over whatever was in the rectangle, so leave a copy behind
+        let over=0; for(let dd=c0;dd<=c1;dd++) for(let r=a;r<=b;r++){ const ex=cellData(dd,r); if(ex&&ex.t&&!(dd===fill.src.d&&r===fill.src.r)) over++; }
+        if(over){ try{ window.ApexTime.snapshot('fill over '+over+' slot'+(over>1?'s':'')); }catch(e){} }
+        for(let dd=c0;dd<=c1;dd++) for(let r=a;r<=b;r++){ setCell(dd,r,src.t||'',src.c); const x=tdAt(dd,r); if(x) paint(x); }
+        renderPanel(); toast((days>1? ('Copied to '+days+' days ('+(slots/2)+' h)') : ('Stretched to '+((b-a+1)/2)+' h'))+(over?' · ↩︎ Undo puts the '+over+' overwritten back':''));
         tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
       else { pendingRange={d0:c0,d1:c1,a,b}; focusCell(c0,a); toast('Type once to fill '+(slots/2)+' h'); } }
     else tbody.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
@@ -685,7 +692,9 @@ function clearAutoWeek(){
 function undoTime(){
   const snaps=window.ApexTime.snapshots();
   if(!snaps.length){ toast('Nothing to undo'); return; }
-  if(window.ApexTime.restore()){ reloadState(); render(); toast('Reverted to '+new Date(snaps[0].ts).toLocaleTimeString()); }
+  const rec=window.ApexTime.lastAction&&window.ApexTime.lastAction();
+  if(!rec){ toast('Nothing to undo — Undo reverses a bulk change (import, clear, re-sort). For an older copy use 🛟 Recover.'); return; }
+  if(window.ApexTime.restore()){ reloadState(); render(); toast('Undid "'+(rec.reason||'the last bulk change')+'" from '+new Date(rec.ts).toLocaleTimeString()); }
 }
 
 /* ---------- navigation ---------- */

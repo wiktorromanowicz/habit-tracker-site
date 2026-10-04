@@ -228,10 +228,21 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
     }catch(e){}
     return added;
   }
+  /* The ↩︎ Undo button used to restore list[0] — which, because opening the page
+     writes a "daily backup" at list[0], meant it reverted the WHOLE sheet to how
+     it looked when you arrived, throwing away everything typed since. Undo now
+     only ever goes back to a snapshot taken immediately before a bulk change. */
+  function lastAction(){
+    try{
+      const list=JSON.parse(localStorage.getItem(BK)||'[]')||[];
+      return list.find(r => !/^daily backup/.test(r.reason||'')) || null;
+    }catch(e){ return null; }
+  }
   function restore(ts){
     try{
       const list=JSON.parse(localStorage.getItem(BK)||'[]')||[];
-      const rec=ts?list.find(r=>r.ts===ts):list[0]; if(!rec) return false;
+      const rec = ts ? list.find(r=>r.ts===ts) : lastAction();
+      if(!rec) return false;
       snapshot('before-restore');
       localStorage.setItem(KEY,rec.data);                              // a normal write, so it syncs to your other devices
       return true;
@@ -300,7 +311,7 @@ window.ApexTime={CATS,LEGACY,LEX,guessCat};
   window.ApexTime.fillFromCalendar=fillFromCalendar;
   window.ApexTime.snapshot=snapshot; window.ApexTime.snapshots=snapshots;
   window.ApexTime.autoSnapshot=autoSnapshot; window.ApexTime.exportAll=exportAll; window.ApexTime.importMerge=importMerge;
-  window.ApexTime.restore=restore; window.ApexTime.clearAuto=clearAuto; window.ApexTime.restoreMerge=restoreMerge;
+  window.ApexTime.restore=restore; window.ApexTime.lastAction=lastAction; window.ApexTime.clearAuto=clearAuto; window.ApexTime.restoreMerge=restoreMerge;
 })();
 
 /* ---- night sleep, the part the 05:00–23:00 grid can't hold ----
