@@ -219,10 +219,20 @@
   function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
   function post() {
     var T = read(), payload = JSON.stringify({ state: T.state || 'idle', endAt: T.endAt || 0, remaining: T.remaining || 0, stoppedAt: T.stoppedAt || 0 });
-    if (T.state !== 'running' && payload === last) { delay = 3000; return setTimeout(post, delay); }   // nothing changed while idle
+    /* This used to stop talking to the app entirely once the timer was idle and
+       nothing had changed. The reply is now also how the menu-bar item asks for a
+       timer to start, so keep a slow heartbeat going — it is a loopback request
+       costing nothing, and when the app is not there the catch below backs off. */
+    if (T.state !== 'running' && payload === last) delay = 3000;
     fetch(URL_, { method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, mode: 'cors', keepalive: true })
       .then(function (r) { return r.json(); })
-      .then(function (j) { last = payload; delay = 1000; if (j && j.stop && window.apexTimerStop) window.apexTimerStop(); })
+      .then(function (j) {
+        last = payload; delay = (T.state === 'running') ? 1000 : 3000;
+        if (j && j.stop && window.apexTimerStop) window.apexTimerStop();
+        // the menu bar asked for a timer; only one window needs to act on it, and
+        // the app clears the request as soon as it has handed it out
+        if (j && j.start && window.apexStartTimer) window.apexStartTimer(j.start);
+      })
       .catch(function () { delay = Math.min(30000, delay * 2); })
       .then(function () { setTimeout(post, delay); });
   }

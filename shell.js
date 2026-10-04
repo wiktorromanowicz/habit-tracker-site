@@ -288,6 +288,8 @@
   function fmt(s) { s = Math.max(0, Math.round(s)); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? pad(h) + ':' : '') + pad(m) + ':' + pad(x); }
   function startTimer(min) { var T = rt(); T.duration = min * 60; T.endAt = Date.now() + min * 60000; T.state = 'running'; delete T.rang; delete T.remaining; wt(T); if (window.apexTimerRefresh) window.apexTimerRefresh(); paintTw(); }
   function pauseTimer() { var T = rt(); if (T.state === 'running') { T.remaining = Math.max(0, (T.endAt - Date.now()) / 1000); T.state = 'paused'; } else if (T.state === 'paused') { T.endAt = Date.now() + (T.remaining || 0) * 1000; T.state = 'running'; } wt(T); paintTw(); }
+  /* the menu-bar item in Apex.app starts timers through this (see pwa.js) */
+  window.apexStartTimer = function (min) { startTimer(min); };
   function stopTimer() { if (window.apexTimerStop) window.apexTimerStop(); else { var T = rt(); T.state = 'idle'; delete T.endAt; delete T.rang; T.stoppedAt = Date.now(); wt(T); } paintTw(); }
   var lastTw = '';
   /* the sidebar's quick timers — editable, shared across pages and devices */
