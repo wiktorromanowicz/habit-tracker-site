@@ -115,9 +115,21 @@
       activeEditor = el;
       var r = window.getSelection().getRangeAt(0).getBoundingClientRect();
       if (r.width === 0 && r.height === 0) { bar.classList.remove('show'); return; }
-      bar.style.left = Math.round(r.left + r.width / 2) + 'px';
-      bar.style.top = Math.max(44, Math.round(r.top - 10)) + 'px';
-      bar.classList.add('show');
+      bar.classList.add('show');                       // measure it at full size
+      var w = bar.offsetWidth || 240, h = bar.offsetHeight || 32;
+      /* keep it on screen, and drop it below the selection rather than letting it
+         sit on top of the card heading when there is no room above */
+      var cx = Math.round(r.left + r.width / 2);
+      bar.style.left = Math.max(w / 2 + 8, Math.min(cx, window.innerWidth - w / 2 - 8)) + 'px';
+      /* "Above" has to clear the card's own heading too, not just the window —
+         selecting the first line used to park the bar across "MONTHLY GOALS". */
+      var guard = 8;
+      var card = el.closest && el.closest('.card, .block');
+      var head = card && card.querySelector('h2, .block-head');
+      if (head) guard = Math.max(guard, head.getBoundingClientRect().bottom + 4);
+      var above = r.top - h - 12 > guard;
+      bar.classList.toggle('below', !above);
+      bar.style.top = (above ? Math.round(r.top) : Math.round(r.bottom)) + 'px';
     }
     document.addEventListener('selectionchange', function () { requestAnimationFrame(updateBar); });
     document.addEventListener('scroll', function () { if (bar.classList.contains('show')) updateBar(); }, true);

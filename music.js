@@ -39,13 +39,21 @@
       var a = document.createElement('audio'), u = URL.createObjectURL(file), done = function (v) { URL.revokeObjectURL(u); res(v); };
       a.preload = 'metadata';
       a.onloadedmetadata = function () { done(isFinite(a.duration) ? a.duration : 0); };
-      a.onerror = function () { done(0); };
+      a.onerror = function () { done(0); };        // unknown length is fine: the player reads it on play
       a.src = u; setTimeout(function () { done(isFinite(a.duration) ? a.duration : 0); }, 4000);
     });
   }
   /* add File objects (from a drop or a file input) */
   function add(files) {
-    var arr = Array.prototype.slice.call(files || []).filter(function (f) { return /^audio\//.test(f.type) || /\.(mp3|m4a|aac|wav|flac|ogg|opus|webm)$/i.test(f.name); });
+    /* An .mp4 is a container, not a format: most "audio" downloads arrive as mp4
+       or mov and <audio> plays the sound track out of them perfectly well. The
+       old filter looked at the MIME type, saw video/mp4 and dropped the file
+       without a word — which is why brain.fm.mp4 could not be added. */
+    var all = Array.prototype.slice.call(files || []);
+    var PLAYABLE = /\.(mp3|m4a|m4b|aac|wav|flac|ogg|oga|opus|webm|mp4|m4v|mov|aiff?|caf|wma)$/i;
+    var arr = all.filter(function (f) { return /^(audio|video)\//.test(f.type) || PLAYABLE.test(f.name); });
+    var rejected = all.filter(function (f) { return arr.indexOf(f) < 0; });
+    if (rejected.length) { try { window.dispatchEvent(new CustomEvent('apex-music-rejected', { detail: rejected.map(function (f) { return f.name; }) })); } catch (e) {} }
     if (!arr.length) return Promise.resolve([]);
     return arr.reduce(function (chain, f) {
       return chain.then(function (acc) {

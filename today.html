@@ -92,30 +92,37 @@
   .qa a:hover,.qa button:hover{border-color:var(--accent);color:var(--accent)}
   @media (max-width:700px){ body{padding:14px} .hello h1{font-size:22px} }
   /* ---- Planner editors (bottlenecks, monthly + yearly goals) ---- */
-  .toolbar{position:fixed;left:0;top:0;z-index:60;background:var(--panel);
-    border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin:0;flex-wrap:nowrap;
-    box-shadow:0 6px 22px rgba(20,22,35,.16);opacity:0;pointer-events:none;
-    transform:translate(-50%,-100%) scale(.96);transition:opacity .1s ease,transform .1s ease;}
-  .toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1);}
+  /* One compact pill above the selection, the way Docs does it — it used to be a
+     34px-tall bar wide enough to sit across the card header and cover the text
+     you had just selected. */
+  .toolbar{position:fixed;left:0;top:0;z-index:9000;background:var(--panel,#fff);
+    border:1px solid var(--line);border-radius:999px;padding:3px 5px;margin:0;flex-wrap:nowrap;
+    box-shadow:0 8px 26px rgba(20,24,35,.18),0 1px 2px rgba(20,24,35,.08);opacity:0;pointer-events:none;
+    transform:translate(-50%,-100%) translateY(-10px) scale(.97);
+    transition:opacity .12s ease,transform .14s cubic-bezier(.2,.8,.2,1);}
+  .toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) translateY(-10px) scale(1);}
+  .toolbar.below{transform:translate(-50%,0) translateY(10px) scale(1);}
   .block{background:var(--panel);border-radius:12px;padding:16px 18px 18px;border:1px solid var(--line);}
   .block-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
   .block-head h2{flex:1;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
   .block-head .ghost{padding:5px 9px;}
-  .toolbar{display:flex;gap:4px;margin-left:auto;}
-  .toolbar button{width:34px;height:30px;padding:0;font-size:14px;background:var(--panel2);
-    color:var(--text);display:flex;align-items:center;justify-content:center;}
-  .toolbar button:hover{background:#e6e8ec;}
-  .toolbar .sep{width:1px;background:var(--line);margin:0 4px;}
+  .toolbar{display:flex;gap:1px;align-items:center;margin-left:auto;}
+  .toolbar button{width:28px;height:26px;padding:0;font-size:12.5px;background:transparent;border-radius:7px;
+    color:var(--muted,#7a8496);display:flex;align-items:center;justify-content:center;transition:background .1s,color .1s;}
+  .toolbar button:hover{background:var(--panel2,#eef2f8);color:var(--ink,#232833);}
+  .toolbar button b,.toolbar button i,.toolbar button s{font-size:13px}
+  .toolbar .sep{width:1px;height:17px;background:var(--line);margin:0 4px;flex:none;}
   .editor{min-height:48px;height:220px;max-height:80vh;background:var(--panel2);border:1px solid var(--line);
     border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.7;color:var(--text);
     outline:none;-webkit-user-select:text;user-select:text;overflow-wrap:anywhere;
     resize:vertical;overflow:auto;}
   .editor:focus{border-color:#b8bec9;}
   .editor:empty:before{content:attr(data-ph);color:#8b94a7;}
-  .toolbar .swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);padding:0;}
-  .toolbar .swatch:hover{border-color:#9aa1ad;}
-  .toolbar input[type=color]{width:32px;height:30px;padding:2px;border:none;border-radius:8px;
-    background:var(--panel2);cursor:pointer;}
+  .toolbar .swatch{width:15px;height:15px;min-width:15px;border-radius:50%;border:1.5px solid rgba(0,0,0,.08);padding:0;
+    margin:0 1px;box-shadow:none;}
+  .toolbar .swatch:hover{transform:scale(1.18);}
+  .toolbar input[type=color]{width:24px;height:22px;padding:1px;border:none;border-radius:6px;
+    background:transparent;cursor:pointer;}
   .editor h3{font-size:15px;margin:14px 0 6px;color:var(--text);}
   .editor ul,.editor ol{margin:6px 0 6px 4px;padding-left:22px;}
   .editor li{margin:3px 0;}

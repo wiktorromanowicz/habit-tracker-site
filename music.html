@@ -112,7 +112,7 @@
   <label class="drop" id="drop">
     <b>Drop audio files here</b>
     MP3, M4A, WAV, FLAC, OGG — or click to choose. Files you own: your own recordings, CD rips, purchases from Bandcamp or iTunes.
-    <input type="file" id="pick" accept="audio/*" multiple>
+    <input type="file" id="pick" accept="audio/*,video/mp4,video/quicktime,.mp3,.m4a,.m4b,.aac,.wav,.flac,.ogg,.opus,.webm,.mp4,.m4v,.mov,.aif,.aiff,.caf" multiple>
   </label>
 
   <div class="card" style="margin-top:16px">
@@ -174,7 +174,21 @@ $('rows').addEventListener('change',async e=>{
   const rec=await M.get(id); if(!rec) return; rec[i.dataset.f]=i.value.trim(); await M.put(rec); toast('Saved');
 });
 /* adding files */
-async function take(files){ const added=await M.add(files); if(!added.length){ toast('No audio files in that drop'); return; } await renderList(); toast('Added '+added.length+(added.length===1?' track':' tracks')); }
+let lastRejected=[];
+window.addEventListener('apex-music-rejected',e=>{ lastRejected=e.detail||[]; });
+async function take(files){
+  lastRejected=[];
+  const added=await M.add(files);
+  if(!added.length){
+    toast(lastRejected.length
+      ? ('Could not read '+lastRejected.slice(0,2).join(', ')+(lastRejected.length>2?' and '+(lastRejected.length-2)+' more':''))
+      : 'Nothing playable in that drop');
+    return;
+  }
+  await renderList();
+  toast('Added '+added.length+(added.length===1?' track':' tracks')+
+    (lastRejected.length? ' · skipped '+lastRejected.length : ''));
+}
 $('pick').addEventListener('change',e=>{ take(e.target.files); e.target.value=''; });
 const dz=$('drop');
 ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{ e.preventDefault(); dz.classList.add('over'); }));
