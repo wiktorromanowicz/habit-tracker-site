@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Apex · Timer</title>
 <style>
-  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;--green:#30d158;}
+  :root{--bg:#f7f9fc;--card:#ffffff;--ink:#232833;--muted:#7a8496;--line:#e2e8f2;--accent:#a9741f;--chip:#eef2f8;--green:#30d158;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -18,7 +18,7 @@
   .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);
     padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
-  .nav a:not(.active):hover{background:var(--chip,#f0ece1)}
+  .nav a:not(.active):hover{background:var(--chip,#e9eef6)}
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--chip);color:var(--ink);padding:7px 12px;font-size:13px;}
 
   .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
@@ -27,7 +27,7 @@
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 0 14px;flex-wrap:wrap;}
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
-  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+  .sheet-sub{font-size:12px;color:#8690a0;margin-top:4px;}
 
   /* ---- the timer card (warm Apex style) ---- */
   .tcard{background:var(--surface,#fff);color:var(--ink);border-radius:22px;padding:40px 24px 26px;margin:6px 0 26px;border:1px solid var(--line);
@@ -51,13 +51,13 @@
   .ctrls button{min-width:150px;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;}
   .b-cancel{background:var(--chip);color:var(--muted);border:1px solid var(--line)}
   .b-cancel.on{color:var(--ink)}
-  .b-cancel.on:hover{background:var(--chip2,#ece6d7)}
+  .b-cancel.on:hover{background:var(--chip2,#e4eaf4)}
   .b-start{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(169,116,31,.3)}
   .b-start:hover{background:#946417}
-  .b-start.pause{background:#2b2a26;color:#fff}
+  .b-start.pause{background:#232833;color:#fff}
   .b-start.stop{background:#c1362c;color:#fff}
-  .hint{text-align:center;color:#a99f8c;font-size:12px;margin-top:18px}
-  .hint kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line,#e0dacb);border-bottom-width:2px;border-radius:5px;background:var(--chip);color:#6f6858;font-family:inherit;font-size:11px}
+  .hint{text-align:center;color:#97a0b0;font-size:12px;margin-top:18px}
+  .hint kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line,#e0dacb);border-bottom-width:2px;border-radius:5px;background:var(--chip);color:#5e6675;font-family:inherit;font-size:11px}
 
   /* ---- recent presets ---- */
   .recent h3{font-size:16px;margin:0 0 12px;color:var(--ink)}
