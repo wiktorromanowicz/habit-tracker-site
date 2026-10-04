@@ -295,7 +295,7 @@
     });
   }
 
-  var soloN = 0;
+  var soloN = 0, soloWins = {};
   function soloSeq() { soloN++; return Date.now().toString(36) + soloN; }   // unique even within one millisecond
   function openSolo(href) {
     try{ApexUse.log('shell:solo-open');}catch(e){}
@@ -305,20 +305,21 @@
     var narrow = /^(notes|tasks|timer|music)\.html$/.test(href);
     var w = narrow ? 470 : Math.min(1180, Math.max(900, Math.round(screen.availWidth * 0.7)));
     var h = Math.min(900, Math.max(620, Math.round(screen.availHeight * 0.85)));
-    /* WebKit keys named windows on the web view that was opened, and inside
-       Apex.app that view can outlive the window you closed — so the second ↗
-       targeted a window nobody could see and nothing happened until the app was
-       restarted. In the app, use a fresh name every time; in a browser keep the
-       stable name so a second click focuses the window you already have. */
-    var inApp = / Apex\b/.test(navigator.userAgent) || !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.apexDrag);
-    var winName = 'apex-' + name + (inApp ? '-' + soloSeq() : '');
-    var opened = window.open(href + '?solo=1', winName,
-      'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no,status=no');
-    // a blocked or stale handle: try once more with a name nothing can be holding
-    if (!opened) {
-      window.open(href + '?solo=1', 'apex-' + name + '-' + soloSeq(),
-        'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no,status=no');
-    } else { try { opened.focus(); } catch (e) {} }
+    var feats = 'width=' + w + ',height=' + h + ',menubar=no,toolbar=no,location=no,status=no';
+    /* Never reuse a window NAME. WebKit keys named windows on the web view that
+       was opened, and that view can outlive the window you closed — so the
+       second ↗ aimed at a window nobody could see and nothing happened until
+       Apex was restarted. Instead keep the handle: a handle knows whether its
+       window is still open, in every browser and in the app, so a second click
+       focuses the window you already have and a closed one is simply reopened. */
+    var have = soloWins[name], live = false;
+    if (have) { try { live = !have.closed; } catch (e) { live = false; } }
+    if (live) { try { have.focus(); return; } catch (e) {} }
+    delete soloWins[name];
+    var opened = window.open(href + '?solo=1', 'apex-' + name + '-' + soloSeq(), feats);
+    if (!opened) { toastShell('Your browser blocked that window — allow pop-ups for Apex'); return; }
+    soloWins[name] = opened;
+    try { opened.focus(); } catch (e) {}
   }
   window.apexOpenSolo = openSolo;
   function paintFoot() { var l = $('#apexThemeLbl', side); if (l) l.textContent = theme === 'dark' ? '☀︎ Light' : '☾ Dark'; }
@@ -872,6 +873,92 @@
     else if (e.key === '`') { e.preventDefault(); e.stopPropagation(); toggleSide(); }
     else if (e.key === '[' || e.key === ']') { var i = links.findIndex(function (l) { return l.active; }); if (i < 0) return; var n = (i + (e.key === ']' ? 1 : -1) + links.length) % links.length; location.href = links[n].href; }
   }, true);
+
+  /* A link clicked inside a mini-window keeps it a mini-window. Without this,
+     tapping the 🎵 in the sidebar player (or any link) unfolded the whole shell
+     into a 470px column and the window stopped being the one-page tool it was
+     opened as. */
+  if (/[?&]solo=1/.test(location.search)) {
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+      var h = a.getAttribute('href') || '';
+      if (/^(https?:|mailto:|#|\/\/)/.test(h) || !/\.html(\?|#|$)/.test(h) || /[?&]solo=1/.test(h)) return;
+      var hash = '', i = h.indexOf('#');
+      if (i >= 0) { hash = h.slice(i); h = h.slice(0, i); }
+      e.preventDefault();
+      location.href = h + (h.indexOf('?') < 0 ? '?solo=1' : '&solo=1') + hash;
+    });
+  }
+
+  /* ---- writing boxes: Tab nests, and a box keeps the size you gave it -------
+     Both of these used to belong to Notes alone. Every card on Home is a
+     writing box too, so they live here now and work the same everywhere. */
+  (function boxes() {
+    // Tab belongs to the box you are typing in: it nests the bullet you are on
+    // (Shift+Tab steps back out). It used to throw the cursor into the next
+    // card, mid-sentence, which is why the place you were typing kept moving.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target;
+      var ed = t && t.closest ? t.closest('[contenteditable="true"],[contenteditable=""]') : null;
+      if (!ed) return;
+      var sel = window.getSelection(); if (!sel || !sel.anchorNode) return;
+      var n = sel.anchorNode, li = null;
+      while (n && n !== ed) { if (n.nodeType === 1 && n.tagName === 'LI') { li = n; break; } n = n.parentNode; }
+      e.preventDefault();
+      if (li) document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+      else if (!e.shiftKey) document.execCommand('insertText', false, '    ');
+      try { ed.dispatchEvent(new Event('input', { bubbles: true })); } catch (x) {}   // let the page save it
+    });
+
+    /* Drag the corner of a box and it stays that size — it used to snap back to
+       the default on the next reload. Saved per box, per page. */
+    var SZ = 'apexBoxSize', pend = null, tmr = 0, seen = typeof WeakSet === 'function' ? new WeakSet() : null;
+    function page() { return (location.pathname.split('/').pop() || 'index.html'); }
+    function keyOf(el) {
+      var card = el.closest ? el.closest('[data-card]') : null;
+      return page() + '|' + (el.id || (card && card.dataset.card ? 'card:' + card.dataset.card : '') || el.className || 'box');
+    }
+    function remember(el) {
+      var h = el.style.height || (el.offsetHeight ? el.offsetHeight + 'px' : '');
+      if (!h) return;
+      pend = pend || ls.get(SZ, {}) || {};
+      pend[keyOf(el)] = h;
+      clearTimeout(tmr); tmr = setTimeout(function () { ls.set(SZ, pend); pend = null; }, 300);
+    }
+    var ro = window.ResizeObserver ? new ResizeObserver(function (rows) {
+      rows.forEach(function (r) {
+        if (seen && !seen.has(r.target)) { seen.add(r.target); return; }   // the first call is just the box appearing
+        if (r.target.style.height) remember(r.target);
+      });
+    }) : null;
+    function wire(el) {
+      if (el.dataset.apexSized) return;
+      var cs = window.getComputedStyle(el);
+      if (cs.resize === 'none' || !cs.resize) return;        // not a box you can drag
+      el.dataset.apexSized = '1';
+      var h = (ls.get(SZ, {}) || {})[keyOf(el)];
+      if (h) el.style.height = h;
+      if (ro) ro.observe(el);
+      else el.addEventListener('mouseup', function () { remember(el); });
+    }
+    function sweep() {
+      var all = document.querySelectorAll('[contenteditable],textarea');
+      Array.prototype.forEach.call(all, wire);
+    }
+    function start() {
+      sweep();
+      // cards and notes arrive after this file runs, so keep watching for them
+      if (window.MutationObserver) {
+        var t2 = 0;
+        new MutationObserver(function () { clearTimeout(t2); t2 = setTimeout(sweep, 80); })
+          .observe(document.body, { childList: true, subtree: true });
+      }
+    }
+    if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  })();
 
   if (document.body) buildSide(); else document.addEventListener('DOMContentLoaded', buildSide);
   paintTw();
