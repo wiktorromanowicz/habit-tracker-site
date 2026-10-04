@@ -125,6 +125,10 @@
   .card h2 .ghost{background:var(--panel2,#eef2f8);border:1px solid var(--line);color:var(--muted,#7a8496);
     border-radius:7px;padding:2px 8px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px;}
   .card h2 .ghost:hover{background:var(--chip2,#e4eaf4);}
+  .card .editor.mycard{height:150px}
+  .layout-foot button{margin-left:14px}
+  .layout-foot #cardAdd{text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .layout-foot #cardAdd:hover{background:var(--panel2,#eef2f8)}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -193,7 +197,11 @@
       <div class="card" data-card="habits"><h2 draggable="true" title="Drag to move this card">Habits <a href="index.html">Habits →</a></h2><div id="habits"></div></div>
     </div>
   </div>
-  <div class="layout-foot"><button type="button" id="layoutReset" hidden>Reset layout</button></div>
+  <div class="layout-foot">
+    <button type="button" id="cardAdd">+ Add a card</button>
+    <button type="button" id="cardsAway" hidden></button>
+    <button type="button" id="layoutReset" hidden>Reset layout</button>
+  </div>
 </div>
 
 <script>
@@ -203,6 +211,100 @@ const pad=n=>String(n).padStart(2,'0');
 const isoDay=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const now=new Date(), today=isoDay(now);
+
+/* ---- your own cards, and putting cards away -------------------------------
+   Home is the page you actually look at, so it should hold what you want and
+   nothing else. Right-click any card heading to put it away; "+ Add a card"
+   makes a plain titled note that lives here and nowhere else. Put-away cards
+   are listed next to Reset layout, one click from coming back. */
+const CARDS_KEY='apexTodayCards', CHIDE_KEY='apexTodayHidden';
+function myCards(){ const a=ls(CARDS_KEY,[]); return Array.isArray(a)?a:[]; }
+function saveCards(a){ try{ localStorage.setItem(CARDS_KEY,JSON.stringify(a)); }catch(e){} }
+function hiddenCards(){ const a=ls(CHIDE_KEY,[]); return Array.isArray(a)?a:[]; }
+function saveHidden(a){ try{ localStorage.setItem(CHIDE_KEY,JSON.stringify(a)); }catch(e){} }
+
+function buildMyCards(){
+  const host=document.querySelector('.col[data-col="a"]'); if(!host) return;
+  myCards().forEach(c=>{
+    if(document.querySelector('.card[data-card="'+c.id+'"]')) return;
+    const el=document.createElement('div');
+    el.className='card'; el.dataset.card=c.id; el.dataset.mine='1';
+    el.innerHTML='<h2 draggable="true" title="Drag to move this card"><span class="ctitle">'+esc(c.title||'Untitled')+'</span></h2>'+
+      '<div class="editor mycard" contenteditable="true" spellcheck="true"></div>';
+    el.querySelector('.editor').innerHTML=c.body||'';
+    host.appendChild(el);
+    const ed=el.querySelector('.editor');
+    let t; ed.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{
+      const all=myCards(); const m=all.find(x=>x.id===c.id); if(!m) return; m.body=ed.innerHTML; saveCards(all); },400); });
+    ed.addEventListener('blur',()=>{ const all=myCards(); const m=all.find(x=>x.id===c.id); if(!m) return; m.body=ed.innerHTML; saveCards(all); });
+  });
+}
+function applyHidden(){
+  const h=hiddenCards();
+  document.querySelectorAll('.card').forEach(el=>{ el.style.display = h.indexOf(el.dataset.card)>=0 ? 'none' : ''; });
+  const btn=$('cardsAway'); if(!btn) return;
+  btn.hidden=!h.length;
+  btn.textContent=h.length+' put away';
+}
+function cardTitle(id){
+  const el=document.querySelector('.card[data-card="'+id+'"] h2');
+  if(!el) return id;
+  return (el.textContent||id).replace(/→|Open in Notes|All tasks|Calendar|Time log|Habits/g,'').trim() || id;
+}
+function hideCard(id){
+  const vis=[...document.querySelectorAll('.card')].filter(e=>e.style.display!=='none');
+  if(vis.length<=1){ alert('Keep at least one card on Home.'); return; }
+  const h=hiddenCards(); if(h.indexOf(id)<0) h.push(id);
+  saveHidden(h); applyHidden();
+}
+function showCard(id){ saveHidden(hiddenCards().filter(x=>x!==id)); applyHidden(); }
+
+async function addCard(){
+  const title = window.apexPrompt ? await apexPrompt('What should the card be called?','',{ok:'Add card',placeholder:'e.g. This week\'s focus'})
+                                  : prompt('Card name');
+  if(title===null || !String(title).trim()) return;
+  const all=myCards();
+  all.push({ id:'my-'+Math.random().toString(36).slice(2,8), title:String(title).trim(), body:'' });
+  saveCards(all); buildMyCards(); applyHidden();
+  const el=document.querySelector('.card[data-card="'+all[all.length-1].id+'"]');
+  if(el){ el.scrollIntoView({block:'center'}); el.querySelector('.editor').focus(); }
+}
+async function renameCard(id){
+  const all=myCards(); const m=all.find(x=>x.id===id); if(!m) return;
+  const t = window.apexPrompt ? await apexPrompt('Card name','' + m.title, {ok:'Save'}) : prompt('Card name', m.title);
+  if(t===null || !String(t).trim()) return;
+  m.title=String(t).trim(); saveCards(all);
+  const el=document.querySelector('.card[data-card="'+id+'"] .ctitle'); if(el) el.textContent=m.title;
+}
+function deleteCard(id){
+  const all=myCards(); const m=all.find(x=>x.id===id); if(!m) return;
+  if(!confirm('Delete "'+m.title+'" and what you wrote in it?')) return;
+  saveCards(all.filter(x=>x.id!==id));
+  const el=document.querySelector('.card[data-card="'+id+'"]'); if(el) el.remove();
+  applyHidden();
+}
+
+/* right-click a card heading */
+let cardMenu=null;
+function closeCardMenu(){ if(cardMenu){ cardMenu.remove(); cardMenu=null; } }
+document.addEventListener('click',e=>{ if(cardMenu && !cardMenu.contains(e.target)) closeCardMenu(); },true);
+document.addEventListener('contextmenu',e=>{
+  const h=e.target.closest && e.target.closest('.card > h2'); if(!h) return;
+  e.preventDefault(); closeCardMenu();
+  const card=h.closest('.card'), id=card.dataset.card, mine=card.dataset.mine==='1';
+  const m=document.createElement('div'); cardMenu=m; m.className='apex-navmenu';
+  m.innerHTML='<button data-a="hide">\u2296 Put away</button>'+
+    (mine?'<button data-a="rename">\u270E Rename</button><button data-a="del">\u{1F5D1} Delete card</button>':'')+
+    (hiddenCards().length?'<div class="sep"></div><button data-a="show">\u22EF Show what is put away</button>':'');
+  document.body.appendChild(m);
+  m.style.left=Math.min(e.clientX, innerWidth-m.offsetWidth-10)+'px';
+  m.style.top=Math.min(e.clientY, innerHeight-m.offsetHeight-10)+'px';
+  m.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{
+    const a=b.dataset.a; closeCardMenu();
+    if(a==='hide') hideCard(id); else if(a==='rename') renameCard(id);
+    else if(a==='del') deleteCard(id); else if(a==='show') $('cardsAway').click();
+  }));
+});
 
 /* card layout — drag a heading to arrange the cards; saved as apexTodayLayout {a:[ids], b:[ids]} */
 (function(){
@@ -216,6 +318,20 @@ const now=new Date(), today=isoDay(now);
   function save(){ const L=current(); const same=JSON.stringify(L)===JSON.stringify(DEFAULT); if(same) localStorage.removeItem(KEY); else localStorage.setItem(KEY,JSON.stringify(L)); $('layoutReset').hidden=same; }
   const saved=ls(KEY,null); if(saved){ apply(saved); $('layoutReset').hidden=false; }
   $('layoutReset').addEventListener('click',()=>{ apply(DEFAULT); save(); });
+  buildMyCards(); if(saved) apply(saved); applyHidden();
+  $('cardAdd').addEventListener('click',addCard);
+  $('cardsAway').addEventListener('click',()=>{
+    const h=hiddenCards(); if(!h.length) return;
+    const pick=document.createElement('div'); pick.className='apex-navmenu';
+    pick.innerHTML=h.map(id=>'<button data-s="'+id+'">'+esc(cardTitle(id))+'</button>').join('')||'';
+    document.body.appendChild(pick);
+    const r=$('cardsAway').getBoundingClientRect();
+    pick.style.left=Math.max(8,Math.min(r.left, innerWidth-pick.offsetWidth-10))+'px';
+    pick.style.top=Math.min(r.bottom+4, innerHeight-pick.offsetHeight-10)+'px';
+    const away=e=>{ if(!pick.contains(e.target)){ pick.remove(); document.removeEventListener('click',away,true); } };
+    setTimeout(()=>document.addEventListener('click',away,true),0);
+    pick.querySelectorAll('[data-s]').forEach(b=>b.addEventListener('click',()=>{ showCard(b.dataset.s); pick.remove(); }));
+  });
   let drag=null;
   grid.addEventListener('dragstart',e=>{ const h=e.target.closest&&e.target.closest('h2[draggable]'); if(!h) return; drag=h.closest('.card'); drag.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',drag.dataset.card); }catch(x){} });
   const clear=()=>grid.querySelectorAll('.drop-before,.drop-after,.drop-end').forEach(x=>x.classList.remove('drop-before','drop-after','drop-end'));

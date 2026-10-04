@@ -187,3 +187,16 @@ html[data-sb="min"] #apexSide nav .sb-more .lb,html[data-sb="min"] #apexSide nav
 .apex-navmenu .na{font-size:13px;padding:7px 10px;color:var(--muted,#7a8496);display:flex;align-items:baseline;gap:7px;cursor:default}
 .apex-navmenu .na span{font-size:11px;opacity:.75}
 .apex-navmenu .sep{height:1px;background:var(--line,#e2e8f2);margin:4px 2px}
+
+/* ---- sidebar mini-player: the progress bar is a control, not a read-out ---- */
+#apexSide .mp-bar{position:relative;height:14px;display:flex;align-items:center;cursor:pointer;touch-action:none;outline:none}
+#apexSide .mp-bar:before{content:"";position:absolute;left:0;right:0;height:4px;border-radius:3px;background:var(--line,#e2e8f2)}
+#apexSide .mp-bar i{position:relative;height:4px;border-radius:3px;background:var(--ink,#232833);z-index:1;pointer-events:none}
+#apexSide .mp-bar u{position:absolute;top:50%;left:0;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
+  background:var(--ink,#232833);opacity:0;transition:opacity .12s;pointer-events:none;z-index:2;
+  left:0;transform:translateX(var(--mpx,0))}
+#apexSide .mp-bar:hover i,#apexSide .mp-bar:focus-visible i{background:#1a73e8}
+#apexSide .mp-bar:focus-visible{box-shadow:0 0 0 2px rgba(26,115,232,.35);border-radius:4px}
+#apexSide .mp-time{display:flex;justify-content:space-between;font-size:10px;color:var(--muted,#7a8496);
+  font-variant-numeric:tabular-nums;margin:1px 0 4px}
+html[data-sb="min"] #apexSide .mp-time{display:none}

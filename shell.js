@@ -146,7 +146,9 @@
       move(); new MutationObserver(move).observe(brand, { childList: true });
     }
   }
+  var mpSeeking = false;
   function paintMusic() {
+    if (mpSeeking) return;                      // a drag is in progress; leave the bar alone
     var mp = document.getElementById('apexMp'); if (!mp || !window.ApexMusic) return;
     var n = window.ApexMusic.now();
     if (!n.track && !n.id) { mp.style.display = 'none'; return; }
@@ -156,7 +158,10 @@
     mp.style.display = 'block';
     mp.innerHTML = '<div class="mp-t" title="' + esc(title) + (artist ? ' — ' + esc(artist) : '') + '">' + esc(title) + '</div>' +
       (artist ? '<div class="mp-a">' + esc(artist) + '</div>' : '') +
-      '<div class="mp-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="mp-bar" role="slider" tabindex="0" title="Click or drag to move through the track"' +
+        ' aria-label="Seek" aria-valuemin="0" aria-valuemax="' + Math.round(n.dur || 0) + '" aria-valuenow="' + Math.round(n.pos || 0) + '">' +
+        '<i style="width:' + pct + '%"></i><u></u></div>' +
+      '<div class="mp-time"><span>' + mmss(n.pos) + '</span><span>' + (n.dur ? mmss(n.dur) : '') + '</span></div>' +
       '<div class="mp-row"><button data-a="prev" title="Previous">\u23EE</button>' +
       '<button data-a="play" title="Play / pause">' + (n.playing ? '\u23F8' : '\u25B6') + '</button>' +
       '<button data-a="next" title="Next">\u23ED</button>' +
@@ -165,6 +170,42 @@
       b.onclick = function () { var a = b.dataset.a, M = window.ApexMusic;
         if (a === 'play') M.toggle(); else if (a === 'next') M.next(); else M.prev(); };
     });
+
+    /* scrubbing from the sidebar, so moving through a track does not mean
+       leaving the page you are working on */
+    var bar = mp.querySelector('.mp-bar'), fill = bar && bar.querySelector('i');
+    if (!bar || !n.dur) return;
+    var dragging = false;
+    var ratio = function (e) {
+      var r = bar.getBoundingClientRect();
+      return Math.max(0, Math.min(1, ((e.clientX != null ? e.clientX : 0) - r.left) / (r.width || 1)));
+    };
+    var preview = function (p) { if (fill) fill.style.width = (p * 100) + '%'; };
+    bar.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); dragging = true; mpSeeking = true;
+      try { bar.setPointerCapture(e.pointerId); } catch (x) {}
+      preview(ratio(e));
+    });
+    bar.addEventListener('pointermove', function (e) { if (dragging) preview(ratio(e)); });
+    var end = function (e) {
+      if (!dragging) return; dragging = false;
+      var p = ratio(e);
+      try { window.ApexMusic.seek(p * n.dur); } catch (x) {}
+      // let the engine's own time event take over again
+      setTimeout(function () { mpSeeking = false; paintMusic(); }, 60);
+    };
+    bar.addEventListener('pointerup', end);
+    bar.addEventListener('pointercancel', function () { dragging = false; mpSeeking = false; paintMusic(); });
+    bar.addEventListener('keydown', function (e) {
+      var M = window.ApexMusic, step = e.shiftKey ? 30 : 5;
+      if (e.key === 'ArrowRight') { e.preventDefault(); M.seek(Math.min(n.dur, (n.pos || 0) + step)); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); M.seek(Math.max(0, (n.pos || 0) - step)); }
+      else if (e.key === 'Home') { e.preventDefault(); M.seek(0); }
+    });
+  }
+  function mmss(t) {
+    t = Math.max(0, Math.round(t || 0));
+    return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
   }
   function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   function renderNav() {

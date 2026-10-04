@@ -150,6 +150,21 @@
   .sheet-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:13px 0 20px;font-size:13px;color:#8690a0;flex-wrap:wrap;}
 
+  .hstats{margin:0 0 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .hshead,.hsrow{display:grid;grid-template-columns:minmax(120px,1.6fr) 72px 72px minmax(110px,1.2fr) 110px;
+    gap:10px;align-items:center;padding:9px 14px;font-size:12.5px}
+  .hshead{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--line);background:var(--panel2)}
+  .hsrow+.hsrow{border-top:1px solid var(--line)}
+  .hsrow .n{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hsrow .v{color:#5e6675;font-variant-numeric:tabular-nums}
+  .hsrow .v.s{color:var(--muted);font-size:11.5px}
+  .hsrow .v i{color:#8a6410;font-style:normal}
+  .hsrow .bar{display:flex;align-items:center;gap:8px}
+  .hsrow .bar i{display:block;height:7px;border-radius:4px;background:#1a73e8;min-width:3px;flex:none}
+  .hsrow .bar b{font-weight:600;color:#5e6675;font-variant-numeric:tabular-nums}
+  .hsempty{padding:16px;color:var(--muted);font-size:13px}
+  @media(max-width:700px){ .hshead,.hsrow{grid-template-columns:1fr 54px 54px 90px;} .hshead span:last-child,.hsrow .v.s{display:none} }
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -189,9 +204,11 @@
           <button class="ptab dark" onclick="thisPeriod()">Today</button>
           <button class="ptab" onclick="shiftPeriod(1)" title="Later">›</button>
           <button class="ptab" id="viewTab" onclick="toggleView()"></button>
+          <button class="ptab" id="statsTab" onclick="toggleStats()">📊 Analytics</button>
         </div>
       </div>
       <div class="risk" id="riskBand"></div>
+      <div class="hstats" id="hstats" hidden></div>
       <div class="sheet-scroll">
         <table>
           <thead><tr id="headRow"></tr></thead>
@@ -482,6 +499,36 @@ document.addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && openHabit){ openHabit=null; render(); } });
 
+/* The run, the best-ever and the 30-day percentage used to sit on every row, so
+   the grid you glance at each morning was three quarters numbers. They live here
+   now: one click, all of them side by side, and the grid stays a grid. */
+const STATS_KEY='apexHabitStats';
+let statsOpen = (function(){ try{ return localStorage.getItem(STATS_KEY)==='1'; }catch(e){ return false; } })();
+function toggleStats(){ statsOpen=!statsOpen; try{ localStorage.setItem(STATS_KEY, statsOpen?'1':'0'); }catch(e){} renderStats(); }
+function renderStats(){
+  const el=document.getElementById('hstats'), tab=document.getElementById('statsTab');
+  if(!el) return;
+  if(tab) tab.classList.toggle('dark', statsOpen);
+  el.hidden=!statsOpen;
+  if(!statsOpen){ el.innerHTML=''; return; }
+  const hs=liveHabits();
+  if(!hs.length){ el.innerHTML='<div class="hsempty">No habits to measure yet.</div>'; return; }
+  const rows=hs.map(h=>{
+    const run=currentStreak(h), best=bestStreak(h), r=rate30(h), miss=missRun(h);
+    const since=h.start?('since '+h.start):'from the start';
+    return {h,run,best,r,miss,since};
+  });
+  const maxPct=Math.max(1,...rows.map(x=>x.r.pct));
+  el.innerHTML='<div class="hshead"><span>Habit</span><span>Run</span><span>Best</span><span>Last 30 days</span><span>Tracking</span></div>'+
+    rows.map(x=>'<div class="hsrow">'+
+      '<span class="n">'+escapeHtml(x.h.name)+'</span>'+
+      '<span class="v">'+(x.run?x.run+'d':(x.miss?'<i>'+x.miss+'d missed</i>':'—'))+'</span>'+
+      '<span class="v">'+(x.best?x.best+'d':'—')+'</span>'+
+      '<span class="bar"><i style="width:'+Math.round(x.r.pct/maxPct*100)+'%"></i><b>'+(x.r.cells>=3?x.r.pct+'%':'—')+'</b></span>'+
+      '<span class="v s">'+escapeHtml(x.since)+'</span>'+
+    '</div>').join('');
+}
+
 function render(){
   const today = new Date(); today.setHours(0,0,0,0);
   const WD = ["S","M","T","W","T","F","S"];
@@ -521,7 +568,7 @@ function render(){
       let row = `<td class="habit-col${openHabit===h.id?' open':''}" data-h="${h.id}">
         <span class="hgrip" draggable="true" title="Drag to reorder">\u283f</span>
         <div class="hname">${escapeHtml(h.name)}</div>
-        <div class="hmeta">${bits.join(" · ")}</div>
+        <div class="hmeta">${(h.target?escapeHtml(h.target):"")}</div>
         <div class="habit-actions">
           <button onclick="editHabit('${h.id}')">Edit</button>
           <button onclick="hideHabit('${h.id}')">Hide</button>
@@ -618,6 +665,7 @@ function updateWeekInfo(){
 }
 
 render();
+renderStats();
 updateWeekInfo();
 
 /* Apex.app keeps a page alive for days. Without this the grid still ends on the
