@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Apex · Notes</title>
 <style>
-  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;--green:#16a34a;}
+  :root{--bg:#f7f9fc;--card:#ffffff;--ink:#232833;--muted:#7a8496;--line:#e2e8f2;--accent:#a9741f;--chip:#eef2f8;--green:#16a34a;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -18,9 +18,9 @@
   .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);
     padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
-  .nav a:not(.active):hover{background:var(--chip,#f0ece1)}
+  .nav a:not(.active):hover{background:var(--chip,#e9eef6)}
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;background:var(--chip);color:var(--ink);padding:7px 12px;font-size:13px;}
-  button:hover{background:var(--chip2,#ece6d7)}
+  button:hover{background:var(--chip2,#e4eaf4)}
 
   /* ---- full-bleed sheet ---- */
   .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
@@ -29,10 +29,10 @@
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 0 14px;flex-wrap:wrap;}
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
-  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+  .sheet-sub{font-size:12px;color:#8690a0;margin-top:4px;}
   .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
-  .ptab:hover{background:var(--chip,#f3efe4)}
-  .ptab.dark{background:#2b2a26;color:#fff;border-color:var(--ink,#2b2a26)}
+  .ptab:hover{background:var(--chip,#eef2f8)}
+  .ptab.dark{background:#232833;color:#fff;border-color:var(--ink,#232833)}
   .ptab.dark:hover{background:#3a382f}
   .headbtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 
@@ -60,7 +60,7 @@
   .nitem .t{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .nitem .t .pin{color:var(--accent);margin-right:4px;font-size:12px}
   .nitem .m{display:flex;gap:8px;margin-top:3px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;}
-  .nitem .m .d{flex-shrink:0;color:#6f6858}
+  .nitem .m .d{flex-shrink:0;color:#5e6675}
   .nitem .m .s{overflow:hidden;text-overflow:ellipsis;}
   .nempty{padding:30px 14px;text-align:center;color:var(--muted);font-size:13px;}
 
@@ -99,7 +99,7 @@
   .nbody .brief h2{font-size:17px;margin:0 0 8px} .nbody .brief h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#a9741f;margin:12px 0 4px}
   .nbody .brief ul{margin:2px 0 4px 2px} .nbody .brief li{margin:1px 0} .nbody .brief p{margin:4px 0}
   .nbody hr.brief-end{border:none;border-top:1px dashed #e0d6bd;margin:10px 0}
-  .nbody blockquote{margin:6px 0;padding:2px 14px;border-left:3px solid #e0d6bd;color:#6f6858}
+  .nbody blockquote{margin:6px 0;padding:2px 14px;border-left:3px solid #e0d6bd;color:#5e6675}
   .nbody hr{border:none;border-top:1px solid var(--line);margin:14px 0}
   .nbody ul.chk{list-style:none;padding-left:4px}
   .nbody ul.chk li{position:relative;padding-left:26px;cursor:default}
@@ -129,7 +129,7 @@
   .fbar .sw{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);padding:0;margin-top:4px}
 
   /* ---- toast + help ---- */
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;background:#2b2a26;color:#fff;
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;background:#232833;color:#fff;
     padding:10px 14px;border-radius:10px;font-size:13px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.25);}
   .toast button{background:#a9741f;color:#fff;padding:5px 10px;font-weight:600}
   .help{position:fixed;inset:0;z-index:95;background:rgba(30,28,22,.35);display:none;align-items:center;justify-content:center;padding:20px;}
@@ -138,16 +138,16 @@
   .help h3{margin:0 0 12px;font-size:16px}
   .help table{width:100%;border-collapse:collapse;font-size:13px}
   .help td{padding:5px 4px;border-bottom:1px solid #f0ece2}
-  .help td:first-child{width:150px;color:#6f6858}
+  .help td:first-child{width:150px;color:#5e6675}
   kbd{display:inline-block;padding:1px 6px;border:1px solid #d9d2c2;border-bottom-width:2px;border-radius:5px;background:var(--soft2,#faf8f2);font-family:inherit;font-size:12px;margin-right:2px}
-  .emo-menu{position:fixed;z-index:120;background:var(--card,#fff);border:1px solid var(--line,#e7e2d6);border-radius:12px;
+  .emo-menu{position:fixed;z-index:120;background:var(--card,#fff);border:1px solid var(--line,#e2e8f2);border-radius:12px;
     box-shadow:0 14px 40px rgba(0,0,0,.18);padding:6px;width:268px;max-height:232px;overflow:auto;font-family:inherit}
   .emo-menu .emo-hint{font-size:11px;color:var(--muted,#9c8f76);padding:3px 8px 5px}
   .emo-menu button{display:flex;align-items:center;gap:9px;width:100%;border:none;background:none;text-align:left;
     padding:5px 8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;color:inherit}
   .emo-menu button .ch{font-size:17px;line-height:1;width:22px;text-align:center}
-  .emo-menu button .nm{color:var(--muted,#6f6858)}
-  .emo-menu button.on{background:var(--chip,#f3efe4)}
+  .emo-menu button .nm{color:var(--muted,#5e6675)}
+  .emo-menu button.on{background:var(--chip,#eef2f8)}
   .emo-menu button.on .nm{color:inherit}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
@@ -232,7 +232,7 @@
   <button onmousedown="fmt(event,'insertOrderedList')" title="Numbered (⌘7)">1.</button>
   <button onmousedown="checklist(event)" title="Checklist (⌘9)">☑</button>
   <span class="sep"></span>
-  <button class="sw" style="background:#2b2a26" onmousedown="color(event,'#2b2a26')" title="Default"></button>
+  <button class="sw" style="background:#232833" onmousedown="color(event,'#232833')" title="Default"></button>
   <button class="sw" style="background:#16a34a" onmousedown="color(event,'#16a34a')" title="Green"></button>
   <button class="sw" style="background:#2563eb" onmousedown="color(event,'#2563eb')" title="Blue"></button>
   <button class="sw" style="background:#f59e0b" onmousedown="color(event,'#f59e0b')" title="Amber"></button>

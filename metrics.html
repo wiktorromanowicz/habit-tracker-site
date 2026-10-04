@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Apex · Metrics</title>
 <style>
-  :root{--bg:#f7f6f2;--card:#fbf9f4;--ink:#2b2a26;--muted:#8c8474;--line:#e7e2d6;--accent:#a9741f;--chip:#f3efe4;}
+  :root{--bg:#f7f9fc;--card:#ffffff;--ink:#232833;--muted:#7a8496;--line:#e2e8f2;--accent:#a9741f;--chip:#eef2f8;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -18,50 +18,50 @@
   .nav a{text-decoration:none;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface,#fff);
     padding:7px 14px;border-radius:8px;border:1px solid var(--line)}
   .nav a.active{background:var(--chip);border-color:var(--accent);color:var(--accent)}
-  .nav a:not(.active):hover{background:var(--chip,#f0ece1)}
+  .nav a:not(.active):hover{background:var(--chip,#e9eef6)}
   .sheet{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
     box-shadow:0 1px 3px rgba(60,50,30,.06);position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
   .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:22px 0 16px;flex-wrap:wrap;}
   .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;}
   .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink);}
-  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+  .sheet-sub{font-size:12px;color:#8690a0;margin-top:4px;}
   .tabs{display:flex;gap:6px;flex-wrap:wrap}
   .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
-  .ptab:hover{background:var(--chip,#f3efe4)}
-  .ptab.dark{background:#2b2a26;color:#fff;border-color:var(--ink,#2b2a26)}
+  .ptab:hover{background:var(--chip,#eef2f8)}
+  .ptab.dark{background:#232833;color:#fff;border-color:var(--ink,#232833)}
   .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
   table.grid{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1500px;}
-  table.grid th{background:var(--chip,#f3efe4);border-bottom:1px solid var(--line,#e2dccd);border-right:1px solid #ece7da;
-    padding:9px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8c8474;text-align:left;outline:none;}
+  table.grid th{background:var(--chip,#eef2f8);border-bottom:1px solid var(--line,#e2dccd);border-right:1px solid #ece7da;
+    padding:9px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7a8496;text-align:left;outline:none;}
   table.grid th:last-child{border-right:none}
   table.grid th:first-child,table.grid td:first-child{width:210px;}
   table.grid td{border-bottom:1px solid var(--chip,#efeadd);border-right:1px solid var(--chip,#f3eee2);padding:8px 10px;
-    font-size:13px;color:var(--ink,#2b2a26);vertical-align:top;outline:none;white-space:pre-wrap;word-break:break-word;}
+    font-size:13px;color:var(--ink,#232833);vertical-align:top;outline:none;white-space:pre-wrap;word-break:break-word;}
   table.grid td:last-child{border-right:none}
   table.grid tbody tr:nth-child(even){background:var(--soft2,#f8f5ee)}
   table.grid td:focus,table.grid th:focus{background:var(--surface,#fff);box-shadow:inset 0 0 0 2px var(--accent);position:relative;z-index:1;}
   table.grid td.rowlabel{font-weight:600;color:#4a463d;background:var(--soft2,#f6f2e8);}
   table.grid tbody tr:nth-child(even) td.rowlabel{background:var(--chip,#f2ecdd);}
   .sheet-foot{display:flex;gap:10px;padding:13px 0 8px;flex-wrap:wrap}
-  .sheet-note{font-size:12px;color:#9c9484;padding:4px 0 26px}
+  .sheet-note{font-size:12px;color:#8690a0;padding:4px 0 26px}
   /* typing counter (fed by Apex.app over loopback) */
   .typing{max-width:1500px;margin:4px auto 20px;padding:0 clamp(16px,4vw,40px);}
-  .typing .card{background:var(--card,#fbf9f4);border:1px solid var(--line,#e7e2d6);border-radius:14px;padding:18px 20px;}
-  .typing h2{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a99f8c;}
-  .typing .big{font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--ink,#2b2a26);line-height:1.15;}
-  .typing .big small{font-size:13px;font-weight:600;color:#9c9484;margin-left:7px;letter-spacing:0;}
-  .typing .subs{font-size:12.5px;color:#9c9484;margin-top:3px;}
-  .typing .subs b{color:#6b6355;font-weight:600;}
+  .typing .card{background:var(--card,#ffffff);border:1px solid var(--line,#e2e8f2);border-radius:14px;padding:18px 20px;}
+  .typing h2{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#97a0b0;}
+  .typing .big{font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--ink,#232833);line-height:1.15;}
+  .typing .big small{font-size:13px;font-weight:600;color:#8690a0;margin-left:7px;letter-spacing:0;}
+  .typing .subs{font-size:12.5px;color:#8690a0;margin-top:3px;}
+  .typing .subs b{color:#555d6b;font-weight:600;}
   .typing .ubars{margin-top:14px;display:flex;flex-direction:column;gap:5px}
   .typing .urow{display:flex;align-items:center;gap:10px;font-size:12.5px}
-  .typing .ulab{width:120px;flex:none;color:#6b6355}
-  .typing .ubar{flex:1;height:8px;border-radius:5px;background:var(--line,#e7e2d6);overflow:hidden}
+  .typing .ulab{width:120px;flex:none;color:#555d6b}
+  .typing .ubar{flex:1;height:8px;border-radius:5px;background:var(--line,#e2e8f2);overflow:hidden}
   .typing .ubar i{display:block;height:100%;background:#1a73e8;border-radius:5px}
-  .typing .un{width:34px;text-align:right;color:#9c9484;font-variant-numeric:tabular-nums}
-  .typing .usec{margin-top:16px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a99f8c}
+  .typing .un{width:34px;text-align:right;color:#8690a0;font-variant-numeric:tabular-nums}
+  .typing .usec{margin-top:16px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#97a0b0}
   .typing .uchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-  .typing .uchip{font-size:12px;padding:3px 10px;border-radius:12px;background:var(--panel2,#f3efe4);border:1px solid var(--line,#e7e2d6);color:#6b6355}
+  .typing .uchip{font-size:12px;padding:3px 10px;border-radius:12px;background:var(--panel2,#eef2f8);border:1px solid var(--line,#e2e8f2);color:#555d6b}
   .typing .uchips.dim .uchip{opacity:.7}
   .typing .uchip.put{cursor:pointer}
   .typing .uchip.put:hover{opacity:1;border-color:#c8c0ae}
@@ -70,9 +70,9 @@
   .typing .bars{display:flex;align-items:flex-end;gap:5px;height:66px;margin:16px 0 4px;}
   .typing .bars div{flex:1;background:var(--chip,#e9e2d2);border-radius:4px 4px 0 0;min-height:2px;position:relative;}
   .typing .bars div.today{background:#c69a4e;}
-  .typing .lbls{display:flex;gap:5px;font-size:10px;color:#b3ab99;}
+  .typing .lbls{display:flex;gap:5px;font-size:10px;color:#a7afbd;}
   .typing .lbls span{flex:1;text-align:center;}
-  .typing .note{margin-top:12px;font-size:12px;color:#a99f8c;}
+  .typing .note{margin-top:12px;font-size:12px;color:#97a0b0;}
   .typing .note b{color:#8a5a0f;font-weight:600;}
 </style>
 <link rel="stylesheet" href="grid.css"/>
