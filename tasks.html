@@ -225,7 +225,13 @@
 
 const KEY="apexTasks";
 function uid(){ return Math.random().toString(36).slice(2,9); }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+let saveWarned = false;
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){
+    if(!saveWarned){ saveWarned = true; alert('Could not save your tasks — this browser\'s storage is full. Nothing new will stick until you free some space.'); }
+  }
+}
 let state; try{ state=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ state={}; }
 
 // Task board seed data (matches the "This week" / "Next" layout from the screenshot)
@@ -513,8 +519,11 @@ function renderTasks(){
     const ul = document.createElement("ul");
     ul.className = "titems"; ul.dataset.list = list.id;
     ordered(list, null).filter(i => !i.done).forEach(top => {
+      // a parent stays visible when one of its subtasks belongs to the filtered person
+      const subs = ordered(list, top.id);
+      if(!passesWho(top) && !subs.some(passesWho)) return;
       ul.appendChild(taskRow(list.id, top, false));
-      ordered(list, top.id).forEach(sub => ul.appendChild(taskRow(list.id, sub, true)));
+      subs.forEach(sub => ul.appendChild(taskRow(list.id, sub, true)));
     });
     wireListDrop(ul, list.id, false);
     col.appendChild(ul);
@@ -607,7 +616,17 @@ function taskRow(listId, it, isSub){
     clearTimeout(_tt); _tt=setTimeout(()=>{ const v=e.target.textContent.trim(); if(v){ it.text=v; save(); } },400); });
   txt.addEventListener("blur", e => {
     const v = e.target.textContent.trim();
-    if(!v){ if(suppressBlurDelete || !li.isConnected) return; deleteTask(listId, it.id, true); return; }
+    if(!v){
+      if(suppressBlurDelete || !li.isConnected) return;
+      /* An empty row that was never named is just an abandoned "+ Add task" and
+         can go quietly. A task that HAD a name is a different thing: clearing the
+         text to retype it used to delete it and every subtask under it, with no
+         snapshot and no toast. Put the old text back instead. */
+      const named = (it.text || '').trim();
+      const kids = (findList(listId)?.items || []).some(x => x.parent === it.id);
+      if(named || kids){ e.target.textContent = named || '(untitled)'; it.text = named || '(untitled)'; save(); toast('Kept "'+it.text+'" — use the ✕ or right-click → Delete to remove a task'); return; }
+      deleteTask(listId, it.id, true); return;
+    }
     clearTimeout(_tt);                                  // the debounced input save would put the @name back
     const had = it.who, cleaned = extractWho(it, v);
     if(had !== it.who){ try{ApexInbox.pushSoon();}catch(e){} }
@@ -631,14 +650,14 @@ function taskRow(listId, it, isSub){
       if(e.shiftKey) outdentTask(listId, it.id, e.target); else indentTask(listId, it.id, e.target); }
   });
   txt.addEventListener("focus", () => { li.draggable = false; });
-  txt.addEventListener("blur", () => { li.draggable = true; });
+  txt.addEventListener("blur", () => { li.draggable = currentView() !== 'date'; });
 
   // description — small grey line under the task, like Google Tasks "details"
   const desc = document.createElement("div");
   desc.className = "tdesc"; desc.contentEditable = "true"; desc.spellcheck = false;
   desc.textContent = it.desc || "";
   let _td=null; desc.addEventListener("input", e => { clearTimeout(_td); _td=setTimeout(()=>{ it.desc = e.target.textContent.trim(); save(); },400); });
-  desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = true; });
+  desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = currentView() !== 'date'; });
   desc.addEventListener("focus", () => { li.draggable = false; });
   desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
@@ -693,7 +712,11 @@ function insertAt(l, afterId){
   return { idx, parent: a.parent };
 }
 let justAdded = null;
-function addTask(listId, afterId){ try{ApexUse.log('task:add');}catch(e){} 
+function addTask(listId, afterId){ try{ApexUse.log('task:add');}catch(e){}
+  /* a new task has no owner, so with a person filter on it would be created and
+     then never rendered — a blank task you cannot see or reach */
+  if(whoFilter()){ setWhoFilter(''); toast('Showing everyone again so you can see the new task'); }
+  
   const l = findList(listId); if(!l) return;
   const pos = insertAt(l, afterId);
   const it = { id: uid(), text: "", desc: "", done: false, parent: pos.parent };
@@ -843,7 +866,7 @@ function addList(){ try{ApexUse.log('task:list-add');}catch(e){}
     const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 }
 function deleteList(listId){
-  if(state.taskLists.length <= 1){ alert("Keep at least one list."); return; }
+  if(visibleLists().length <= 1){ alert("Keep at least one visible list."); return false; }
   state.taskLists = state.taskLists.filter(l => l.id !== listId);
   save(); renderTasks();
 }
@@ -906,7 +929,14 @@ function openListMenu(e, listId){
   pop.querySelector('[data-a="stash"]').addEventListener("click", () => { hideList(listId); closeListMenu(); });
   pop.querySelector('[data-a="order"]').addEventListener("click", () => { l.manualOrder = !l.manualOrder; save(); renderTasks(); closeListMenu(); });
   pop.querySelector('[data-a="clear"]').addEventListener("click", () => { snapTasks('clear completed'); clearCompleted(listId); closeListMenu(); toast('Completed tasks cleared',{label:'Undo',fn:undoTasks}); });
-  pop.querySelector('[data-a="del"]').addEventListener("click", () => { const l2=findList(listId); const n=l2?l2.items.length:0; snapTasks('delete list'); deleteList(listId); closeListMenu(); toast('List deleted'+(n?' with '+n+' task'+(n>1?'s':''):''),{label:'Undo',fn:undoTasks}); });
+  pop.querySelector('[data-a="del"]').addEventListener("click", () => {
+    const l2=findList(listId); const n=l2?l2.items.length:0;
+    snapTasks('delete list');
+    const gone = deleteList(listId) !== false;
+    closeListMenu();
+    if(gone) toast('List deleted'+(n?' with '+n+' task'+(n>1?'s':''):''),{label:'Undo',fn:undoTasks});
+    else { try{ const u=JSON.parse(localStorage.getItem('apexTasksUndo')||'{}'); (u.stack||[]).shift(); localStorage.setItem('apexTasksUndo',JSON.stringify(u)); paintUndo(); }catch(e){} }
+  });
   document.body.appendChild(pop);
   const r = e.target.getBoundingClientRect();
   pop.style.top = (r.bottom + 4) + "px";
@@ -941,7 +971,7 @@ function openCtx(e, listId, itemId){
     '<div class="sep"></div>'+
     '<button class="it" data-a="sub">+ Add subtask'+(it.parent===null?'':' (sibling)')+'</button>'+
     '<div class="row2">'+(it.parent===null?'<button class="it" data-a="indent">\u21e5 Make subtask</button>':'<button class="it" data-a="outdent">\u21e4 Promote</button>')+'<button class="it" data-a="dup">\u29c9 Duplicate</button></div>'+
-    '<div class="line"><span style="color:#6f6858;font-size:12px">Move to</span><select id="ctxMove" style="flex:1">'+state.taskLists.map(x=>'<option value="'+x.id+'"'+(x.id===listId?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>'+
+    '<div class="line"><span style="color:#6f6858;font-size:12px">Move to</span><select id="ctxMove" style="flex:1">'+visibleLists().map(x=>'<option value="'+x.id+'"'+(x.id===listId?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>'+
     '<div class="sep"></div>'+
     '<button class="it" data-a="done">'+(it.done?'\u21a9 Mark not done':'\u2713 Mark done')+'</button>'+
     '<button class="it danger" data-a="del">\ud83d\uddd1 Delete task</button>';
@@ -1096,6 +1126,16 @@ document.addEventListener('keydown',e=>{
 paintUndo();
 window.addEventListener('beforeunload',()=>{ const ae=document.activeElement; if(ae&&ae.isContentEditable) ae.blur(); });
 renderTasks();
+/* Another tab (or a sync pull) wrote apexTasks. This page holds a copy it read
+   at load and rewrites the whole key on every save, so without this the other
+   tab's new task is destroyed by the next keystroke here. */
+window.addEventListener('storage', e => {
+  if(e.key !== KEY) return;
+  if(document.activeElement && document.activeElement.isContentEditable) return;   // never yank a row out from under the caret
+  let fresh=null; try{ fresh = JSON.parse(e.newValue || 'null'); }catch(err){ return; }
+  if(!fresh || !Array.isArray(fresh.taskLists)) return;
+  state = fresh; renderTasks();
+});
 window.addEventListener('apex-inbox-replies', ()=>{ try{ renderTasks(); }catch(e){} });
 (function(){ const q=new URLSearchParams(location.search); if(q.get('new') && state.taskLists[0]) addTask(state.taskLists[0].id); else if(q.get('focus')){ const li=document.querySelector('.titem[data-item="'+q.get('focus')+'"]'); if(li){ li.scrollIntoView({block:'center'}); li.style.background='var(--accent-dim)'; setTimeout(()=>li.style.background='',1500); } } if(q.get('new')||q.get('focus')) history.replaceState(null,'',location.pathname); })();
 </script>

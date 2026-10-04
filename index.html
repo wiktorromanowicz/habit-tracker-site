@@ -214,7 +214,20 @@ const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 function load(){
   try{ return JSON.parse(localStorage.getItem(KEY)) || null; }catch(e){ return null; }
 }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+/* Habits, Today and the planner all write titan_habits_v1. This page used to
+   stringify a copy of the object it read at load, so a habit ticked here erased
+   goals typed on Today — and a tick made on Today was erased by the next tick
+   here. Re-read, keep everything that is not ours, write that. */
+const MINE = ['habits','dateKeysLocal','dateKeysFix2','habitStart','editorSizes'];
+function save(){
+  let disk = {};
+  try{ disk = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; }catch(e){}
+  MINE.forEach(k => { if(state[k] !== undefined) disk[k] = state[k]; });
+  try{ localStorage.setItem(KEY, JSON.stringify(disk)); }
+  catch(e){ alert('Could not save — this browser\'s storage is full. Copy anything new before closing the tab.'); return; }
+  // keep our in-memory copy honest about the fields we do not own
+  Object.keys(disk).forEach(k => { if(MINE.indexOf(k) < 0) state[k] = disk[k]; });
+}
 
 let state = load() || {
   habits: [
@@ -222,7 +235,8 @@ let state = load() || {
   ]
 };
 
-// migrate: ensure done object exists
+// the key is shared: the planner on Today can create it with goals and no habits
+if(!Array.isArray(state.habits)) state.habits = [];
 state.habits.forEach(h => h.done = h.done || {});
 state.goals = state.goals || {};   // { "2026-08": "<html>" }
 
@@ -324,7 +338,10 @@ function bestStreak(h){
 function rate30(h){
   const t=new Date(); t.setHours(0,0,0,0);
   let cells=0, hit=0;
-  for(let i=0;i<30;i++){ const d=addDays(t,-i); if(!startedBy(h,d)) continue; cells++; if(h.done[iso(d)]) hit++; }
+  // start at yesterday: today has not finished, and counting it as a miss is
+  // the same mistake the risk band deliberately avoids
+  for(let i=1;i<=30;i++){ const d=addDays(t,-i); if(!startedBy(h,d)) continue; cells++; if(h.done[iso(d)]) hit++; }
+  if(h.done[iso(t)]){ cells++; hit++; }
   return {cells, hit, pct: cells? Math.round(hit/cells*100):0};
 }
 /* how many days in a row have been missed, counting back from yesterday
@@ -430,8 +447,20 @@ async function editHabit(hid){
   const start = await apexPrompt("Tracking since (YYYY-MM-DD) — earlier days are hatched out and never counted:", h.start||"", {ok:"Save", placeholder:"empty = from the beginning"});
   h.name = name.trim() || h.name;
   if(target!==null) h.target = target.trim();
-  if(start!==null){ const v=start.trim(); if(!v) delete h.start; else if(/^\d{4}-\d{2}-\d{2}$/.test(v)) h.start=v; }
+  if(start!==null){
+    const v=start.trim();
+    if(!v) delete h.start;
+    else if(!validDay(v)) alert('"'+v+'" is not a date I understand. Use YYYY-MM-DD, e.g. '+iso(new Date())+'. The old start date was kept.');
+    else if(v > iso(new Date())) alert('A start date in the future would hatch out every column and leave nothing to tick. The old start date was kept.');
+    else h.start=v;
+  }
   save(); render();
+}
+function validDay(v){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y,m,d]=v.split('-').map(Number);
+  const x=new Date(y,m-1,d);
+  return x.getFullYear()===y && x.getMonth()===m-1 && x.getDate()===d;
 }
 function delHabit(hid){
   const h = state.habits.find(x=>x.id===hid);
@@ -578,6 +607,32 @@ function updateWeekInfo(){
 
 render();
 updateWeekInfo();
+
+/* Apex.app keeps a page alive for days. Without this the grid still ends on the
+   day it was opened: after midnight "today" has no column in the 14-day view and
+   is treated as the future in Month view, so it cannot be ticked at all. */
+let renderedFor = iso(new Date());
+function dayWatch(){
+  const now = iso(new Date());
+  if(now === renderedFor) return;
+  renderedFor = now;
+  trackMonth = firstOfMonth(new Date());
+  render(); updateWeekInfo();
+}
+setInterval(dayWatch, 30000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) dayWatch(); });
+window.addEventListener('focus', dayWatch);
+
+/* another tab, or a sync pull, changed the shared key — take the new habits
+   rather than sitting on a copy we are about to write back over them */
+window.addEventListener('storage', e => {
+  if(e.key !== KEY) return;
+  let fresh=null; try{ fresh = JSON.parse(e.newValue || 'null'); }catch(err){ return; }
+  if(!fresh || !Array.isArray(fresh.habits)) return;
+  state = fresh; if(!Array.isArray(state.habits)) state.habits=[];
+  state.habits.forEach(h => h.done = h.done || {});
+  render();
+});
 
 
 /* ---- sticky focus bar (shared across pages) ---- */

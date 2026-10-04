@@ -216,7 +216,7 @@
         <div class="ntitle" id="ntitle" contenteditable="true" spellcheck="true"></div>
         <div class="nbody" id="nbody" contenteditable="true" spellcheck="true"></div>
       </div>
-      <div class="ed-foot"><span id="wc"></span><span class="sp"></span><span>Autosaved · works offline</span></div>
+      <div class="ed-foot"><span id="wc"></span><span class="sp"></span><span id="saveState">Autosaved · works offline</span></div>
     </section>
   </div>
 </div></div>
@@ -294,7 +294,29 @@ if(!S||!Array.isArray(S.notes)){
      active:null};
   S.active=S.notes[0].id;
 }
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+/* {"notes":[]} passes the Array check above but leaves no active note: the list is
+   blank, the editor is dead and every keystroke is silently dropped by flush() */
+if(Array.isArray(S.notes) && !S.notes.length){
+  S.notes.push({id:uid(),title:'',body:'',created:Date.now(),updated:Date.now()});
+  S.active=S.notes[0].id;
+}
+let saveBroken=false;
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(S)); if(saveBroken){ saveBroken=false; setFoot(''); } }
+  catch(e){
+    /* the footer says "Autosaved · works offline" — if that stops being true the
+       user has to hear it, or a whole evening of writing is gone on reload */
+    if(!saveBroken){ saveBroken=true; setFoot('⚠︎ Not saving — storage is full. Copy anything new out of this note before you close the tab.'); }
+  }
+}
+function setFoot(msg){
+  const f=document.getElementById('saveState');
+  if(!f) { if(msg) console.warn(msg); return; }
+  if(!f.dataset.orig) f.dataset.orig=f.textContent;
+  f.textContent = msg || f.dataset.orig;
+  f.style.color = msg ? '#c1362c' : '';
+  f.style.fontWeight = msg ? '600' : '';
+}
 function cur(){ return S.notes.find(n=>n.id===S.active)||null; }
 function sorted(){ return [...S.notes].sort((a,b)=>(b.pinned-a.pinned)||(b.updated-a.updated)); }
 function textOf(html){ const d=document.createElement('div'); d.innerHTML=html; return (d.textContent||'').replace(/\s+/g,' ').trim(); }
@@ -619,6 +641,15 @@ function emoPaint(){
     emo.items.map((e,i)=>'<button type="button" data-i="'+i+'"'+(i===emo.i?' class="on"':'')+'><span class="ch">'+e.c+'</span><span class="nm">'+esc(e.n.split(' ')[0])+'</span></button>').join('');
   const on=emo.el.querySelector('button.on'); if(on) on.scrollIntoView({block:'nearest'});
 }
+/* the picker used to stay open while you moved the caret away, and then Enter
+   would insert an emoji at a stale offset — deleting characters somewhere else */
+document.addEventListener('selectionchange',()=>{ if(emo && emo.el) { try{ if(!emoStillAtCaret()) emoClose(); }catch(e){} } });
+function emoStillAtCaret(){
+  const sel=window.getSelection(); if(!sel||!sel.rangeCount) return false;
+  const node=sel.anchorNode; if(!node||!bodyEl.contains(node)) return false;
+  const txt=(node.textContent||'').slice(0,sel.anchorOffset);
+  return /:[\p{L}\p{N}_+-]*$/u.test(txt);
+}
 function emoOpen(q){
   const items=emoMatches(q);
   if(!items.length){ emoClose(); return; }
@@ -822,7 +853,13 @@ searchEl.addEventListener('input',renderList);
 searchEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=list.querySelector('.nitem'); if(f) open(f.dataset.id,true); } });
 
 /* ---- Executive summary: pulled from the private Supabase table apex_brief into the note 'Executive summary' ---- */
+let briefPending=false, briefBusy=false;
 async function pullBrief(){
+  if(briefBusy) return;                 // the 5-minute timer and visibilitychange can overlap
+  briefBusy=true;
+  try{ return await pullBriefInner(); } finally { briefBusy=false; }
+}
+async function pullBriefInner(){
   /* The daily executive summary lands in the private Supabase table apex_brief (RLS: only your own rows).
      It goes into the note titled "Executive summary" — nothing is ever published to the site. */
   let b=null;
@@ -844,10 +881,23 @@ async function pullBrief(){
   const rest=cur.replace(/<div class="brief" data-brief="[^"]*">[\s\S]*?<\/div><hr class="brief-end">/,'').replace(/^(<div><br><\/div>)+/,'');
   n.body='<div class="brief" data-brief="'+b.brief_date+'">'+b.html+'</div><hr class="brief-end">'+rest;
   n.updated=Date.now(); n.pinned=true; save();
-  if(S.active===n.id){ loading=true; bodyEl.innerHTML=n.body; loading=false; decorateChips(); hydrateImages(); }
+  if(S.active===n.id){
+    /* replacing innerHTML under the caret throws away whatever is still inside
+       the 300 ms debounce and jumps the cursor to the top; wait until you have
+       clicked away rather than eating a sentence */
+    if(document.activeElement===bodyEl){ briefPending=true; }
+    else { loading=true; bodyEl.innerHTML=n.body; loading=false; decorateChips(); hydrateImages(); }
+  }
   renderList(); renderMeta();
 }
 setTimeout(pullBrief,1500); setInterval(pullBrief,5*60000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullBrief(); });
+/* a brief arrived while you were typing — paint it the moment you step away */
+bodyEl.addEventListener('blur',()=>{
+  if(!briefPending) return;
+  briefPending=false; flush();
+  const n=cur(); if(!n) return;
+  loading=true; bodyEl.innerHTML=n.body||''; loading=false; decorateChips(); hydrateImages();
+});
 
 /* ---- editor font ---- */
 (function(){ const sel=$('fontPick'); const K='apexNotesFont'; const apply=v=>{ if(v&&v!=='system') document.documentElement.setAttribute('data-font',v); else document.documentElement.removeAttribute('data-font'); };

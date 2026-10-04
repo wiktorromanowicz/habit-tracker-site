@@ -162,15 +162,23 @@
       '<div class="note">'+note+'</div>';
   }
   function pull(){
-    fetch('http://127.0.0.1:47831/typing',{mode:'cors'})
+    /* "live" is a claim about right now, so it has to be earned on this page load:
+       the flag used to be read from the cache, so with Apex.app closed the panel
+       opened saying it was counting over numbers from days ago. And an unanswered
+       socket on 47831 would hang the promise forever, leaving that claim up. */
+    const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const bail = setTimeout(()=>{ try{ ctl && ctl.abort(); }catch(e){} }, 4000);
+    fetch('http://127.0.0.1:47831/typing',{mode:'cors', signal: ctl?ctl.signal:undefined})
       .then(r=>r.json())
       .then(j=>{
+        clearTimeout(bail);
         if(!j||!j.days) return;
         const st=cache(); st.days=Object.assign(st.days||{}, j.days);
         st.permission=j.permission; st.live=true; st.seen=Date.now(); save(st); paint();
       })
-      .catch(()=>{ const st=cache(); if(st.live){ st.live=false; save(st); } paint(); });
+      .catch(()=>{ clearTimeout(bail); const st=cache(); if(st.live){ st.live=false; save(st); } paint(); });
   }
+  (function(){ const st=cache(); if(st.live){ st.live=false; save(st); } })();   // not live until this load proves it
   paint(); pull();
   setInterval(pull, 60000);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pull(); });
@@ -209,7 +217,7 @@ loadYear(2026);
    the uncomfortable half: which tabs you built and never open. */
 (function(){
   const CARD=document.getElementById('usageCard'); if(!CARD) return;
-  const PAGES={today:'🏠 Today',index:'🎯 Habits',tasks:'✅ Tasks',calendar:'📅 Calendar',time:'⏳ Time',
+  const PAGES={today:'🏠 Today',index:'🎯 Habits',tasks:'✅ Tasks',apex:'🤖 Apex',calendar:'📅 Calendar',time:'⏳ Time',
     notes:'📝 Notes',timer:'⏱ Timer',lift:'🏋️ Lift',finances:'💰 Net worth',metrics:'📊 Metrics',
     assets:'🗂️ Assets',ideas:'💡 Ideas',music:'🎵 Music'};
   const ACTS=[['task:add','Tasks added'],['task:done','Tasks completed'],['habit:tick','Habits ticked'],
@@ -241,7 +249,8 @@ loadYear(2026);
     const tabs=Object.keys(c).filter(k=>k.indexOf('tab:')===0)
       .map(k=>({p:k.slice(4), n:c[k]})).filter(x=>PAGES[x.p]).sort((a,b)=>b.n-a.n);
     const total=tabs.reduce((n,x)=>n+x.n,0);
-    const never=Object.keys(PAGES).filter(p=>!c['tab:'+p]);
+    const away=(()=>{ try{ return window.apexHiddenTabs?window.apexHiddenTabs():[]; }catch(e){ return []; } })();
+    const never=Object.keys(PAGES).filter(p=>!c['tab:'+p] && away.indexOf(p+'.html')<0);
     const top=tabs[0];
     const max=top?top.n:1;
 
@@ -271,7 +280,9 @@ loadYear(2026);
   function wirePut(){
     CARD.querySelectorAll('[data-put]').forEach(el=>el.onclick=()=>{
       if(!window.apexHideTab) return;
-      if(window.apexHideTab(el.dataset.put)){ el.style.opacity='.35'; el.style.textDecoration='line-through'; }
+      if(window.apexHideTab(el.dataset.put)){ el.style.opacity='.35'; el.style.textDecoration='line-through'; el.title='Put away — find it under More in the sidebar'; }
+      else { el.title="Can't be put away: it's Today, the page you're on, or the sidebar would be left too short";
+             el.animate([{transform:'translateX(0)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:220}); }
     });
   }
   const _render=render; render=function(){ _render(); try{ wirePut(); }catch(e){} };

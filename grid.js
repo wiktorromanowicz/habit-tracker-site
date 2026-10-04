@@ -16,10 +16,15 @@ function makeGrid(mountId, opts){
 
   /* ---- persistence & undo ---- */
   function payload(){ return {cols:S.cols, rows:S.rows, colW:S.colW, rowH:S.rowH, fmt:S.fmt, hideR:S.hideR, hideC:S.hideC, gopen:S.gopen}; }
-  function persist(){ try{ localStorage.setItem(S.key, JSON.stringify(payload())); }catch(e){} }
+  function persist(){
+    if(!S.key) return; try{ localStorage.setItem(S.key, JSON.stringify(payload())); }catch(e){} }
   function snap(){ return JSON.stringify(payload()); }
   function pushUndo(){ S.undo.push(snap()); if(S.undo.length>150) S.undo.shift(); S.redo.length=0; }
-  function apply(str){ const d=JSON.parse(str); S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; S.gopen=d.gopen||{}; }
+  function apply(str){ const d=JSON.parse(str); S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; S.gopen=d.gopen||{};
+    /* undoing an "Add metric" shortens the sheet: a selection left on the old
+       last row throws on the next keystroke and kills the key handler for good */
+    if(S.sel){ const maxR=S.rows.length-1, maxC=S.cols.length-1;
+      if(S.sel.ar>maxR||S.sel.ac>maxC||S.sel.r2>maxR||S.sel.c2>maxC) S.sel=null; } }
   function doUndo(){ if(!S.undo.length) return; S.redo.push(snap()); apply(S.undo.pop()); S.editing=null; render(); persist(); }
   function doRedo(){ if(!S.redo.length) return; S.undo.push(snap()); apply(S.redo.pop()); S.editing=null; render(); persist(); }
 
@@ -292,8 +297,15 @@ function makeGrid(mountId, opts){
     const gc=e.target.closest('td.gc'); if(gc){ enterEdit(+gc.dataset.r,+gc.dataset.c); return; }
     const cn=e.target.closest('.colname');
     if(cn){ const th=cn.closest('.colh'), ci=+th.dataset.c; pushUndo();
+      /* While the header is being typed into, the grid's own key handler must
+         keep its hands off: it used to treat every character as a cell edit and
+         Backspace as "clear the selected column", which wiped a whole month of
+         numbers the moment you tried to rename it. */
+      S.renaming = true;
       cn.setAttribute('contenteditable','true'); cn.focus(); document.execCommand('selectAll',false,null);
-      const done=()=>{ cn.removeAttribute('contenteditable'); S.cols[ci]=cn.innerText.trim()||S.cols[ci]; cn.textContent=S.cols[ci]; persist(); cn.removeEventListener('blur',done); };
+      const done=()=>{ cn.removeAttribute('contenteditable'); S.renaming=false; S.cols[ci]=(cn.textContent||'').trim()||S.cols[ci]; cn.textContent=S.cols[ci]; persist(); cn.removeEventListener('blur',done); cn.removeEventListener('keydown',keys); };
+      const keys=(ev)=>{ ev.stopPropagation(); if(ev.key==='Enter'){ ev.preventDefault(); cn.blur(); } if(ev.key==='Escape'){ ev.preventDefault(); cn.textContent=S.cols[ci]; cn.blur(); } };
+      cn.addEventListener('keydown', keys);
       cn.addEventListener('blur',done);
     }
   });
@@ -323,6 +335,7 @@ function makeGrid(mountId, opts){
       else if(e.key==='Tab'){ e.preventDefault(); const r=S.editing.r,c=S.editing.c; commitEdit(); setSel(r,Math.min(c+1,S.cols.length-1),false); }
       return;
     }
+    if(S.renaming) return;
     if(!S.sel || !mount.contains(document.activeElement)) return;
     const s=norm(S.sel);
     if(meta && (e.key==='c'||e.key==='C')){ try{navigator.clipboard.writeText(copySel());}catch(x){} e.preventDefault(); return; }
@@ -332,10 +345,21 @@ function makeGrid(mountId, opts){
     if(e.key.indexOf('Arrow')===0){ e.preventDefault();
       let br=e.shiftKey?S.sel.r2:S.sel.ar, bc=e.shiftKey?S.sel.c2:S.sel.ac;
       if(e.key==='ArrowUp')br=Math.max(0,br-1); else if(e.key==='ArrowDown')br=Math.min(S.rows.length-1,br+1);
-      else if(e.key==='ArrowLeft')bc=Math.max(0,bc-1); else if(e.key==='ArrowRight')bc=Math.min(S.cols.length-1,bc+1);
+      else if(e.key==='ArrowLeft')bc=stepCol(bc,-1); else if(e.key==='ArrowRight')bc=stepCol(bc,1);
       setSel(br,bc,e.shiftKey); return; }
-    if(!meta && !e.altKey && e.key.length===1){ enterEdit(s.ar,s.ac,e.key); e.preventDefault(); return; }
+    if(!meta && !e.altKey && e.key.length===1){ if(cellEl(s.ar,s.ac)) enterEdit(s.ar,s.ac,e.key); e.preventDefault(); return; }
   });
+  function stepCol(from, dir){
+    let c = from;
+    for(let i=0;i<S.cols.length;i++){
+      const n = c + dir;
+      if(n < 0 || n > S.cols.length-1) return c;
+      c = n;
+      if(cellEl(S.sel ? S.sel.ar : 0, c)) return c;   // visible: stop here
+    }
+    return from;
+  }
+
   document.addEventListener('paste', e=>{
     if(!mount.contains(document.activeElement) || S.editing) return;
     const text=(e.clipboardData||window.clipboardData).getData('text/plain'); if(text==null) return;
@@ -347,11 +371,21 @@ function makeGrid(mountId, opts){
   /* ---- public API ---- */
   return {
     load(key, cols, rows, minRows){
-      S.key=key; let d=null; try{ d=JSON.parse(localStorage.getItem(key)); }catch(e){}
+      S.key=key; let d=null, raw=null, broken=false;
+      try{ raw = localStorage.getItem(key); d = JSON.parse(raw); }catch(e){ broken = !!raw; }
       if(d&&d.cols&&d.rows){ S.cols=d.cols; S.rows=d.rows; S.colW=d.colW||[]; S.rowH=d.rowH||[]; S.fmt=d.fmt||{}; S.hideR=d.hideR||[]; S.hideC=d.hideC||[]; S.gopen=d.gopen||{}; }
       else { S.cols=cols.slice(); S.rows=(rows||[]).map(r=>r.slice()); S.colW=[]; S.rowH=[]; S.fmt={}; S.hideR=[]; S.hideC=[]; S.gopen={}; }
       while(S.rows.length<(minRows||0)) S.rows.push(S.cols.map(()=>''));
-      S.sel=null; S.editing=null; S.undo=[]; S.redo=[]; render(); persist();
+      S.sel=null; S.editing=null; S.undo=[]; S.redo=[];
+      render();
+      /* Only write on a fresh, readable sheet. A year whose JSON failed to parse
+         used to be overwritten here by the blank seed — one truncated write and
+         the whole year was gone. Leave the damaged text alone so it can be
+         recovered, and say so rather than pretending the year was empty. */
+      if(broken){
+        S.key = null;
+        alert('The saved sheet for this year could not be read, so nothing has been written over it.\nIt is still in this browser under "'+key+'" — tell Claude and it can be recovered. Editing is off for this year until then.');
+      } else persist();
     },
     addRow(){ pushUndo(); S.rows.push(S.cols.map(()=>'')); render(); persist(); },
     cols(){ return S.cols.slice(); },
