@@ -62,13 +62,18 @@
   function el() {
     if (audio) return audio;
     audio = document.createElement('audio');
-    audio.preload = 'metadata'; audio.volume = state.vol;
-    audio.addEventListener('timeupdate', function () { state.pos = audio.currentTime; if (Date.now() - saveT > 3000) { saveT = Date.now(); save(); } emit('time'); });
+    audio.preload = 'auto'; audio.volume = state.vol;   // 'metadata' made every resume decode twice
+    audio.addEventListener('timeupdate', function () { state.pos = audio.currentTime; if (Date.now() - saveT > 900) { saveT = Date.now(); save(); } emit('time'); });
     audio.addEventListener('ended', function () { next(true); });
     audio.addEventListener('play', function () { state.playing = true; save(); emit(); });
     audio.addEventListener('pause', function () { state.playing = false; save(); emit(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
     window.addEventListener('beforeunload', save);
+    /* beforeunload is not guaranteed on a navigation (and WKWebView is the worst
+       for it); pagehide is. Without an exact position here the next page resumes
+       from the last 3-second checkpoint. */
+    window.addEventListener('pagehide', function () { if (audio) state.pos = audio.currentTime; save(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden && audio) { state.pos = audio.currentTime; save(); } });
     return audio;
   }
   function save() { try { localStorage.setItem(SKEY, JSON.stringify({ id: state.id, pos: state.pos, playing: state.playing, vol: state.vol, shuffle: state.shuffle, repeat: state.repeat })); } catch (e) {} }
@@ -89,10 +94,23 @@
     if (url) { URL.revokeObjectURL(url); url = null; }
     url = URL.createObjectURL(rec.blob);
     cur = rec; state.id = rec.id; state.pos = at || 0;
-    a.src = url; a.currentTime = 0;
-    a.onloadedmetadata = function () { try { a.currentTime = at || 0; } catch (e) {} };
+    /* A media fragment makes the browser start decoding AT the offset. Setting
+       currentTime after metadata instead meant decoding from zero and then
+       seeking — the audible stumble on every page change. */
+    var at0 = Math.max(0, at || 0);
+    a.src = at0 > 0.25 ? (url + '#t=' + at0.toFixed(2)) : url;
+    var seeked = false;
+    var fix = function () {
+      if (seeked) return; seeked = true;
+      if (at0 > 0.25 && Math.abs(a.currentTime - at0) > 0.6) { try { a.currentTime = at0; } catch (e) {} }
+    };
+    a.onloadedmetadata = fix;
     media(rec); save(); emit('track');
-    if (autoplay) return a.play().catch(function () { arm(); });
+    if (autoplay) {
+      // do not wait for metadata: play() resolves once it can, and the fragment
+      // has already put the playhead in the right place
+      return a.play().then(fix).catch(function () { arm(); });
+    }
     return Promise.resolve();
   }
   /* autoplay is blocked without a gesture: resume on the first click/keypress instead */
@@ -136,9 +154,18 @@
   /* restore the last track on every page, so playback follows you around the app */
   function boot() {
     if (!state.id) return;
-    get(state.id).then(function (rec) { if (!rec) return; load(rec, state.pos || 0, false).then(function () { if (state.playing) play().catch(function () { arm(); }); }); }).catch(function () {});
+    var wasPlaying = state.playing;
+    get(state.id).then(function (rec) {
+      if (!rec) return;
+      // one call, with autoplay decided up front — the old two-step (load, then
+      // play) added a whole promise turn plus a second metadata wait
+      return load(rec, state.pos || 0, wasPlaying);
+    }).catch(function () {});
   }
   window.ApexMusic = { list: list, add: add, remove: del, get: get, put: put, play: play, toggle: toggle, next: next, prev: prev,
                        seek: seek, volume: volume, now: now, setFlag: setFlag, usage: usage, nameParts: nameParts };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  /* Boot immediately. Waiting for DOMContentLoaded meant every tab change left a
+     hole in the music while the rest of the page parsed — none of this needs the
+     DOM, so the fetch from IndexedDB starts on the first line instead. */
+  boot();
 })();

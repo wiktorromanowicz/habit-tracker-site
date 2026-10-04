@@ -200,3 +200,16 @@ html[data-sb="min"] #apexSide nav .sb-more .lb,html[data-sb="min"] #apexSide nav
 #apexSide .mp-time{display:flex;justify-content:space-between;font-size:10px;color:var(--muted,#7a8496);
   font-variant-numeric:tabular-nums;margin:1px 0 4px}
 html[data-sb="min"] #apexSide .mp-time{display:none}
+
+/* ---- writing settings, applied app-wide ----------------------------------
+   The font picker used to live on Notes and only change Notes. The same two
+   settings (face and size) now reach every place in Apex you actually write:
+   the note body, the goal and bottleneck boxes on Home, the brief, your own
+   Home cards, and the Ideas and Assets fields. */
+:root{ --apex-write: 15px; }
+html[data-font="inter"]  .apexwrite{font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif}
+html[data-font="roboto"] .apexwrite{font-family:"Roboto",-apple-system,BlinkMacSystemFont,sans-serif}
+html[data-font="lora"]   .apexwrite{font-family:"Lora",Georgia,"Times New Roman",serif;line-height:1.62}
+html[data-font="mono"]   .apexwrite{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.apexwrite{font-size:var(--apex-write)!important;line-height:1.55}
+.apexwrite h3{font-size:calc(var(--apex-write) * 1.12)}

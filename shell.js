@@ -100,7 +100,9 @@
 
   /* ---- music engine (IndexedDB library + one audio element), loaded once per page ---- */
   (function () {
-    if (window.ApexMusic) return;
+    if (window.ApexMusic) { paintMusic(); return; }
+    // every page now loads music.js itself (deferred, before this file) so playback
+    // resumes while the page is still parsing; this stays only as a safety net
     var m = document.createElement('script'); m.src = 'music.js'; m.onload = function () { paintMusic(); };
     document.head.appendChild(m);
   })();
@@ -389,6 +391,42 @@
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && twEditing) { twEditing = false; lastTw = null; paintTw(); } });
   setInterval(paintTw, 500);
   window.addEventListener('storage', function (e) { if (e.key === TK) paintTw(); });
+
+  /* ---- writing settings (face + size), shared by every editor in Apex ----
+     Notes owned these; they belong to the app, because the boxes on Home are
+     the same kind of writing surface and were stuck at one size. */
+  var FONT_KEY = 'apexNotesFont', SIZE_KEY = 'apexNotesSize';
+  var WRITE_SEL = '.editor, .brief-edit, .nbody, .ntitle, .mycard, .ideas-body, .note-body, [data-write]';
+  function writeFont() { try { return JSON.parse(localStorage.getItem(FONT_KEY) || '"system"') || 'system'; } catch (e) { return 'system'; } }
+  function writeSize() {
+    var n; try { n = parseInt(JSON.parse(localStorage.getItem(SIZE_KEY) || 'null'), 10); } catch (e) {}
+    return (n >= 11 && n <= 26) ? n : 15;
+  }
+  function applyWrite() {
+    var f = writeFont();
+    if (f && f !== 'system') html.setAttribute('data-font', f); else html.removeAttribute('data-font');
+    html.style.setProperty('--apex-write', writeSize() + 'px');
+    try { document.querySelectorAll(WRITE_SEL).forEach(function (el) { el.classList.add('apexwrite'); }); } catch (e) {}
+  }
+  function setWriteFont(v) { try { localStorage.setItem(FONT_KEY, JSON.stringify(v)); } catch (e) {} applyWrite(); }
+  function setWriteSize(n) {
+    n = Math.max(11, Math.min(26, Math.round(n || 15)));
+    try { localStorage.setItem(SIZE_KEY, JSON.stringify(n)); } catch (e) {}
+    applyWrite(); return n;
+  }
+  window.apexWrite = { font: writeFont, size: writeSize, setFont: setWriteFont, setSize: setWriteSize, apply: applyWrite };
+  applyWrite();
+  document.addEventListener('DOMContentLoaded', applyWrite);
+  window.addEventListener('storage', function (e) { if (e.key === FONT_KEY || e.key === SIZE_KEY) applyWrite(); });
+  /* ⌘+ / ⌘- while the caret is in a writing box changes the size, like a reader */
+  document.addEventListener('keydown', function (e) {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    var el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains('apexwrite')) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); toastShell('Text size ' + setWriteSize(writeSize() + 1) + 'px'); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); toastShell('Text size ' + setWriteSize(writeSize() - 1) + 'px'); }
+    else if (e.key === '0') { e.preventDefault(); setWriteSize(15); toastShell('Text size back to 15px'); }
+  });
 
   /* ---- usage log ---------------------------------------------------------
      Apex keeping an honest record of how Apex actually gets used, so the
@@ -748,6 +786,8 @@
     quick().forEach(function (m) { out.push({ g: 'Actions', em: '⏱', t: 'Start ' + m + '-minute timer', sub: 'Timer', run: function () { startTimer(m); } }); });
     out.push({ g: 'Actions', em: '⏱', t: 'Change the quick timers', sub: 'Sidebar', run: function () { twEditor(); } });
     out.push({ g: 'Actions', em: theme === 'dark' ? '☀︎' : '☾', t: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: toggleTheme });
+    out.push({ g: 'Actions', em: 'A', t: 'Bigger text in notes and goals', sub: 'applies everywhere you write', run: function () { setWriteSize(writeSize() + 1); } });
+    out.push({ g: 'Actions', em: 'a', t: 'Smaller text in notes and goals', sub: 'applies everywhere you write', run: function () { setWriteSize(writeSize() - 1); } });
     out.push({ g: 'Actions', em: '⌨', t: 'Keyboard shortcuts', sub: '?', run: openKeys });
     out.push({ g: 'Actions', em: '⧉', t: 'Copy context for Claude', sub: 'preview it first, then copy', run: copyContext });
     // notes & tasks search

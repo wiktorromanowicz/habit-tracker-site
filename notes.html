@@ -149,6 +149,11 @@
   .emo-menu button .nm{color:var(--muted,#5e6675)}
   .emo-menu button.on{background:var(--chip,#eef2f8)}
   .emo-menu button.on .nm{color:inherit}
+  .szgrp{display:inline-flex;align-items:center;gap:2px;padding:0 4px}
+  .szgrp button{background:transparent;border:0;color:var(--muted);font:inherit;font-size:12px;font-weight:700;
+    padding:3px 6px;border-radius:6px;cursor:pointer;line-height:1}
+  .szgrp button:hover{background:var(--panel2,#eef2f8);color:var(--ink)}
+  .szgrp b{font-size:11px;font-weight:600;color:var(--muted);min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -158,6 +163,7 @@
 <script src="cal-config.js"></script>
 <script src="gauth.js"></script>
 <script defer src="pwa.js"></script>
+<script defer src="music.js"></script>
 <script defer src="shell.js"></script>
 </head>
 <body>
@@ -188,6 +194,11 @@
     </div>
     <div class="headbtns">
       <select class="ptab" id="fontPick" title="Editor font" style="appearance:none;-webkit-appearance:none;padding-right:26px;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%276%27%3E%3Cpath d=%27M1 1l4 4 4-4%27 fill=%27none%27 stroke=%27%238c8474%27 stroke-width=%271.5%27/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center"><option value="system">System</option><option value="inter">Inter</option><option value="roboto">Roboto</option><option value="lora">Lora (serif)</option><option value="mono">Mono</option></select>
+      <span class="ptab szgrp" title="Text size — applies everywhere you write in Apex">
+        <button type="button" onclick="bumpSize(-1)" aria-label="Smaller text">A−</button>
+        <b id="szNow">15</b>
+        <button type="button" onclick="bumpSize(1)" aria-label="Bigger text">A+</button>
+      </span>
       <button class="ptab" onclick="toggleHelp()">⌘/ Shortcuts</button>
       <button class="ptab dark" onclick="newNote()">+ New note <span style="opacity:.6;font-size:11px;margin-left:4px">⌘N</span></button>
     </div>
@@ -915,9 +926,21 @@ bodyEl.addEventListener('blur',()=>{
 });
 
 /* ---- editor font ---- */
-(function(){ const sel=$('fontPick'); const K='apexNotesFont'; const apply=v=>{ if(v&&v!=='system') document.documentElement.setAttribute('data-font',v); else document.documentElement.removeAttribute('data-font'); };
-  let v='system'; try{ v=JSON.parse(localStorage.getItem(K))||'system'; }catch(e){} sel.value=v; apply(v);
-  sel.addEventListener('change',()=>{ apply(sel.value); try{ localStorage.setItem(K,JSON.stringify(sel.value)); }catch(e){} }); })();
+/* the font and the size are app-wide settings now — the shell owns them, this
+   page just offers the controls */
+function bumpSize(d){
+  const n = window.apexWrite ? apexWrite.setSize(apexWrite.size()+d) : 15;
+  const el=document.getElementById('szNow'); if(el) el.textContent=n;
+}
+(function(){
+  const sel=$('fontPick');
+  const sync=()=>{ if(!window.apexWrite) return;
+    sel.value = apexWrite.font();
+    const el=document.getElementById('szNow'); if(el) el.textContent = apexWrite.size(); };
+  sel.addEventListener('change',()=>{ if(window.apexWrite) apexWrite.setFont(sel.value); });
+  setTimeout(sync, 120);            // shell.js is deferred; it owns the values
+  window.addEventListener('storage',e=>{ if(e.key==='apexNotesFont'||e.key==='apexNotesSize') sync(); });
+})();
 
 /* ---- boot ---- */
 if(!cur()) S.active=(sorted()[0]||{}).id;
