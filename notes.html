@@ -114,7 +114,6 @@
   .dchip.past{background:#f3f0ea;color:#9a9284;border-color:#e6e0d3}
   .dchip.future{background:#e8f6ee;color:#15803d;border-color:#c8ead6}
   .dchip:hover{filter:brightness(.96)}
-  #datePick{position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;}
   .ed-foot{display:flex;gap:14px;padding:8px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);}
   .ed-foot .sp{flex:1}
 
@@ -154,6 +153,34 @@
     padding:3px 6px;border-radius:6px;cursor:pointer;line-height:1}
   .szgrp button:hover{background:var(--panel2,#eef2f8);color:var(--ink)}
   .szgrp b{font-size:11px;font-weight:600;color:var(--muted);min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+  /* the date popover — Google Docs shape, Apex colours */
+  .dcal{position:fixed;z-index:9000;background:var(--panel,#fff);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 16px 44px rgba(20,24,35,.18);padding:10px;width:252px;
+    opacity:0;transform:translateY(-4px) scale(.98);transition:opacity .12s ease,transform .12s cubic-bezier(.2,.8,.2,1)}
+  .dcal.in{opacity:1;transform:none}
+  .dc-head{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 8px}
+  .dc-head b{font-size:13px;font-weight:650;color:var(--ink)}
+  .dc-head button{background:transparent;border:0;color:var(--muted);font-size:17px;line-height:1;
+    width:26px;height:26px;border-radius:50%;cursor:pointer}
+  .dc-head button:hover{background:var(--panel2,#eef2f8);color:var(--ink)}
+  .dc-wd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+  .dc-wd span{text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);padding:3px 0}
+  .dc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .dc-x{height:30px}
+  .dc-d{height:30px;border:0;border-radius:50%;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;
+    cursor:pointer;transition:background .1s}
+  .dc-d:hover{background:var(--panel2,#eef2f8)}
+  .dc-d.we{color:var(--muted)}
+  .dc-d.today{box-shadow:inset 0 0 0 1px #1a73e8;color:#1a73e8;font-weight:650}
+  .dc-d.on{background:#1a73e8;color:#fff;font-weight:650}
+  .dc-d.on:hover{background:#1765cc}
+  .dc-d:focus-visible{outline:2px solid #1a73e8;outline-offset:-2px}
+  .dc-quick{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+  .dc-quick button{flex:1 1 auto;background:var(--panel2,#eef2f8);border:0;border-radius:8px;color:var(--ink);
+    font:inherit;font-size:11.5px;font-weight:600;padding:5px 8px;cursor:pointer}
+  .dc-quick button:hover{background:var(--chip2,#e4eaf4)}
+  .dc-quick button.x{flex:0 0 auto;color:#c1362c;background:transparent}
+  .dc-quick button.x:hover{background:#fdeaea}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -253,7 +280,6 @@
   <span class="sep"></span>
   <button onmousedown="fmt(event,'removeFormat')" title="Clear formatting">⌫</button>
 </div>
-<input type="date" id="datePick">
 
 <div class="help" id="help" onclick="if(event.target===this)toggleHelp()">
   <div class="card">
@@ -295,7 +321,7 @@
 /* ================= Notes ================= */
 const KEY='wiktorNotes';
 const $=id=>document.getElementById(id);
-const list=$('nlist'), titleEl=$('ntitle'), bodyEl=$('nbody'), searchEl=$('search'), fbar=$('fbar'), datePick=$('datePick');
+const list=$('nlist'), titleEl=$('ntitle'), bodyEl=$('nbody'), searchEl=$('search'), fbar=$('fbar');
 const uid=()=>Math.random().toString(36).slice(2,9);
 
 let S; try{ S=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
@@ -771,22 +797,76 @@ function insertDateChip(iso,openIt){
   scheduleSave();
   if(openIt) openPicker(chip);
 }
-let pickChip=null;
+let pickChip=null, calEl=null;
+/* The native <input type=date> popup is the OS widget: a different font, a
+   different shape, and it lands wherever the OS likes. This is the Google Docs
+   shape instead — a small calendar under the chip, the quick rows people
+   actually use, and arrow keys to move a day at a time. */
+function closeCal(){ if(calEl){ calEl.remove(); calEl=null; } pickChip=null; }
+document.addEventListener('mousedown',e=>{ if(calEl && !calEl.contains(e.target) && e.target!==pickChip) closeCal(); },true);
+
 function openPicker(chip){
-  pickChip=chip; const r=chip.getBoundingClientRect();
-  datePick.style.left=r.left+'px'; datePick.style.top=(r.bottom+2)+'px';
-  datePick.value=chip.dataset.date||isoOf(new Date());
-  try{ datePick.showPicker(); }catch(e){ datePick.focus(); datePick.click(); }
+  closeCal(); pickChip=chip;
+  const today=new Date(); today.setHours(0,0,0,0);
+  let cursor = chip.dataset.date ? new Date(chip.dataset.date+'T00:00') : new Date(today);
+  if(isNaN(cursor)) cursor=new Date(today);
+  let month = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+
+  calEl=document.createElement('div'); calEl.className='dcal';
+  const draw=()=>{
+    const first=new Date(month.getFullYear(),month.getMonth(),1);
+    const lead=(first.getDay()+6)%7;                       // Monday first
+    const days=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
+    const cells=[];
+    for(let i=0;i<lead;i++) cells.push(null);
+    for(let d=1;d<=days;d++) cells.push(new Date(month.getFullYear(),month.getMonth(),d));
+    while(cells.length%7) cells.push(null);
+    calEl.innerHTML=
+      '<div class="dc-head"><button type="button" data-m="-1" aria-label="Previous month">\u2039</button>'+
+      '<b>'+month.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</b>'+
+      '<button type="button" data-m="1" aria-label="Next month">\u203A</button></div>'+
+      '<div class="dc-wd">'+['M','T','W','T','F','S','S'].map(d=>'<span>'+d+'</span>').join('')+'</div>'+
+      '<div class="dc-grid">'+cells.map(d=>{
+        if(!d) return '<span class="dc-x"></span>';
+        const k=isoOf(d);
+        const cls=['dc-d'];
+        if(k===isoOf(today)) cls.push('today');
+        if(chip.dataset.date===k) cls.push('on');
+        if(d.getDay()===0||d.getDay()===6) cls.push('we');
+        return '<button type="button" class="'+cls.join(' ')+'" data-d="'+k+'">'+d.getDate()+'</button>';
+      }).join('')+'</div>'+
+      '<div class="dc-quick">'+
+        '<button type="button" data-q="0">Today</button>'+
+        '<button type="button" data-q="1">Tomorrow</button>'+
+        '<button type="button" data-q="7">Next week</button>'+
+        '<button type="button" class="x" data-q="x">Remove</button>'+
+      '</div>';
+    calEl.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ month.setMonth(month.getMonth()+(+b.dataset.m)); draw(); });
+    calEl.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>pick(b.dataset.d));
+    calEl.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.q==='x'){ const c=pickChip; closeCal(); if(c){ const sp=c.nextSibling; c.remove(); if(sp&&sp.nodeType===3&&sp.textContent===' ') sp.remove(); scheduleSave(); } return; }
+      const d=new Date(today); d.setDate(d.getDate()+(+b.dataset.q)); pick(isoOf(d));
+    });
+  };
+  const pick=k=>{
+    const c=pickChip; if(!c) return;
+    c.dataset.date=k; c.className=classOf(k); c.textContent=labelOf(k);
+    scheduleSave(); closeCal();
+    const s=getSelection(); const nr=document.createRange(); const nx=c.nextSibling;
+    if(nx&&nx.nodeType===3) nr.setStart(nx,Math.min(1,nx.length)); else nr.setStartAfter(c);
+    nr.collapse(true); bodyEl.focus(); s.removeAllRanges(); s.addRange(nr);
+  };
+  document.body.appendChild(calEl); draw();
+  const r=chip.getBoundingClientRect(), w=calEl.offsetWidth, h=calEl.offsetHeight;
+  calEl.style.left=Math.max(8,Math.min(r.left, innerWidth-w-10))+'px';
+  calEl.style.top=(r.bottom+6+h > innerHeight ? Math.max(8, r.top-h-6) : r.bottom+6)+'px';
+  calEl.classList.add('in');
+  calEl.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ e.preventDefault(); closeCal(); bodyEl.focus(); }
+  });
+  const firstDay=calEl.querySelector('.dc-d.on')||calEl.querySelector('.dc-d.today')||calEl.querySelector('.dc-d');
+  if(firstDay) firstDay.focus();
 }
-datePick.addEventListener('change',()=>{
-  if(!pickChip) return;
-  try{ datePick.blur(); }catch(e){}
-  pickChip.dataset.date=datePick.value; pickChip.className=classOf(datePick.value); pickChip.textContent=labelOf(datePick.value);
-  scheduleSave();
-  // put the caret back after the chip
-  const s=getSelection(); const nr=document.createRange(); const nx=pickChip.nextSibling; if(nx&&nx.nodeType===3) nr.setStart(nx,Math.min(1,nx.length)); else nr.setStartAfter(pickChip); nr.collapse(true); bodyEl.focus(); s.removeAllRanges(); s.addRange(nr);
-  pickChip=null;
-});
 
 /* ---- delete the current line / list item (⌘⇧⌫) ---- */
 function deleteLine(){
