@@ -57,6 +57,18 @@
   .privacy{margin:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .privacy label{display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:600;margin-bottom:5px;cursor:pointer}
   .privacy span{display:block;max-width:62ch}
+  .rep{display:flex;gap:7px;margin-top:11px}
+  .rep input{flex:1;font:inherit;font-size:13px;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel,#fff);color:var(--ink)}
+  .rep input:focus{outline:none;border-color:var(--blue)}
+  .rep button{font:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:9px;border:0;background:var(--ink);color:#fff;cursor:pointer}
+  .rep button:hover{opacity:.9}
+  .mine{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+  .mrow{display:flex;gap:8px;align-items:baseline;font-size:13.5px;line-height:1.55;color:#3f3b33;
+    background:var(--panel2,#f3efe4);border-radius:9px;padding:7px 10px}
+  .mrow .w{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .mrow .ok{margin-left:auto;flex:none;font-size:11px;color:#15803d}
+  .mrow .ok.pend{color:var(--muted)}
+  [data-theme=dark] .mrow{color:#d4cfc6}
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>
 <script>try{var _t=JSON.parse(localStorage.getItem("apexTheme"));if(_t==="dark")document.documentElement.setAttribute("data-theme","dark");if(JSON.parse(localStorage.getItem("apexSideMin")))document.documentElement.setAttribute("data-sb","min");}catch(e){}</script>
@@ -119,6 +131,29 @@ function tasks(){
 }
 function replies(){ return (ls('apexInboxReplies',{})||{}).byId||{}; }
 function histOf(id){ return (ls('apexInboxLog',{})||{})[id]||[]; }
+function mineOf(id){ return (ls('apexInboxMine',{})||{})[id]||[]; }
+/* everything either side has said about one task, oldest first */
+function thread(id){
+  const a=histOf(id).map(h=>({at:h.at,who:'apex',text:h.text,status:h.status}));
+  const b=mineOf(id).map(m=>({at:m.at,who:'me',text:m.text,sent:m.sent}));
+  return a.concat(b).sort((x,y)=>String(x.at).localeCompare(String(y.at)));
+}
+function replyBox(id){
+  return '<form class="rep" data-rep="'+esc(id)+'">'+
+    '<input type="text" placeholder="Reply to Apex — it reads this on the next run" autocomplete="off">'+
+    '<button type="submit">Send</button></form>';
+}
+function wireReplies(root){
+  root.querySelectorAll('form[data-rep]').forEach(f=>{
+    f.onsubmit=e=>{
+      e.preventDefault();
+      const i=f.querySelector('input'), v=i.value.trim(); if(!v) return;
+      if(!window.ApexInbox){ return; }
+      ApexInbox.say(f.dataset.rep, v);
+      i.value=''; render();
+    };
+  });
+}
 function lastRun(){ const R=ls('apexInboxReplies',null); return R&&R.updated?new Date(R.updated):null; }
 
 function filterNow(){ try{ return localStorage.getItem(FILTER_KEY)||'all'; }catch(e){ return 'all'; } }
@@ -176,6 +211,7 @@ function render(){
       return '<section class="proj"><h2>'+esc(list)+'</h2>'+items.map(card).join('')+'</section>';
     }).join('');
   }
+  wireReplies($('abody')); wireReplies($('weekly'));
   $('abody').querySelectorAll('[data-hist]').forEach(b=>b.onclick=()=>{
     const card=b.closest('.item'); const open=card.classList.toggle('open');
     b.textContent=open?'Hide earlier updates':b.dataset.label;
@@ -198,9 +234,22 @@ function renderWeekly(){
     '<div class="say">'+esc(w.text).replace(/\n/g,'<br>')+'</div>'+
     (earlier.length?'<div class="acts"><button data-wk="1">'+earlier.length+' earlier review'+(earlier.length===1?'':'s')+'</button></div>'+
       '<div class="hist">'+earlier.map(h=>'<div class="hrow"><span class="d">'+esc(when(h.at))+'</span><span>'+esc(h.text).replace(/\n/g,'<br>')+'</span></div>').join('')+'</div>':'')+
+    said('__weekly')+ replyBox('__weekly')+
   '</article>';
   const btn=host.querySelector('[data-wk]');
   if(btn) btn.onclick=()=>{ const c=btn.closest('.item'); const open=c.classList.toggle('open'); btn.textContent=open?'Hide earlier reviews':earlier.length+' earlier review'+(earlier.length===1?'':'s'); };
+}
+
+/* what you have said since Apex last wrote — shown under its update so the card
+   reads as one conversation rather than two separate noticeboards */
+function said(id){
+  const log=histOf(id), lastApex=log.length?log[log.length-1].at:'';
+  const after=mineOf(id).filter(m=>String(m.at)>String(lastApex));
+  if(!after.length) return '';
+  return '<div class="mine">'+after.map(m=>
+    '<div class="mrow"><span class="w">You</span><span>'+esc(m.text)+'</span>'+
+    (m.sent?'<span class="ok" title="Apex has this">✓</span>':'<span class="ok pend" title="Goes out with the next sync">·</span>')+
+    '</div>').join('')+'</div>';
 }
 
 function card({list,it}){
@@ -223,6 +272,7 @@ function card({list,it}){
     '</div>'+
     (earlier.length?'<div class="hist">'+earlier.map(h=>
       '<div class="hrow"><span class="d">'+esc(when(h.at))+'</span><span>'+esc(h.text)+'</span></div>').join('')+'</div>':'')+
+    said(it.id)+ replyBox(it.id)+
   '</article>';
 }
 

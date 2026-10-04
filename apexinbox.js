@@ -15,7 +15,7 @@
    travels once you have named Apex as its owner. */
 (function () {
   var TITLE_IN = 'Apex inbox', TITLE_OUT = 'Apex replies';
-  var STATE = 'apexInbox', REPLIES = 'apexInboxReplies', LOG = 'apexInboxLog';
+  var STATE = 'apexInbox', REPLIES = 'apexInboxReplies', LOG = 'apexInboxLog', MINE_KEY = 'apexInboxMine';
   var API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -85,6 +85,35 @@
     };
   }
 
+  /* ---- your side of the conversation -----------------------------------
+     A reply typed on the Apex tab is kept here until the next run has read it.
+     It travels in the same inbox event as everything else, keyed by task id;
+     "__weekly" is the thread for the weekly review, which has no task. */
+  function mine() { return get(MINE_KEY, {}) || {}; }
+  function say(id, text) {
+    text = String(text || '').trim(); if (!id || !text) return false;
+    var M = mine(); var arr = M[id] = M[id] || [];
+    arr.push({ at: new Date().toISOString(), text: text, sent: false });
+    while (arr.length > 30) arr.shift();
+    set(MINE_KEY, M);
+    try { window.dispatchEvent(new Event('apex-inbox-replies')); } catch (e) {}
+    pushSoon();
+    return true;
+  }
+  function unsent() {
+    var M = mine(), out = {};
+    Object.keys(M).forEach(function (id) {
+      var a = (M[id] || []).filter(function (x) { return !x.sent; });
+      if (a.length) out[id] = a.map(function (x) { return { at: x.at, text: x.text }; });
+    });
+    return out;
+  }
+  function markSent() {
+    var M = mine(), touched = false;
+    Object.keys(M).forEach(function (id) { (M[id] || []).forEach(function (x) { if (!x.sent) { x.sent = true; touched = true; } }); });
+    if (touched) set(MINE_KEY, M);
+  }
+
   /* what we would send right now */
   function payload() {
     var S = get('apexTasks', {}), out = [];
@@ -102,12 +131,17 @@
     var lines = tasks.length
       ? tasks.map(function (t, i) { return (i + 1) + '. ' + t.text + (t.due ? '  (due ' + t.due + ')' : '') + '  [' + t.list + ']' + (t.desc ? '\n   ' + t.desc : ''); }).join('\n')
       : 'Nothing assigned to Apex right now.';
-    var d = digest();
+    var d = digest(), said = unsent(), saidKeys = Object.keys(said);
+    var saidText = saidKeys.length ? '\n\nWIKTOR REPLIED — answer these first:\n' + saidKeys.map(function (id) {
+      var t = tasks.filter(function (x) { return x.id === id; })[0];
+      return '• ' + (id === '__weekly' ? 'on the weekly review' : (t ? '"' + t.text + '"' : 'on task ' + id)) + ': ' +
+        said[id].map(function (m) { return m.text; }).join(' / ');
+    }).join('\n') : '';
     return 'Tasks Wiktor has assigned to Apex. Written by the Apex web app; read by Claude.\n' +
       'Reply by writing a separate all-day event titled "' + TITLE_OUT + '" whose description holds the APEX-REPLIES JSON block.\n' +
       (d ? 'It also carries a counts-only record of how Apex itself is used — no titles, no text, no content of any kind.\n' : '') +
-      '\n' + lines + '\n\n<!--APEX-INBOX v1\n' +
-      JSON.stringify({ updated: new Date().toISOString(), tasks: tasks, usage: d }) + '\n-->';
+      '\n' + lines + saidText + '\n\n<!--APEX-INBOX v1\n' +
+      JSON.stringify({ updated: new Date().toISOString(), tasks: tasks, usage: d, saidByWiktor: said }) + '\n-->';
   }
 
   /* find the carrier event, wherever it drifted to */
@@ -131,7 +165,7 @@
   var lastSent = null, pending = null;
   function push(force) {
     if (!window.ApexG) return Promise.resolve(false);
-    var tasks = payload(), sig = JSON.stringify(tasks) + '|' + usageOn() + '|' + iso(today());
+    var tasks = payload(), sig = JSON.stringify(tasks) + '|' + JSON.stringify(unsent()) + '|' + usageOn() + '|' + iso(today());
     var st = get(STATE, {});
     if (!force && sig === (lastSent || st.sig)) return Promise.resolve(false);
     var t = today();
@@ -151,6 +185,7 @@
     }).then(function (r) {
       if (!r || !r.ok) return false;
       lastSent = sig; set(STATE, { sig: sig, at: Date.now(), n: tasks.length });
+      markSent();
       return true;
     }).catch(function () { return false; });
   }
@@ -191,6 +226,7 @@
     isApex: isApex, payload: payload, push: push, pushSoon: pushSoon,
     pull: pullReplies, replies: replies, history: history, TITLE_IN: TITLE_IN, TITLE_OUT: TITLE_OUT,
     digest: digest, usageOn: usageOn, setUsage: setUsage,
+    say: say, mine: mine, unsent: unsent,
     state: function () { return get(STATE, {}); }
   };
 
