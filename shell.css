@@ -184,3 +184,6 @@ html[data-sb="min"] #apexSide nav .sb-more .lb,html[data-sb="min"] #apexSide nav
 .apex-navmenu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink,#2b2a26);
   font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer}
 .apex-navmenu button:hover{background:var(--chip,#f3efe4)}
+.apex-navmenu .na{font-size:13px;padding:7px 10px;color:var(--muted,#8c8474);display:flex;align-items:baseline;gap:7px;cursor:default}
+.apex-navmenu .na span{font-size:11px;opacity:.75}
+.apex-navmenu .sep{height:1px;background:var(--line,#e7e2d6);margin:4px 2px}

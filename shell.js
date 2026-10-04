@@ -183,9 +183,7 @@
       pop.title = 'Open ' + l.lb + ' on its own';
       pop.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); openSolo(l.href); });
       a.appendChild(pop);
-      if (canHide(l.href)) {
-        a.addEventListener('contextmenu', function (e) { e.preventDefault(); openNavMenu(e, l); });
-      }
+      a.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); openNavMenu(e, l); });
       navEl.appendChild(a);
     });
     renderMore(hid);
@@ -232,14 +230,20 @@
   function openNavMenu(e, l) {
     closeNavMenu();
     var m = document.createElement('div'); navMenu = m; m.className = 'apex-navmenu';
+    var why = l.href === 'today.html' ? 'Today always stays'
+            : l.href === here ? 'You are on this page'
+            : '';
     m.innerHTML = '<button data-a="solo">\u2197 Open on its own</button>' +
-                  '<button data-a="hide">\u2296 Put away</button>';
+      (why ? '<div class="na">\u2296 Put away <span>' + why + '</span></div>'
+           : '<button data-a="hide">\u2296 Put away</button>') +
+      (hiddenSet().length ? '<div class="sep"></div><button data-a="more">\u22EF Show what is put away</button>' : '');
     document.body.appendChild(m);
     m.style.left = Math.min(e.clientX, innerWidth - m.offsetWidth - 10) + 'px';
     m.style.top = Math.min(e.clientY, innerHeight - m.offsetHeight - 10) + 'px';
     m.querySelectorAll('[data-a]').forEach(function (b) {
       b.addEventListener('click', function () {
         if (b.dataset.a === 'solo') openSolo(l.href);
+        else if (b.dataset.a === 'more') { closeNavMenu(); var btn = $('#apexMoreBtn', side); if (btn) btn.click(); return; }
         else if (!hideTab(l.href)) toastShell('Keep at least three tabs in the sidebar');
         closeNavMenu();
       });
