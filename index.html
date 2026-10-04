@@ -6,8 +6,8 @@
 <title>Apex · Habits</title>
 <style>
   :root{
-    --bg:#f7f6f2; --panel:#ffffff; --panel2:#f3efe4; --line:#e7e2d6;
-    --text:#2b2a26; --muted:#8c8474; --accent:#16a34a; --accent-dim:#dcfce7;
+    --bg:#f7f9fc; --panel:#ffffff; --panel2:#eef2f8; --line:#e2e8f2;
+    --text:#232833; --muted:#7a8496; --accent:#16a34a; --accent-dim:#dcfce7;
     --today:#a9741f;
   }
   *{box-sizing:border-box;-webkit-user-select:none;user-select:none;}
@@ -68,29 +68,29 @@
 
 
   /* ---- Spreadsheet-style habit sheet (full-width month view) ---- */
-  .sheet{background:var(--card,var(--card,#fbf9f4));border-top:1px solid var(--line,#e7e2d6);border-bottom:1px solid var(--line,#e7e2d6);
+  .sheet{background:var(--card,var(--card,#ffffff));border-top:1px solid var(--line,#e2e8f2);border-bottom:1px solid var(--line,#e2e8f2);
     box-shadow:0 1px 3px rgba(60,50,30,.06);
     position:relative;left:50%;right:50%;width:100vw;margin-left:-50vw;margin-right:-50vw;}
   .sheet-inner{max-width:1500px;margin:0 auto;padding:0 clamp(16px,4vw,40px);}
   .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
     padding:22px 0 16px;flex-wrap:wrap;}
-  .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:#a99f8c;text-transform:uppercase;}
-  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink,#2b2a26);}
-  .sheet-sub{font-size:12px;color:#9c9484;margin-top:4px;}
+  .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;color:#97a0b0;text-transform:uppercase;}
+  .sheet-title{font-size:28px;font-weight:700;letter-spacing:-.01em;margin-top:2px;color:var(--ink,#232833);}
+  .sheet-sub{font-size:12px;color:#8690a0;margin-top:4px;}
   .periodtabs{display:flex;gap:6px;flex-wrap:wrap;}
   .ptab{font-size:13px;font-weight:500;padding:7px 14px;border-radius:20px;border:1px solid var(--line,#e0dacb);
     background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
-  .ptab:hover{background:var(--chip,#f3efe4);}
-  .ptab.dark{background:#2b2a26;color:#fff;border-color:var(--ink,#2b2a26);}
+  .ptab:hover{background:var(--chip,#eef2f8);}
+  .ptab.dark{background:#232833;color:#fff;border-color:var(--ink,#232833);}
   .ptab.dark:hover{background:#3a382f;}
   .sheet-scroll{overflow-x:auto;padding-bottom:2px;}
   .sheet table{width:100%;border-collapse:collapse;background:transparent;border:none;border-radius:0;
     table-layout:fixed;min-width:1160px;}
-  .sheet thead th{background:var(--chip,#f3efe4);border-bottom:1px solid var(--line,#e2dccd);border-right:1px solid #ece7da;
-    padding:7px 2px;font-weight:600;color:#8c8474;}
+  .sheet thead th{background:var(--chip,#eef2f8);border-bottom:1px solid var(--line,#e2dccd);border-right:1px solid #ece7da;
+    padding:7px 2px;font-weight:600;color:#7a8496;}
   .sheet thead th:last-child{border-right:none;}
-  .sheet .dnum{display:block;font-size:13px;font-weight:700;color:#6b6355;line-height:1.1;}
-  .sheet .dwd{display:block;font-size:9px;font-weight:600;color:#b3ab99;}
+  .sheet .dnum{display:block;font-size:13px;font-weight:700;color:#555d6b;line-height:1.1;}
+  .sheet .dwd{display:block;font-size:9px;font-weight:600;color:#a7afbd;}
   .sheet thead th.today .dnum{color:#b4802a;}
   .sheet th.habit-col,.sheet td.habit-col{text-align:left;padding:12px 16px;width:180px;background:transparent;}
   .sheet th.habit-col{text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
@@ -119,10 +119,10 @@
   .risk .rrow.broke{background:#fbeceb;border-color:#eec6c2;color:#8d3630;}
   .risk .rrow b{font-weight:650;}
   .risk .rrow .why{color:#a8705c;}
-  .risk .rrow.calm{background:var(--chip,#f3efe4);border-color:var(--line,#e7e2d6);color:#7d7566;}
-  .risk .rrow.calm .why{color:#9c9484;}
+  .risk .rrow.calm{background:var(--chip,#eef2f8);border-color:var(--line,#e2e8f2);color:#7d7566;}
+  .risk .rrow.calm .why{color:#8690a0;}
   .hstat{color:#b0a693;}
-  .hstat b{color:#8c8474;font-weight:600;}
+  .hstat b{color:#7a8496;font-weight:600;}
   .sheet td.habit-col{position:relative;}
   .hgrip{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:14px;text-align:center;
     color:#cec5b2;cursor:grab;font-size:13px;line-height:1;opacity:0;user-select:none;}
@@ -132,8 +132,8 @@
   .sheet tbody tr.dropinto td{box-shadow:inset 0 2px 0 #c69a4e;}
   .hidden-wrap{padding:0 0 16px;font-size:13px;}
   .hidden-wrap .hitem{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:9px;
-    background:var(--chip,#f3efe4);color:#8c8474;margin-top:6px;}
-  .hidden-wrap .hitem b{color:#6b6355;font-weight:600;}
+    background:var(--chip,#eef2f8);color:#7a8496;margin-top:6px;}
+  .hidden-wrap .hitem b{color:#555d6b;font-weight:600;}
   .hidden-wrap .hitem button{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:14px;
     border:1px solid var(--line,#e0dacb);background:var(--surface,#fff);color:#4a463d;cursor:pointer;}
   .sheet table.d14{min-width:0;}
@@ -141,12 +141,12 @@
   .sheet table.d14 th.habit-col,.sheet table.d14 td.habit-col{width:24%;}
   .sheet table.d14 .dot{width:19px;height:19px;}
   .sheet table.d14 td.done .dot::after{width:5px;height:9px;}
-  .sheet .hname{font-weight:600;color:var(--ink,#2b2a26);font-size:15px;}
-  .sheet .hmeta{color:#a99f8c;font-size:12px;}
+  .sheet .hname{font-weight:600;color:var(--ink,#232833);font-size:15px;}
+  .sheet .hmeta{color:#97a0b0;font-size:12px;}
   .sheet .dot{width:15px;height:15px;border:1.5px solid #d4ccbb;}
   .sheet td.done .dot::after{width:4px;height:7px;transform:rotate(45deg) translate(-1px,-1px);}
   .sheet-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
-    padding:13px 0 20px;font-size:13px;color:#9c9484;flex-wrap:wrap;}
+    padding:13px 0 20px;font-size:13px;color:#8690a0;flex-wrap:wrap;}
 
 </style>
 <script>try{if(/[?&]solo=1/.test(location.search))document.documentElement.setAttribute("data-solo","1");}catch(e){}</script>

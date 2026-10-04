@@ -1,13 +1,13 @@
 /* Apex shared spreadsheet grid styles */
-.gsheet{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:13px;color:#2b2a26;
+.gsheet{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:13px;color:#232833;
   -webkit-user-select:none;user-select:none;}
-.gsheet th,.gsheet td{border-bottom:1px solid var(--line,#e7e2d6);border-right:1px solid var(--chip,#efeadd);position:relative;}
-.gsheet thead th{background:var(--chip,#f3efe4);color:#8c8474;font-size:11px;font-weight:700;letter-spacing:.04em;
+.gsheet th,.gsheet td{border-bottom:1px solid var(--line,#e2e8f2);border-right:1px solid var(--chip,#efeadd);position:relative;}
+.gsheet thead th{background:var(--chip,#eef2f8);color:#7a8496;font-size:11px;font-weight:700;letter-spacing:.04em;
   text-transform:uppercase;height:34px;text-align:left;vertical-align:middle;}
 .gsheet th.corner{width:42px;background:#efe9dc;}
 .gsheet .colname{display:block;padding:8px 10px;outline:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gsheet .colname[contenteditable="true"]{white-space:normal;background:var(--surface,#fff);box-shadow:inset 0 0 0 2px #a9741f;border-radius:3px;}
-.gsheet td.rownum{width:42px;background:var(--chip,#f3efe4);color:#b3ab99;font-size:10px;text-align:center;
+.gsheet td.rownum{width:42px;background:var(--chip,#eef2f8);color:#a7afbd;font-size:10px;text-align:center;
   vertical-align:middle;font-weight:600;user-select:none;}
 .gsheet td.gc{padding:6px 9px;vertical-align:top;white-space:pre-wrap;word-break:break-word;overflow:hidden;cursor:cell;outline:none;}
 .gsheet td.gc.rfix{overflow:hidden;}
@@ -32,8 +32,8 @@
 .gfmt.show{opacity:1;pointer-events:auto;transform:translate(-50%,-100%) scale(1);}
 .gfmt.below{transform:translate(-50%,0) scale(.96);}
 .gfmt.below.show{transform:translate(-50%,0) scale(1);}
-.gfmt button{border:none;background:var(--chip,#f3efe4);border-radius:7px;width:30px;height:28px;font-size:13px;
-  cursor:pointer;color:#2b2a26;display:flex;align-items:center;justify-content:center;font-family:inherit;}
+.gfmt button{border:none;background:var(--chip,#eef2f8);border-radius:7px;width:30px;height:28px;font-size:13px;
+  cursor:pointer;color:#232833;display:flex;align-items:center;justify-content:center;font-family:inherit;}
 .gfmt button:hover{background:#e7e0cf;}
 .gfmt .sw{width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.15);cursor:pointer;}
 .gfmt .sw:hover{transform:scale(1.1);}
@@ -43,22 +43,22 @@
 
 /* right-click context menu */
 .gmenu{position:fixed;z-index:80;background:var(--surface,#fff);border:1px solid var(--line,#e0dacb);border-radius:10px;padding:5px;
-  box-shadow:0 10px 30px rgba(20,22,35,.22);min-width:196px;font-size:13px;color:#2b2a26;display:none;}
+  box-shadow:0 10px 30px rgba(20,22,35,.22);min-width:196px;font-size:13px;color:#232833;display:none;}
 .gmenu.show{display:block;}
 .gmenu .gm-row{display:flex;gap:5px;padding:3px 8px 6px;flex-wrap:wrap;}
-.gmenu .gm-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#b3ab99;padding:5px 8px 1px;}
+.gmenu .gm-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#a7afbd;padding:5px 8px 1px;}
 .gmenu .sw{width:19px;height:19px;border-radius:5px;border:1px solid rgba(0,0,0,.15);cursor:pointer;}
 .gmenu .sw:hover{transform:scale(1.12);}
 .gmenu .sw.nofill{position:relative;background:var(--surface,#fff);}
 .gmenu .sw.nofill:after{content:"";position:absolute;left:1px;right:1px;top:8px;height:2px;background:#c1362c;transform:rotate(-45deg);}
-.gmenu .gm-item{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;border-radius:6px;font-size:13px;color:#2b2a26;cursor:pointer;font-family:inherit;}
-.gmenu .gm-item:hover{background:var(--chip,#f3efe4);}
+.gmenu .gm-item{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;border-radius:6px;font-size:13px;color:#232833;cursor:pointer;font-family:inherit;}
+.gmenu .gm-item:hover{background:var(--chip,#eef2f8);}
 .gmenu .gm-sep{height:1px;background:var(--chip2,#eee6d6);margin:4px 2px;}
 
 /* column groups (e.g. weeks under a month) */
 .gsheet th.ghead .colname{padding-left:26px;}
 .gsheet .gtog{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:4px;border:1px solid #cfc6b0;
-  background:var(--surface,#fff);color:#8c8474;font-size:12px;line-height:14px;text-align:center;cursor:pointer;z-index:3;font-weight:700;}
+  background:var(--surface,#fff);color:#7a8496;font-size:12px;line-height:14px;text-align:center;cursor:pointer;z-index:3;font-weight:700;}
 .gsheet .gtog:hover{background:#a9741f;color:#fff;border-color:#a9741f;}
 .gsheet th.gmem{background:#ece7da;color:#a39b89;font-weight:600;text-transform:none;letter-spacing:0;}
 .gsheet td.gc.gmemc{background:#fbf9f3;color:#5f584b;}
