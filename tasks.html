@@ -178,9 +178,14 @@
   .twho .av{width:17px;height:17px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:800;letter-spacing:.02em}
   .titem.done .twho{opacity:.5}
   .tlistchip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:4px;margin-left:6px;background:var(--panel2);color:#7a8496;border:1px solid var(--line);cursor:pointer}
-  .tviews{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-right:2px}
-  .tviews button{background:var(--panel);border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:5px 11px;cursor:pointer}
-  .tviews button.on{background:var(--accent);color:#fff}
+  /* a quiet segmented switch, not a second blue button: the solid accent made
+     it compete with + New list, which is the one thing here worth a colour */
+  .tviews{display:inline-flex;gap:2px;background:var(--panel2,#eef2f8);border:1px solid var(--line);
+    border-radius:10px;padding:2px;margin-right:2px}
+  .tviews button{background:transparent;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;
+    padding:5px 11px;border-radius:8px;cursor:pointer;transition:background .12s,color .12s,box-shadow .12s}
+  .tviews button:hover{color:var(--text,#232833)}
+  .tviews button.on{background:var(--panel,#fff);color:var(--text,#232833);box-shadow:0 1px 2px rgba(16,24,40,.09)}
   #whoFilter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);cursor:pointer}
   .tdategroup{margin:18px 0 6px;display:flex;align-items:baseline;gap:9px}
   .tdategroup h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
@@ -189,6 +194,15 @@
   .tflat{list-style:none;margin:0;padding:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .tflat .titem{border-bottom:1px solid var(--line)} .tflat .titem:last-child{border-bottom:0}
   .tflat .thandle{visibility:hidden}
+  .tdategroup .gadd{margin-left:auto;background:transparent;border:0;color:var(--accent);font-size:12.5px;
+    font-weight:600;padding:3px 8px;border-radius:7px}
+  .tdategroup .gadd:hover{background:var(--accent-dim)}
+  .tdategroup .gdone{margin-left:auto;background:transparent;border:0;color:var(--muted);font-size:12.5px;
+    font-weight:600;padding:3px 8px;border-radius:7px}
+  .tdategroup .gdone:hover{background:var(--panel2);color:var(--text)}
+  .tflat.dropok{outline:2px dashed var(--accent);outline-offset:2px}
+  .tflat .tempty{min-height:22px;color:var(--muted);font-size:13px}
+  .tflat.tdone .titem .ttext{text-decoration:line-through;color:var(--muted)}
   .tempty{color:var(--muted);font-size:13.5px;padding:24px 4px}
   .atpop{position:fixed;z-index:95;background:var(--surface,#fff);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(20,22,35,.2);padding:4px;min-width:150px;max-height:240px;overflow:auto}
   .atpop button{display:flex;align-items:center;gap:7px;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:13px;text-align:left;padding:6px 8px;border-radius:7px;cursor:pointer}
@@ -440,12 +454,37 @@ function paintControls(){
    Everything open, from every list you have not put away, in one column and
    in the order the dates actually demand. Each row keeps its own chips, plus
    a small chip naming the list it came from, so nothing loses its home. */
+function dateAddList(){
+  const open=state.taskLists.filter(l=>!l.stashed);
+  if(!open.length) return null;
+  let id=''; try{ id=localStorage.getItem('apexDateAddList')||''; }catch(e){}
+  return open.find(l=>l.id===id) || open[0];
+}
+/* add straight from the by-date view: the group you clicked decides the date,
+   so "a thing for tomorrow" is one click, not a trip to the board and back */
+function addOnDate(due){
+  const l=dateAddList();
+  if(!l){ toast('Make a list first — the board has + New list'); return; }
+  try{ localStorage.setItem('apexDateAddList', l.id); }catch(e){}
+  if(whoFilter()){ setWhoFilter(''); toast('Showing everyone again so you can see the new task'); }
+  const it={ id:uid(), text:'', desc:'', done:false, parent:null, due:due||'' };
+  l.items.splice(0,0,it); justAdded=[it.id]; save(); renderTasks();
+  const t=board.querySelector('[data-item="'+it.id+'"] .ttext'); if(t){ t.focus(); t.scrollIntoView({block:'center'}); }
+}
+function showDone(){ try{ return localStorage.getItem('apexDateDone')==='1'; }catch(e){ return false; } }
+function toggleShowDone(){ try{ localStorage.setItem('apexDateDone', showDone()?'0':'1'); }catch(e){} renderTasks(); }
+
 function renderByDate(fresh){
   const t=todayIso(), wkEnd=addDays(t,7);
-  const rows=[];
+  const rows=[], finished=[];
+  const dayStart=new Date(); dayStart.setHours(0,0,0,0);
   state.taskLists.forEach(list=>{
     if(list.stashed) return;
-    (list.items||[]).forEach(it=>{ if(!it.done && passesWho(it)) rows.push({list,it}); });
+    (list.items||[]).forEach(it=>{
+      if(!passesWho(it)) return;
+      if(!it.done) rows.push({list,it});
+      else if(it.doneAt && it.doneAt >= dayStart.getTime()) finished.push({list,it});
+    });
   });
   const bucket=r=>{
     const d=r.it.due;
@@ -457,19 +496,53 @@ function renderByDate(fresh){
     return 'later';
   };
   const GROUPS=[['over','Overdue'],['today','Today'],['tom','Tomorrow'],['week','This week'],['later','Later'],['none','No date']];
+  // the groups whose date is unambiguous can be added to, and dropped on
+  const DATEOF={ today:t, tom:addDays(t,1), none:'' };
   const by={}; rows.forEach(r=>{ (by[bucket(r)]=by[bucket(r)]||[]).push(r); });
   const rank=r=>(r.it.due||'9999-99-99')+' '+(r.it.time||'99:99');
   let shown=0;
+  const addBtn=(h,k)=>{
+    if(!(k in DATEOF)) return;
+    const b=document.createElement('button'); b.className='gadd'; b.type='button';
+    b.textContent='+ Add';
+    const l=dateAddList();
+    b.title = l ? ('Add a task here — it goes into "'+l.name+'"') : 'Add a task here';
+    b.addEventListener('click',e=>{ e.stopPropagation(); addOnDate(DATEOF[k]); });
+    h.appendChild(b);
+  };
   GROUPS.forEach(([k,label])=>{
-    const g=by[k]; if(!g || !g.length) return;
-    g.sort((a,b)=> rank(a).localeCompare(rank(b)) || a.list.name.localeCompare(b.list.name));
+    const g=by[k];
+    const can=(k in DATEOF);
+    if((!g || !g.length) && !can) return;              // empty groups stay out unless you can add to them
+    if(g) g.sort((a,b)=> rank(a).localeCompare(rank(b)) || a.list.name.localeCompare(b.list.name));
     const h=document.createElement('div'); h.className='tdategroup';
-    h.innerHTML='<h3 class="'+(k==='over'?'over':k==='today'?'today':'')+'">'+esc(label)+'</h3><span class="n">'+g.length+'</span>';
+    h.innerHTML='<h3 class="'+(k==='over'?'over':k==='today'?'today':'')+'">'+esc(label)+'</h3><span class="n">'+((g&&g.length)||0)+'</span>';
+    addBtn(h,k);
     board.appendChild(h);
     const ul=document.createElement('ul'); ul.className='titems tflat';
-    g.forEach(({list,it})=>{
+    ul.dataset.group=k;
+    if(can){
+      /* drag a task onto a day to move it there — the by-date counterpart of
+         dragging between lists on the board. The header counts as part of the
+         day, so an empty day is still an easy target. */
+      const mark=on=>ul.classList.toggle('dropok',on);
+      [ul,h].forEach(zone=>{
+        zone.addEventListener('dragover',e=>{ if(!dragItem) return; e.preventDefault(); e.dataTransfer.dropEffect='move'; mark(true); });
+        // moving onto a child fires dragleave on the parent too — only clear when
+        // the pointer has really left the zone, or the highlight flickers off
+        zone.addEventListener('dragleave',e=>{ if(!e.relatedTarget || !zone.contains(e.relatedTarget)) mark(false); });
+        zone.addEventListener('drop',e=>{
+          e.preventDefault(); e.stopPropagation(); mark(false);
+          if(!dragItem) return;
+          const it=findItem(dragItem.listId, dragItem.itemId); if(!it) return;
+          if((it.due||'')===DATEOF[k]) return;
+          it.due=DATEOF[k]; save(); renderTasks();
+          toast(DATEOF[k] ? ('Moved to '+label.toLowerCase()) : 'Date removed');
+        });
+      });
+    }
+    (g||[]).forEach(({list,it})=>{
       const li=taskRow(list.id, it, false);
-      li.draggable=false;                                   // order here is the dates', not yours
       const lc=document.createElement('span'); lc.className='tlistchip';
       lc.textContent=list.name; lc.title='In "'+list.name+'" — click to open the board there';
       lc.addEventListener('click',e=>{ e.stopPropagation(); setView('board'); setTimeout(()=>{
@@ -479,9 +552,34 @@ function renderByDate(fresh){
       const main=li.querySelector('.tmain'); if(main) main.appendChild(lc);
       ul.appendChild(li); shown++;
     });
+    if(!(g&&g.length)){
+      const e=document.createElement('li'); e.className='tempty'; e.style.padding='10px 14px';
+      e.textContent = k==='none' ? 'Nothing without a date.' : 'Nothing here yet — + Add, or drag a task onto this day.';
+      ul.appendChild(e);
+    }
     board.appendChild(ul);
   });
-  if(!shown){
+  /* what you ticked today, so a mistaken tick is one click away from coming back */
+  if(finished.length){
+    const h=document.createElement('div'); h.className='tdategroup';
+    h.innerHTML='<h3>Done today</h3><span class="n">'+finished.length+'</span>';
+    const b=document.createElement('button'); b.className='gdone'; b.type='button';
+    b.textContent = showDone() ? 'Hide' : 'Show';
+    b.title = 'Show what you finished today — click a tick to put it back';
+    b.addEventListener('click',e=>{ e.stopPropagation(); toggleShowDone(); });
+    h.appendChild(b); board.appendChild(h);
+    if(showDone()){
+      const ul=document.createElement('ul'); ul.className='titems tflat tdone';
+      finished.sort((a,b)=>(b.it.doneAt||0)-(a.it.doneAt||0)).forEach(({list,it})=>{
+        const li=taskRow(list.id, it, false); li.draggable=false;
+        const lc=document.createElement('span'); lc.className='tlistchip'; lc.textContent=list.name;
+        const main=li.querySelector('.tmain'); if(main) main.appendChild(lc);
+        ul.appendChild(li);
+      });
+      board.appendChild(ul);
+    }
+  }
+  if(!shown && !finished.length){
     const e=document.createElement('div'); e.className='tempty';
     e.textContent = whoFilter() ? 'Nothing open for that person.' : 'Nothing open. The board view still has your lists and anything completed.';
     board.appendChild(e);
@@ -683,14 +781,14 @@ function taskRow(listId, it, isSub){
       if(e.shiftKey) outdentTask(listId, it.id, e.target); else indentTask(listId, it.id, e.target); }
   });
   txt.addEventListener("focus", () => { li.draggable = false; });
-  txt.addEventListener("blur", () => { li.draggable = currentView() !== 'date'; });
+  txt.addEventListener("blur", () => { li.draggable = true; });
 
   // description — small grey line under the task, like Google Tasks "details"
   const desc = document.createElement("div");
   desc.className = "tdesc"; desc.contentEditable = "true"; desc.spellcheck = false;
   desc.textContent = it.desc || "";
   let _td=null; desc.addEventListener("input", e => { clearTimeout(_td); _td=setTimeout(()=>{ it.desc = e.target.textContent.trim(); save(); },400); });
-  desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = currentView() !== 'date'; });
+  desc.addEventListener("blur", e => { it.desc = e.target.textContent.trim(); save(); li.draggable = true; });
   desc.addEventListener("focus", () => { li.draggable = false; });
   desc.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); e.target.blur(); } if(e.key === "Escape"){ e.target.blur(); } });
   const main = document.createElement("div"); main.className = "tmain"; main.appendChild(txt); main.appendChild(desc);
@@ -796,6 +894,8 @@ function toggleTask(listId, itemId){ try{ApexUse.log('task:done');}catch(e){}
   const it = findItem(listId, itemId); if(!it) return;
   const l = findList(listId);
   it.done = !it.done;
+  // when, so the by-date view can show you what you finished today (and let you put it back)
+  if(it.done) it.doneAt = Date.now(); else delete it.doneAt;
   // completing a parent completes its subtasks too
   if(it.parent === null) childrenOf(l, it.id).forEach(s => s.done = it.done);
   // recurring: the next occurrence appears at the top, the finished one goes to Completed
@@ -1074,6 +1174,9 @@ function wireItemDrag(li){
     dragItem = null;
   });
   li.addEventListener("dragover", e => {
+    // in the by-date view the order is the dates', so a drop means "move it to
+    // this day" — let the group underneath handle it
+    if(currentView()==='date') return;
     e.preventDefault();
     if(!dragItem) return;
     const rect = li.getBoundingClientRect();
@@ -1083,6 +1186,7 @@ function wireItemDrag(li){
   });
   li.addEventListener("dragleave", () => li.classList.remove("drop-before","drop-after"));
   li.addEventListener("drop", e => {
+    if(currentView()==='date') return;                 // the day group takes this one
     e.preventDefault(); e.stopPropagation();
     if(!dragItem) return;
     const rect = li.getBoundingClientRect();
