@@ -83,9 +83,29 @@
   .titem.done .ttext{color:#9aa1ad;text-decoration:line-through;}
   .ttext:empty:before{content:"New task";color:#b0b7c3;}
   /* enter / leave animations (Google Tasks feel) */
-  @keyframes tin{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:none;max-height:120px}}
+  /* A new row does three things at once, the way Google Tasks does it: the space
+     for it opens, the row itself settles down into that space, and it glows for a
+     moment so your eye lands on the right line before you start typing. */
+  @keyframes tin{
+    0%  {opacity:0; max-height:0;     padding-top:0;   padding-bottom:0; transform:translateY(-6px) scale(.985)}
+    45% {opacity:1; max-height:120px; padding-top:8px; padding-bottom:8px; transform:translateY(0) scale(1.004)}
+    100%{opacity:1; max-height:120px; padding-top:8px; padding-bottom:8px; transform:none}
+  }
+  @keyframes tglow{
+    0%  {background:var(--accent-dim); box-shadow:inset 0 0 0 1px rgba(26,115,232,.25)}
+    70% {background:var(--accent-dim); box-shadow:inset 0 0 0 1px rgba(26,115,232,.12)}
+    100%{background:transparent;       box-shadow:inset 0 0 0 1px transparent}
+  }
   @keyframes tout{from{opacity:1;transform:none;max-height:120px}to{opacity:0;transform:translateX(18px);max-height:0;padding-top:0;padding-bottom:0;margin:0}}
-  .titem.enter{animation:tin .28s cubic-bezier(.2,.8,.2,1) both;overflow:hidden}
+  .titem.enter{animation:tin .34s cubic-bezier(.22,1,.3,1) both, tglow .9s ease-out .12s both;overflow:hidden}
+  .titem.enter .ttext{animation:ttextin .3s cubic-bezier(.2,.8,.2,1) .06s both}
+  @keyframes ttextin{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+  /* the rows below slide down rather than jumping */
+  .titems .titem{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+  @media (prefers-reduced-motion: reduce){
+    .titem.enter,.titem.enter .ttext,.titem.leaving{animation:none}
+    .titems .titem{transition:none}
+  }
   .titem.leaving{animation:tout .24s ease-in both;overflow:hidden;pointer-events:none}
   .tcheck.pop{animation:pop .3s cubic-bezier(.2,.8,.2,1)}
   @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(1)}}
@@ -565,7 +585,11 @@ function renderTasks(){
 
     board.appendChild(col);
   });
-  fresh.forEach(id => { const li = board.querySelector('[data-item="'+id+'"]'); if(li) li.classList.add('enter'); });
+  fresh.forEach(id => {
+    const li = board.querySelector('[data-item="'+id+'"]'); if(!li) return;
+    li.classList.add('enter');
+    li.addEventListener('animationend', e => { if(e.animationName === 'tglow') li.classList.remove('enter'); });
+  });
 }
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

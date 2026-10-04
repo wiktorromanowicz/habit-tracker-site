@@ -56,7 +56,9 @@
   td.future:hover{background:transparent;}
   td.today-cell{background:rgba(59,130,246,.07);}
   .habit-actions{display:none;gap:6px;margin-top:8px;}
-  td.habit-col:hover .habit-actions{display:flex;}
+  td.habit-col.open .habit-actions{display:flex;}
+  td.habit-col.open{background:var(--panel2);box-shadow:inset 2px 0 0 var(--accent);}
+  td.habit-col .hname{cursor:pointer}
   .habit-actions button{padding:3px 8px;font-size:11px;background:transparent;color:var(--muted);}
   .habit-actions button:hover{color:var(--text);background:var(--panel2);}
   .footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:12px;color:var(--muted);}
@@ -112,14 +114,14 @@
   .sheet td.pre:hover{background:repeating-linear-gradient(135deg,transparent,transparent 5px,rgba(160,150,130,.13) 5px,rgba(160,150,130,.13) 6px);}
   .sheet td.pre .dot{display:none;}
   /* never break twice — one miss is quiet, a second consecutive miss is the alarm */
-  .sheet td.miss2 .dot{border-color:#d98b7a;background:rgba(200,80,55,.13);}
+  .sheet td.miss2 .dot{border-color:#e0bd72;background:rgba(190,140,30,.14);}
   .risk{display:flex;flex-direction:column;gap:6px;padding:0 0 14px;}
   .risk .rrow{display:flex;align-items:center;gap:9px;font-size:13px;padding:9px 13px;border-radius:10px;
-    background:#fdf3ee;border:1px solid #f0d4c6;color:#8a3f28;}
-  .risk .rrow.broke{background:#fbeceb;border-color:#eec6c2;color:#8d3630;}
+    background:#fff8e8;border:1px solid #f0dfb4;color:#7a5a12;}
+  .risk .rrow.broke{background:#fff8e8;border-color:#f0dfb4;color:#8a6410;}
   .risk .rrow b{font-weight:650;}
-  .risk .rrow .why{color:#a8705c;}
-  .risk .rrow.calm{background:var(--chip,#eef2f8);border-color:var(--line,#e2e8f2);color:#7d7566;}
+  .risk .rrow .why{color:#9c7b3a;}
+  .risk .rrow.calm{background:var(--chip,#eef2f8);border-color:var(--line,#e2e8f2);color:#5e6675;}
   .risk .rrow.calm .why{color:#8690a0;}
   .hstat{color:#b0a693;}
   .hstat b{color:#7a8496;font-weight:600;}
@@ -470,6 +472,16 @@ function delHabit(hid){
   }
 }
 
+let openHabit = null;   // the habit opened for Edit / Hide / Delete (click, not hover)
+document.addEventListener('click', e=>{
+  const cell = e.target.closest && e.target.closest('td.habit-col');
+  if(e.target.closest && e.target.closest('.habit-actions, .hgrip')) return;
+  const id = cell ? cell.dataset.h : null;
+  if(id === openHabit) return;
+  openHabit = id; render();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && openHabit){ openHabit=null; render(); } });
+
 function render(){
   const today = new Date(); today.setHours(0,0,0,0);
   const WD = ["S","M","T","W","T","F","S"];
@@ -506,7 +518,7 @@ function render(){
       bits.push(streak>0 ? `<span class="streak">🔥 ${streak}d</span>` : `<span class="hstat">no run</span>`);
       if(best>0) bits.push(`<span class="hstat">best <b>${best}d</b></span>`);
       if(r30.cells>=3) bits.push(`<span class="hstat"><b>${r30.pct}%</b> last ${r30.cells===30?"30 days":r30.cells+" days"}</span>`);
-      let row = `<td class="habit-col">
+      let row = `<td class="habit-col${openHabit===h.id?' open':''}" data-h="${h.id}">
         <span class="hgrip" draggable="true" title="Drag to reorder">\u283f</span>
         <div class="hname">${escapeHtml(h.name)}</div>
         <div class="hmeta">${bits.join(" · ")}</div>
