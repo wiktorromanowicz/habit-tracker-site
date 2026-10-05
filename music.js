@@ -5,7 +5,7 @@
 (function () {
   if (window.ApexMusic) return;
   var DB = 'apexMusic', STORE = 'tracks', SKEY = 'apexMusicState';
-  var db = null, audio = null, cur = null, url = null, saveT = 0, armed = false;
+  var db = null, audio = null, cur = null, url = null, saveT = 0, armed = false, stopped = false;
   var state = { id: null, pos: 0, playing: false, vol: 0.9, shuffle: false, repeat: 'all', order: [] };
   try { var s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s) state = Object.assign(state, s); } catch (e) {}
 
@@ -69,6 +69,7 @@
     }
     else if (m.k === 'free' && !owner) { heard = 0; setTimeout(takeover, 30 + Math.random() * 140); }
     else if (m.k === 'cmd' && owner) { apply(m.fn, m.args || []); }
+    else if (m.k === 'trim' && owner) { applyTrim(m.id, m.end); }
     else if (m.k === 'drop' && owner && state.id === m.id) { stop(); state.id = null; state.pos = 0; save(); emit(); }
   }
   if (bus) bus.onmessage = function (e) { onBus(e.data); };
@@ -110,6 +111,9 @@
     if (audio) state.pos = audio.currentTime;
     save(); unstamp(); post({ k: 'free' });
   });
+  function applyTrim(id, end) {
+    if (cur && cur.id === id) { if (end) cur.end = end; else delete cur.end; stopped = false; emit('track'); }
+  }
   /* a command from a page that is not the owner */
   function apply(fn, args) {
     if (fn === 'play') return play(args[0]);
@@ -192,7 +196,15 @@
     if (audio) return audio;
     audio = document.createElement('audio');
     audio.preload = 'auto'; audio.volume = state.vol;   // 'metadata' made every resume decode twice
-    audio.addEventListener('timeupdate', function () { if (suspend) return; state.pos = audio.currentTime; if (Date.now() - saveT > 900) { saveT = Date.now(); save(); } emit('time'); });
+    audio.addEventListener('timeupdate', function () {
+      if (suspend) return;
+      /* a track can declare its own end — a file with half an hour of silence
+         glued to it (or a long intro you never want) ends where you said */
+      if (cur && cur.end && audio.currentTime >= cur.end - 0.05) {
+        if (!stopped) { stopped = true; next(true); }
+        return;
+      }
+      state.pos = audio.currentTime; if (Date.now() - saveT > 900) { saveT = Date.now(); save(); } emit('time'); });
     audio.addEventListener('ended', function () { if (!suspend) next(true); });
     audio.addEventListener('play', function () { if (suspend) return; state.playing = true; save(); emit(); });
     audio.addEventListener('pause', function () { if (suspend) return; state.playing = false; save(); emit(); });
@@ -227,7 +239,7 @@
     var a = el();
     if (url) { URL.revokeObjectURL(url); url = null; }
     url = URL.createObjectURL(rec.blob);
-    cur = rec; state.id = rec.id; state.pos = at || 0;
+    cur = rec; state.id = rec.id; state.pos = at || 0; stopped = false;
     /* A media fragment makes the browser start decoding AT the offset. Setting
        currentTime after metadata instead meant decoding from zero and then
        seeking — the audible stumble on every page change. */
@@ -331,6 +343,17 @@
       if (!owner && remote) remote[k] = v;          // so the button lights up at once, not on the next broadcast
       return cmd('flag', [k, v]); },
     owns: function () { return owner; },
+    /* end a track early (or put it back): seconds, or 0 to use the whole file */
+    trim: function (id, end) {
+      return get(id).then(function (rec) {
+        if (!rec) return null;
+        if (end) rec.end = Math.max(1, end); else delete rec.end;
+        return put(rec).then(function () {
+          if (owner) applyTrim(id, end); else post({ k: 'trim', id: id, end: end || 0 });
+          emit('track'); return rec;
+        });
+      });
+    },
     now: now, usage: usage, nameParts: nameParts };
   /* Boot immediately. Waiting for DOMContentLoaded meant every tab change left a
      hole in the music while the rest of the page parsed — none of this needs the

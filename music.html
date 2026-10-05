@@ -39,6 +39,9 @@
   .toggles{display:flex;gap:6px;margin-left:auto}
   .toggles button.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .toggles button.off{opacity:.42}            /* no repeat: the icon stays, greyed */
+  td.d .cutb{background:transparent;border:0;color:var(--muted);font-size:11px;padding:0 0 0 6px;opacity:.5;cursor:pointer}
+  td.d .cutb:hover{opacity:1;color:var(--accent)}
+  td.d .cut{color:var(--accent);font-weight:600}
   /* list */
   table{width:100%;border-collapse:collapse;font-size:14px}
   th{text-align:left;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 8px 7px}
@@ -143,7 +146,9 @@ async function renderList(){
   $('rows').innerHTML=tracks.map(t=>'<tr class="'+(t.id===n.id?'on':'')+'" data-id="'+t.id+'">'+
     '<td class="pl"><button class="p" data-a="play" title="Play">'+(t.id===n.id&&n.playing?'⏸':'▶')+'</button></td>'+
     '<td><input class="edit ti" data-f="title" value="'+esc(t.title)+'" placeholder="Title"><input class="edit ar" data-f="artist" value="'+esc(t.artist)+'" placeholder="Artist"></td>'+
-    '<td class="d">'+(t.dur?mmss(t.dur):'—')+'</td><td class="s">'+mb(t.size||0)+'</td>'+
+    '<td class="d">'+(t.end?('<b class="cut">'+mmss(t.end)+'</b>'):(t.dur?mmss(t.dur):'—'))+
+      '<button class="cutb" data-a="cut" title="'+(t.end?'Using the first '+mmss(t.end)+' — click to use the whole file again':'End the track where it is playing now')+'">'+(t.end?'↺':'✂')+'</button>'+
+      '</td><td class="s">'+mb(t.size||0)+'</td>'+
     '<td class="x"><button class="del" data-a="del" title="Remove from Apex">🗑</button></td></tr>').join('');
   const total=tracks.reduce((a,t)=>a+(t.size||0),0);
   $('stat').textContent=tracks.length?(tracks.length+(tracks.length===1?' track · ':' tracks · ')+mb(total)):'';
@@ -172,6 +177,18 @@ function renderPlayer(){
 $('rows').addEventListener('click',async e=>{
   const b=e.target.closest('button'); if(!b) return; const tr=b.closest('tr'); const id=tr.dataset.id;
   if(b.dataset.a==='play'){ const n=M.now(); if(n.id===id) await M.toggle(); else await M.play(id); renderPlayer(); }
+  /* "ends here": some files carry a long tail of silence (an mp4 that says it is
+     an hour when the music stops at thirty minutes). Play to the point it should
+     end and cut it there — the player then stops, or loops, at that second. */
+  if(b.dataset.a==='cut'){
+    const rec=await M.get(id); if(!rec) return;
+    if(rec.end){ await M.trim(id,0); await renderList(); toast('Using the whole file again'); return; }
+    const n=M.now();
+    if(n.id!==id || !(n.pos>5)){ toast('Play it up to where it should end, then press ✂'); return; }
+    await M.trim(id, Math.round(n.pos));
+    await renderList(); toast('Ends at '+mmss(Math.round(n.pos))+' now');
+    return;
+  }
   if(b.dataset.a==='del'){ const t=tracks.find(x=>x.id===id); if(!confirm('Remove "'+((t&&t.title)||'this track')+'" from Apex? The original file on your disk is untouched.')) return; await M.remove(id); await renderList(); toast('Removed'); }
 });
 $('rows').addEventListener('change',async e=>{
