@@ -167,10 +167,22 @@
       '<div class="mp-row"><button data-a="prev" title="Previous">\u23EE</button>' +
       '<button data-a="play" title="Play / pause">' + (n.playing ? '\u23F8' : '\u25B6') + '</button>' +
       '<button data-a="next" title="Next">\u23ED</button>' +
+      // loop lives here too: wanting a track on repeat is not a reason to leave
+      // the page you are working on
+      '<button data-a="loop" class="mp-loop' + (n.repeat === 'none' ? ' off' : n.repeat === 'one' ? ' one' : '') + '" title="' +
+        (n.repeat === 'one' ? 'Looping this song' : n.repeat === 'none' ? 'No repeat' : 'Looping everything') +
+        ' \u2014 click to change">' + (n.repeat === 'one' ? '\uD83D\uDD02' : '\uD83D\uDD01') + '</button>' +
       '<a href="music.html" title="Open Music">\uD83C\uDFB5</a></div>';
     mp.querySelectorAll('button').forEach(function (b) {
       b.onclick = function () { var a = b.dataset.a, M = window.ApexMusic;
-        if (a === 'play') M.toggle(); else if (a === 'next') M.next(); else M.prev(); };
+        if (a === 'play') M.toggle();
+        else if (a === 'next') M.next();
+        else if (a === 'loop') {
+          var r = M.now().repeat;
+          M.setFlag('repeat', r === 'all' ? 'one' : r === 'one' ? 'none' : 'all');
+          paintMusic();
+        }
+        else M.prev(); };
     });
 
     /* scrubbing from the sidebar, so moving through a track does not mean

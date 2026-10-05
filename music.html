@@ -38,6 +38,7 @@
   .vol input{width:90px;accent-color:var(--accent)}
   .toggles{display:flex;gap:6px;margin-left:auto}
   .toggles button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .toggles button.off{opacity:.42}            /* no repeat: the icon stays, greyed */
   /* list */
   table{width:100%;border-collapse:collapse;font-size:14px}
   th{text-align:left;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 8px 7px}
@@ -102,7 +103,7 @@
       </div>
       <div class="toggles">
         <button id="bShuf" title="Shuffle">🔀</button>
-        <button id="bRep" title="Repeat all / one">🔁</button>
+        <button id="bRep" title="Repeat">🔁</button>
       </div>
     </div>
     <div class="seek"><span id="npPos">0:00</span><input type="range" id="npSeek" min="0" max="1000" value="0"><span id="npDur">0:00</span>
@@ -155,8 +156,12 @@ function renderPlayer(){
   if(n.track){ $('npT').textContent=n.track.title||n.track.name; $('npA').textContent=n.track.artist||''; }
   $('bPlay').textContent=n.playing?'⏸':'▶';
   $('bShuf').classList.toggle('on',!!n.shuffle);
-  $('bRep').classList.toggle('on',n.repeat==='one');
+  $('bRep').classList.toggle('on',n.repeat==='one'||n.repeat==='all');
+  $('bRep').classList.toggle('off',n.repeat==='none');
   $('bRep').textContent=n.repeat==='one'?'🔂':'🔁';
+  $('bRep').title = n.repeat==='one' ? 'Looping this song — click for no repeat'
+                  : n.repeat==='all' ? 'Looping everything — click to loop just this song'
+                  : 'No repeat — click to loop everything';
   const dur=n.dur||0; $('npDur').textContent=mmss(dur); $('npPos').textContent=mmss(n.pos);
   if(document.activeElement!==$('npSeek')) $('npSeek').value=dur?Math.round(n.pos/dur*1000):0;
   $('npVol').value=Math.round(n.vol*100);
@@ -200,7 +205,10 @@ $('bPlay').addEventListener('click',()=>M.toggle().then(renderPlayer));
 $('bNext').addEventListener('click',()=>M.next().then(renderPlayer));
 $('bPrev').addEventListener('click',()=>M.prev().then(renderPlayer));
 $('bShuf').addEventListener('click',()=>{ M.setFlag('shuffle',!M.now().shuffle); renderPlayer(); });
-$('bRep').addEventListener('click',()=>{ M.setFlag('repeat',M.now().repeat==='one'?'all':'one'); renderPlayer(); });
+/* all → one → none → all: "loop this song" is the one people actually want,
+   so it sits one click from the default */
+$('bRep').addEventListener('click',()=>{ const r=M.now().repeat;
+  M.setFlag('repeat', r==='all'?'one' : r==='one'?'none' : 'all'); renderPlayer(); });
 $('npSeek').addEventListener('input',()=>{ const n=M.now(); if(n.dur) M.seek(n.dur*($('npSeek').value/1000)); });
 $('npVol').addEventListener('input',()=>M.volume($('npVol').value/100));
 window.addEventListener('apex-music',renderPlayer);

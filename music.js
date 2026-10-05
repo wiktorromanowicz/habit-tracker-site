@@ -268,6 +268,10 @@
     return list().then(function (rows) {
       if (!rows.length) return;
       var i = rows.findIndex(function (r) { return r.id === state.id; });
+      /* Looping one song has to be decided BEFORE the end-of-list check, or the
+         last track (and a library of one) stopped instead of repeating — which
+         is exactly the case where you want a loop. */
+      if (auto && state.repeat === 'one') return load(rows[i < 0 ? 0 : i], 0, true);
       var n;
       if (state.shuffle && rows.length > 1) { do { n = Math.floor(Math.random() * rows.length); } while (n === i); }
       else n = i < 0 ? 0 : i + dir;
@@ -323,7 +327,9 @@
     prev: function () { return cmd('prev', []); },
     seek: function (t) { if (!owner && remote) { remote.pos = t; emit('time'); } return cmd('seek', [t]); },
     volume: function (v) { state.vol = Math.max(0, Math.min(1, v)); save(); return cmd('volume', [v]); },
-    setFlag: function (k, v) { state[k] = v; save(); return cmd('flag', [k, v]); },
+    setFlag: function (k, v) { state[k] = v; save();
+      if (!owner && remote) remote[k] = v;          // so the button lights up at once, not on the next broadcast
+      return cmd('flag', [k, v]); },
     owns: function () { return owner; },
     now: now, usage: usage, nameParts: nameParts };
   /* Boot immediately. Waiting for DOMContentLoaded meant every tab change left a

@@ -51,6 +51,10 @@ body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
 #apexSide .mp .mp-row{display:flex;gap:4px;align-items:center}
 #apexSide .mp .mp-row button,#apexSide .mp .mp-row a{flex:1;border:1px solid var(--line);background:var(--chip,#eef2f8);color:var(--ink,#232833);border-radius:7px;padding:4px 0;font-size:12px;cursor:pointer;font-family:inherit;text-align:center;text-decoration:none;line-height:1.3}
 #apexSide .mp .mp-row button:hover,#apexSide .mp .mp-row a:hover{border-color:#a9741f;color:#a9741f}
+/* the loop button says its state without a label: lit when looping this song,
+   faded when nothing repeats */
+#apexSide .mp .mp-row button.mp-loop.one{border-color:var(--accent,#1a73e8);color:var(--accent,#1a73e8)}
+#apexSide .mp .mp-row button.mp-loop.off{opacity:.45}
 
 /* timer widget */
 #apexSide .tw{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
