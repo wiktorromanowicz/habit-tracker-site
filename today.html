@@ -54,10 +54,17 @@
   .task .lst{font-size:11px;color:var(--muted)}
   /* habits */
   .hab{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
+  /* three days, oldest on the left — so a missed yesterday is visible, and fixable */
+  .hab .days{display:flex;gap:7px;flex:none}
   .hab .chk{width:18px;height:18px;border-radius:5px;border:1.6px solid #c9c2b2;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface,#fff)}
+  .hab .chk.past{border-color:#ded9cc;background:transparent}
   .hab .chk.on{background:#16a34a;border-color:#16a34a}
+  .hab .chk.past.on{background:#8fcfa6;border-color:#8fcfa6}   /* done, but not today's business */
   .hab .chk.on::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
   .hab .st{margin-left:auto;font-size:12px;color:var(--muted)}
+  .habhead{display:flex;gap:7px;padding:2px 0 3px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .habhead span{width:18px;text-align:center}
+  .habhead span.now{color:var(--text);font-weight:700}
   /* time */
   .tbar{height:10px;border-radius:5px;overflow:hidden;display:flex;background:var(--chip);margin:8px 0 6px}
   .tbar i{display:block;height:100%}
@@ -539,29 +546,45 @@ setInterval(refreshNowCard, 60000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshNowCard(); });
 window.addEventListener('focus',refreshNowCard);
 
-/* habits — today's checkboxes */
+/* habits — the last three days, today on the right */
 (function(){
   const st=ls('titan_habits_v1',null); if(!st||!st.habits||!st.habits.length){ $('habits').innerHTML='<div class="empty">No habits set up.</div>'; return; }
   const hiso=d=>isoDay(d);
-  /* Apex.app keeps this page alive for days. `today` was captured when the page
-     loaded, so after midnight a tick landed on yesterday and the checkbox showed
-     the wrong day. Ask the clock at the moment of the click instead. */
+  /* Apex.app keeps this page alive for days. The day was captured when the page
+     loaded, so after midnight a tick landed on yesterday and the boxes showed
+     the wrong days. Ask the clock every time instead. */
   const htodayNow=()=>isoDay(new Date());
+  const DAYL=['S','M','T','W','T','F','S'];
+  const lastDays=()=>{ const out=[], d=new Date(); d.setHours(0,0,0,0);
+    for(let i=2;i>=0;i--){ const x=new Date(d); x.setDate(d.getDate()-i);
+      out.push({ iso:hiso(x), lbl:DAYL[x.getDay()], today:i===0,
+                 name:x.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'}) }); }
+    return out; };
   const streak=h=>{ let s=0; const d=new Date(); d.setHours(0,0,0,0); if(!h.done[hiso(d)]) d.setDate(d.getDate()-1); while(h.done[hiso(d)]){ s++; d.setDate(d.getDate()-1); } return s; };
-  const paintHabits=()=>{ const s2=ls('titan_habits_v1',null)||{habits:[]}; const ht=htodayNow();
-    (s2.habits||[]).forEach(h=>{ const c=$('habits').querySelector('.chk[data-id="'+h.id+'"]'); if(!c) return;
-      const on=!!(h.done&&h.done[ht]); c.classList.toggle('on',on); c.setAttribute('aria-checked',on?'true':'false'); }); };
-  const htoday=htodayNow();
-  $('habits').innerHTML=st.habits.map(h=>'<div class="hab"><div class="chk'+(h.done&&h.done[htoday]?' on':'')+'" role="checkbox" aria-checked="'+(h.done&&h.done[htoday]?'true':'false')+'" tabindex="0" aria-label="'+esc(h.name)+'" data-id="'+esc(h.id)+'"></div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'🔥 '+streak(h):'')+'</span></div>').join('');
+  const paintHabits=()=>{
+    const s2=ls('titan_habits_v1',null)||{habits:[]}, days=lastDays();
+    $('habits').innerHTML='<div class="habhead">'+days.map(d=>'<span class="'+(d.today?'now':'')+'" title="'+esc(d.name)+'">'+d.lbl+'</span>').join('')+'</div>'+
+      (s2.habits||[]).map(h=>'<div class="hab"><div class="days">'+
+        days.map(d=>{ const on=!!(h.done&&h.done[d.iso]);
+          return '<div class="chk'+(d.today?'':' past')+(on?' on':'')+'" role="checkbox" aria-checked="'+(on?'true':'false')+'" tabindex="0"'+
+            ' aria-label="'+esc(h.name)+' — '+esc(d.name)+'" title="'+esc(h.name)+' — '+esc(d.name)+'"'+
+            ' data-id="'+esc(h.id)+'" data-day="'+d.iso+'"></div>'; }).join('')+
+        '</div><span>'+esc(h.name)+'</span><span class="st">'+(streak(h)?'\u{1F525} '+streak(h):'')+'</span></div>').join('');
+  };
+  paintHabits();
   $('habits').addEventListener('click',e=>{ const c=e.target.closest('.chk'); if(!c) return; const s=ls('titan_habits_v1',null); if(!s) return;
     if(!s.dateKeysLocal){ // same migration as the Habits page, so a tick written here is never shifted later
       const off=new Date(); off.setHours(0,0,0,0); if(off.toISOString().slice(0,10)!==isoDay(off)){ s.habits.forEach(x=>{ const nd={}; Object.keys(x.done||{}).forEach(k=>{ const [y,m,d]=k.split('-').map(Number); nd[isoDay(new Date(y,m-1,d+1))]=x.done[k]; }); x.done=nd; }); }
       s.dateKeysLocal=true; }   /* NOT dateKeysFix2 — that is a different fix the Habits page still has to run */
-    const ht=htodayNow();
+    /* the box says which day it is: a box drawn before midnight must not write
+       into the new day just because the clock has since rolled over */
+    const day=c.dataset.day||htodayNow();
+    if(day>htodayNow()){ paintHabits(); return; }          // the page sat open past midnight
     const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{};
-    if(h.done[ht]) delete h.done[ht]; else h.done[ht]=true;
+    if(h.done[day]) delete h.done[day]; else h.done[day]=true;
     localStorage.setItem('titan_habits_v1',JSON.stringify(s));
-    c.classList.toggle('on',!!h.done[ht]); c.setAttribute('aria-checked',h.done[ht]?'true':'false'); });
+    paintHabits();                                          // the streak moves too
+  });
   /* another tab ticked it: repaint, or the next click here would untick what you
      just ticked over there */
   window.addEventListener('storage',e=>{ if(e.key==='titan_habits_v1') paintHabits(); });
