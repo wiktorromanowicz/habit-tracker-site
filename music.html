@@ -173,6 +173,19 @@ function renderPlayer(){
   [...document.querySelectorAll('#rows tr')].forEach(tr=>{ const on=tr.dataset.id===n.id; tr.classList.toggle('on',on);
     const b=tr.querySelector('[data-a=play]'); if(b) b.textContent=on&&n.playing?'⏸':'▶'; });
 }
+/* lengths the browser got wrong (a fragmented MP4 read as twice its length)
+   are corrected from the file's own header, once, quietly, on the way in */
+(async function healLengths(){
+  try{
+    const fixed=await M.heal();
+    if(fixed && fixed.length){
+      await renderList(); renderPlayer();
+      toast(fixed.length===1
+        ? ('Fixed the length of "'+fixed[0].name+'" — '+mmss(fixed[0].now))
+        : ('Fixed the length of '+fixed.length+' tracks'));
+    }
+  }catch(e){}
+})();
 /* library actions */
 $('rows').addEventListener('click',async e=>{
   const b=e.target.closest('button'); if(!b) return; const tr=b.closest('tr'); const id=tr.dataset.id;

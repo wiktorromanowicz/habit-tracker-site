@@ -159,6 +159,88 @@
     if (m.length >= 2) return { artist: m[0].trim(), title: m.slice(1).join(' - ').trim() };
     return { artist: '', title: base };
   }
+  /* ---- how long is this file, really? ------------------------------------
+     A plain <audio> element is not always right. The files that come out of
+     Google's player are FRAGMENTED MP4s: the header carries no table of where
+     the audio is (the samples live in 181 separate fragments), so WebKit has
+     nothing to read and estimates instead — and estimates exactly double, which
+     is how a 30-minute track arrived as an hour with a silent second half.
+     The file itself always knows: mvhd/mdhd state the duration outright, and
+     when those are zero the fragment index (sidx) or mehd add up. So we read
+     the container ourselves and believe it over the browser. */
+  function head(blob, off, n) { return blob.slice(off, off + n).arrayBuffer().then(function (b) { return new DataView(b); }); }
+  function fourcc(dv, i) { return String.fromCharCode(dv.getUint8(i), dv.getUint8(i + 1), dv.getUint8(i + 2), dv.getUint8(i + 3)); }
+  /* walk the top-level boxes without reading the file: 16 bytes per box */
+  function topBoxes(blob) {
+    var found = {}, off = 0, guard = 0;
+    function step() {
+      if (off + 8 > blob.size || guard++ > 4000) return Promise.resolve(found);
+      return head(blob, off, 16).then(function (dv) {
+        if (dv.byteLength < 8) return found;
+        var size = dv.getUint32(0), type = fourcc(dv, 4);
+        if (size === 1) { if (dv.byteLength < 16) return found; size = Number(dv.getBigUint64(8)); }
+        else if (size === 0) size = blob.size - off;
+        if (size < 8) return found;
+        if (!found[type]) found[type] = { off: off, size: size };
+        off += size;
+        if (found.moov && found.sidx) return found;     // everything we might need
+        return step();
+      }).catch(function () { return found; });
+    }
+    return step();
+  }
+  function mp4Seconds(blob) {
+    if (!blob || !blob.slice || !blob.arrayBuffer) return Promise.resolve(0);
+    return topBoxes(blob).then(function (b) {
+      if (!b.moov) return 0;
+      return blob.slice(b.moov.off, b.moov.off + Math.min(b.moov.size, 4 << 20)).arrayBuffer().then(function (buf) {
+        var dv = new DataView(buf), best = 0;
+        /* the moov is small; a flat scan for the headers we want is simpler and
+           safer than a full tree walk, and a stray match cannot survive the
+           sanity checks below */
+        for (var i = 4; i + 32 < dv.byteLength; i++) {
+          var t = fourcc(dv, i);
+          if (t !== 'mvhd' && t !== 'mdhd' && t !== 'mehd') continue;
+          var p = i + 4, ver = dv.getUint8(p), ts = 0, du = 0;
+          try {
+            if (t === 'mehd') { ts = 0; du = ver === 1 ? Number(dv.getBigUint64(p + 4)) : dv.getUint32(p + 4); }
+            else if (ver === 1) { ts = dv.getUint32(p + 20); du = Number(dv.getBigUint64(p + 24)); }
+            else { ts = dv.getUint32(p + 12); du = dv.getUint32(p + 16); }
+          } catch (e) { continue; }
+          if (t === 'mehd') continue;                   // needs the movie timescale; mvhd below covers it
+          if (!ts || ts > 1e7 || !du || du === 0xFFFFFFFF) continue;
+          var secs = du / ts;
+          if (secs > 0.5 && secs < 24 * 3600 && secs > best) best = secs;
+        }
+        if (best) return best;
+        return b.sidx ? sidxSeconds(blob, b.sidx) : 0;
+      });
+    }).catch(function () { return 0; });
+  }
+  /* no usable header duration: add up the segment index instead */
+  function sidxSeconds(blob, box) {
+    return blob.slice(box.off, box.off + Math.min(box.size, 1 << 20)).arrayBuffer().then(function (buf) {
+      var dv = new DataView(buf), ver = dv.getUint8(8), p = 12;
+      var ts = dv.getUint32(p + 4); p += 8;
+      p += ver === 0 ? 8 : 16;
+      p += 2;
+      var n = dv.getUint16(p); p += 2, total = 0;
+      for (var i = 0; i < n && p + 12 <= dv.byteLength; i++, p += 12) total += dv.getUint32(p + 4);
+      return ts && total ? total / ts : 0;
+    }).catch(function () { return 0; });
+  }
+  var MP4ISH = /\.(mp4|m4a|m4b|m4v|mov|aac)$/i;
+  /* the length to store, and the point playback should stop at */
+  function measure(file) {
+    var isMp4 = /mp4|m4a|quicktime|x-m4a/.test(file.type || '') || MP4ISH.test(file.name || '');
+    return Promise.all([duration(file), isMp4 ? mp4Seconds(file) : Promise.resolve(0)]).then(function (r) {
+      var heard = r[0], real = r[1];
+      if (!real) return { dur: heard, end: 0 };
+      // the browser thinks the file is longer than it is: stop where it really ends
+      var end = (heard && heard > real * 1.05) ? real : 0;
+      return { dur: real, end: end };
+    });
+  }
   function duration(file) {
     return new Promise(function (res) {
       var a = document.createElement('audio'), u = URL.createObjectURL(file), done = function (v) { URL.revokeObjectURL(u); res(v); };
@@ -182,10 +264,11 @@
     if (!arr.length) return Promise.resolve([]);
     return arr.reduce(function (chain, f) {
       return chain.then(function (acc) {
-        return duration(f).then(function (dur) {
+        return measure(f).then(function (m) {
           var p = nameParts(f.name);
           var rec = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: f.name,
-                      title: p.title, artist: p.artist, type: f.type || 'audio/mpeg', size: f.size, dur: dur, added: Date.now(), blob: f };
+                      title: p.title, artist: p.artist, type: f.type || 'audio/mpeg', size: f.size, dur: m.dur, added: Date.now(), blob: f };
+          if (m.end) rec.end = m.end;        // the browser over-reads this file: stop where it really ends
           return put(rec).then(function () { acc.push(rec); return acc; });
         });
       });
@@ -343,6 +426,33 @@
       if (!owner && remote) remote[k] = v;          // so the button lights up at once, not on the next broadcast
       return cmd('flag', [k, v]); },
     owns: function () { return owner; },
+    /* Go back over the library and re-read each file's own header. Anything
+       stored from a container the browser mis-read (a fragmented MP4 reported at
+       twice its length) is corrected in place, and given an end point so it
+       stops where the audio does. Runs once per page load; cheap, because it
+       reads headers, not audio. */
+    heal: function () {
+      return list().then(function (rows) {
+        return rows.reduce(function (chain, rec) {
+          return chain.then(function (fixed) {
+            if (!rec.blob) return fixed;
+            return mp4Seconds(rec.blob).then(function (real) {
+              var was = rec.dur || 0;
+              if (!real || Math.abs(was - real) <= Math.max(2, real * 0.02)) return fixed;
+              rec.dur = real;
+              // it was being read as longer than it is: stop where the audio does
+              if (was > real * 1.05) rec.end = real;
+              fixed.push({ name: rec.title || rec.name, was: was, now: real });
+              // only rewrite a record we actually changed — these hold the audio itself
+              return put(rec).then(function () { return fixed; });
+            }).catch(function () { return fixed; });
+          });
+        }, Promise.resolve([])).then(function (fixed) {
+          if (fixed.length) { if (cur) { var c = cur.id; get(c).then(function (r) { if (r && cur && cur.id === c) { cur.dur = r.dur; if (r.end) cur.end = r.end; emit('track'); } }); } emit(); }
+          return fixed;
+        });
+      });
+    },
     /* end a track early (or put it back): seconds, or 0 to use the whole file */
     trim: function (id, end) {
       return get(id).then(function (rec) {
