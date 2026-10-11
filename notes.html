@@ -481,7 +481,16 @@ function serializeBody(){
   return c.innerHTML;
 }
 let t=null;
-function scheduleSave(){ clearTimeout(t); t=setTimeout(flush,300); }
+/* Saving re-serialises the note and rewrites the whole store. At 300 ms that
+   happened in the middle of typing, and on a long note each one is a layout
+   pass the browser takes out of the audio's time slice — which is why the
+   music stuttered while writing. Wait for a real pause instead, and make sure
+   every way of leaving the note flushes it first. */
+function scheduleSave(){ clearTimeout(t); t=setTimeout(flush,900); }
+['blur','pagehide'].forEach(k=>window.addEventListener(k,()=>{ try{ flush(); }catch(e){} }));
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){ try{ flush(); }catch(e){} } });
+bodyEl.addEventListener('blur',()=>{ try{ flush(); }catch(e){} });
+titleEl.addEventListener('blur',()=>{ try{ flush(); }catch(e){} });
 function flush(){
   clearTimeout(t); t=null;
   const n=cur(); if(!n||loading||loadedId!==n.id) return;

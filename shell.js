@@ -133,7 +133,13 @@
     $('#apexKeysBtn', side).addEventListener('click', openKeys);
     $('#apexCtxBtn', side).addEventListener('click', copyContext);
     paintFoot(); paintMusic();
-    window.addEventListener('apex-music', paintMusic);
+    window.addEventListener('apex-music', function (e) {
+      // the clock ticks four times a second. Rebuilding the player's markup that
+      // often forces the whole page through layout again — on a long note that
+      // is what made the music stutter while typing. A tick now moves the bar
+      // and the two numbers, nothing else.
+      if (e && e.detail && e.detail.kind === 'time') tickMusic(); else paintMusic();
+    });
     // phone: the sidebar footer is hidden, so sync chips / theme / search get a slim bar above the page
     var phone = document.createElement('div'); phone.id = 'apexPhoneBar';
     phone.innerHTML = '<div class="pb-chips" id="apexPhoneChips"></div><button class="sb-btn" id="apexPhonePal">Search</button><button class="sb-btn" id="apexPhoneTheme">' + (theme === 'dark' ? '☀︎' : '☾') + '</button>';
@@ -149,6 +155,21 @@
     }
   }
   var mpSeeking = false;
+  function tickMusic() {
+    if (mpSeeking) return;
+    var mp = document.getElementById('apexMp');
+    if (!mp || mp.style.display === 'none' || !window.ApexMusic) return;
+    var fill = mp.querySelector('.mp-bar i'), times = mp.querySelectorAll('.mp-time span');
+    if (!fill || times.length < 2) return paintMusic();        // not built yet
+    var n = window.ApexMusic.now();
+    if (!n.track && !n.id) return paintMusic();
+    fill.style.width = (n.dur ? Math.min(100, n.pos / n.dur * 100) : 0) + '%';
+    var a = mmss(n.pos), b = n.dur ? mmss(n.dur) : '';
+    if (times[0].textContent !== a) times[0].textContent = a;
+    if (times[1].textContent !== b) times[1].textContent = b;
+    var bar = mp.querySelector('.mp-bar');
+    if (bar) bar.setAttribute('aria-valuenow', Math.round(n.pos || 0));
+  }
   function paintMusic() {
     if (mpSeeking) return;                      // a drag is in progress; leave the bar alone
     var mp = document.getElementById('apexMp'); if (!mp || !window.ApexMusic) return;

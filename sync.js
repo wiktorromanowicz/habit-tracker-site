@@ -56,7 +56,15 @@
   function schedulePush(k) {
     if (!sb || !user) return;
     clearTimeout(pushTimers[k]);
-    pushTimers[k] = setTimeout(function () { push(k); }, 600);
+    /* A note with a screenshot in it is a megabyte, and pushing one every
+       second while someone is typing competes with the editor for the main
+       thread. Wait longer while a writing box has focus, and longer again for
+       a big value — nothing is lost, it just goes up once the typing pauses. */
+    var v = localStorage.getItem(k), big = v && v.length > 200000;
+    var typing = document.activeElement && (document.activeElement.isContentEditable ||
+      /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName));
+    var wait = typing ? (big ? 4000 : 2000) : (big ? 1500 : 600);
+    pushTimers[k] = setTimeout(function () { push(k); }, wait);
   }
   function push(k) {
     if (!sb || !user) return;
