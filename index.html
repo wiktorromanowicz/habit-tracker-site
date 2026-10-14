@@ -406,8 +406,8 @@ function currentStreak(h){
 function toggle(hid, dstr, isFuture, ev){ try{ApexUse.log('habit:tick');}catch(e){} 
   if(isFuture) return;
   const h = state.habits.find(x=>x.id===hid);
-  if(h.done[dstr]){ delete h.done[dstr]; }
-  else { h.done[dstr]=true; fireworks(ev); }
+  if(h.done[dstr]){ delete h.done[dstr]; try{window.apexDing('undo');}catch(e){} }
+  else { h.done[dstr]=true; fireworks(ev); try{window.apexDing('tick');}catch(e){} }
   save(); render();
 }
 

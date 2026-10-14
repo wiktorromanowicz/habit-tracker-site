@@ -52,6 +52,16 @@
   .task .due{font-size:11px;color:#9b2b22;background:#fbe9e7;padding:1px 7px;border-radius:999px;margin-left:6px}
   .task .due.today{color:#7a5200;background:#fff1d6}
   .task .lst{font-size:11px;color:var(--muted)}
+  /* end of day */
+  .dayrow{display:flex;gap:14px;flex-wrap:wrap;margin:2px 0 10px}
+  .daybit{flex:1 1 60px}
+  .daybit b{display:block;font-size:22px;font-weight:700;letter-spacing:-.4px;line-height:1.15}
+  .daybit span{font-size:11px;color:var(--muted);letter-spacing:.03em}
+  .daybit.full b{color:#16a34a}
+  .dayline{font-size:13.5px;line-height:1.5}
+  .daysay{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .daysay button{font-size:12.5px;padding:5px 11px}
+  .dayclosed{font-size:12px;color:var(--muted)}
   /* habits */
   .hab{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
   /* three days, oldest on the left — so a missed yesterday is visible, and fixable */
@@ -225,6 +235,7 @@
       <div class="card" data-card="cal"><h2 draggable="true" title="Drag to move this card">Today’s calendar <a href="calendar.html">Calendar →</a></h2><div id="cal"></div></div>
       <div class="card" data-card="time"><h2 draggable="true" title="Drag to move this card">Right now <a href="time.html">Time log →</a></h2><div id="time"></div></div>
       <div class="card" data-card="habits"><h2 draggable="true" title="Drag to move this card">Habits <a href="index.html">Habits →</a></h2><div id="habits"></div></div>
+      <div class="card" data-card="day"><h2 draggable="true" title="Drag to move this card"><span id="dayCardTitle">How today went</span></h2><div id="dayCard"></div></div>
     </div>
   </div>
   <div class="layout-foot">
@@ -546,6 +557,103 @@ setInterval(refreshNowCard, 60000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshNowCard(); });
 window.addEventListener('focus',refreshNowCard);
 
+/* ---- how today went -------------------------------------------------------
+   Everything here is already in Apex; the card just stops it being scattered
+   over four pages. It is deliberately blunt: a day with nothing in it says so,
+   because a card that congratulates you either way is worth nothing. */
+function dayNumbers(){
+  const t=isoDay(new Date());
+  let hab=0, habAll=0;
+  try{ const H=ls('titan_habits_v1',null)||{}; (H.habits||[]).forEach(h=>{ habAll++; if(h.done&&h.done[t]) hab++; }); }catch(e){}
+  let tasks=0;
+  try{ const T=ls('apexTasks',null)||{}; const start=new Date(); start.setHours(0,0,0,0);
+    (T.taskLists||[]).forEach(l=>(l.items||[]).forEach(i=>{ if(i.done && i.doneAt && i.doneAt>=start.getTime()) tasks++; })); }catch(e){}
+  let mins=0;
+  try{ const S=ls('apexTime',null)||{}; const d=new Date(); const mon=new Date(d.getFullYear(),d.getMonth(),d.getDate()-((d.getDay()+6)%7));
+    const wk=(S.weeks||{})[isoDay(mon)]||{}; const di=(d.getDay()+6)%7;
+    Object.keys(wk).forEach(k=>{ const m=k.match(/^(\d+)_(\d+)$/); if(m && +m[1]===di && wk[k] && wk[k].c) mins+=30; }); }catch(e){}
+  let focus=0;
+  try{ const F=ls('apexFocus',{})||{}; focus=+F[t]||0; }catch(e){}
+  return { habits:hab, habitsAll:habAll, tasks:tasks, hours:mins/60, focus:focus, iso:t };
+}
+function dayLine(n){
+  const evening=new Date().getHours()>=17;
+  if(!n.habits && !n.tasks && !n.hours && !n.focus) return evening?'Nothing recorded today.':'Nothing yet today.';
+  const bits=[];
+  if(n.habitsAll && n.habits===n.habitsAll) bits.push('every habit ticked');
+  else if(n.habits) bits.push(n.habits+' of '+n.habitsAll+' habits');
+  if(n.tasks) bits.push(n.tasks+(n.tasks===1?' task closed':' tasks closed'));
+  if(n.focus) bits.push(n.focus+(n.focus===1?' focus session':' focus sessions'));
+  if(n.hours>=1) bits.push(n.hours.toFixed(n.hours%1?1:0)+'h logged');
+  const line=bits.join(' · ');
+  return line.charAt(0).toUpperCase()+line.slice(1)+'.';
+}
+function closedDays(){ const a=ls('apexDayClosed',[]); return Array.isArray(a)?a:[]; }
+function renderDayCard(){
+  const host=$('dayCard'); if(!host) return;
+  const n=dayNumbers(), closed=closedDays().indexOf(n.iso)>=0;
+  const ttl=$('dayCardTitle'); if(ttl) ttl.textContent = new Date().getHours()>=17 ? 'How today went' : 'Today so far';
+  host.innerHTML=
+    '<div class="dayrow">'+
+      '<div class="daybit'+(n.habitsAll&&n.habits===n.habitsAll?' full':'')+'"><b>'+n.habits+(n.habitsAll?'/'+n.habitsAll:'')+'</b><span>HABITS</span></div>'+
+      '<div class="daybit"><b>'+n.tasks+'</b><span>TASKS DONE</span></div>'+
+      '<div class="daybit"><b>'+n.focus+'</b><span>FOCUS</span></div>'+
+      '<div class="daybit"><b>'+(n.hours?(n.hours%1?n.hours.toFixed(1):n.hours):'—')+'</b><span>HOURS</span></div>'+
+    '</div>'+
+    '<div class="dayline">'+esc(dayLine(n))+'</div>'+
+    '<div class="daysay">'+(closed
+      ? '<span class="dayclosed">✓ Day closed — see you tomorrow.</span><button type="button" class="ghost" id="dayReopen">Reopen</button>'
+      : '<button type="button" id="dayClose">Close the day</button>')+'</div>';
+  const b=$('dayClose');
+  if(b) b.addEventListener('click',()=>{ const a=closedDays(); if(a.indexOf(n.iso)<0) a.push(n.iso);
+    try{ localStorage.setItem('apexDayClosed',JSON.stringify(a.slice(-120))); }catch(e){}
+    try{ window.apexDing('end'); }catch(e){} try{ApexUse.log('day:close');}catch(e){} renderDayCard(); });
+  const r=$('dayReopen');
+  if(r) r.addEventListener('click',()=>{ const a=closedDays().filter(x=>x!==n.iso);
+    try{ localStorage.setItem('apexDayClosed',JSON.stringify(a)); }catch(e){} renderDayCard(); });
+}
+renderDayCard();
+setInterval(renderDayCard,60000);
+window.addEventListener('storage',e=>{ if(['titan_habits_v1','apexTasks','apexTime','apexFocus'].indexOf(e.key)>=0) renderDayCard(); });
+window.addEventListener('apex-focus-change',renderDayCard);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) renderDayCard(); });
+
+/* A short burst of paper over the page — no library, no images, and it takes
+   itself off the screen afterwards. Anyone who has asked not to see motion
+   gets the sound and nothing else. */
+function confetti(){
+  try{
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const cv=document.createElement('canvas');
+    cv.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
+    document.body.appendChild(cv);
+    const g=cv.getContext('2d'); g.scale(dpr,dpr);
+    const cols=['#a9741f','#1a73e8','#16a34a','#e8b42a','#7a8496'];
+    const card=document.querySelector('.card[data-card="habits"]');
+    const r=card?card.getBoundingClientRect():{left:innerWidth/2,top:innerHeight/2,width:0,height:0};
+    const ox=r.left+r.width/2, oy=r.top+r.height/2;
+    const bits=[];
+    for(let i=0;i<70;i++){
+      const a=Math.random()*Math.PI*2, sp=2+Math.random()*7;
+      bits.push({x:ox,y:oy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,
+                 w:4+Math.random()*5,h:6+Math.random()*7,rot:Math.random()*6.3,vr:(Math.random()-0.5)*0.4,
+                 c:cols[i%cols.length],life:0});
+    }
+    const t0=performance.now();
+    (function frame(t){
+      const dt=Math.min(32,t-(frame.last||t)); frame.last=t;
+      const age=t-t0;
+      g.clearRect(0,0,innerWidth,innerHeight);
+      bits.forEach(b=>{ b.vy+=0.22*(dt/16); b.vx*=0.995; b.x+=b.vx*(dt/16); b.y+=b.vy*(dt/16); b.rot+=b.vr*(dt/16);
+        g.save(); g.translate(b.x,b.y); g.rotate(b.rot);
+        g.globalAlpha=Math.max(0,1-age/1500); g.fillStyle=b.c;
+        g.fillRect(-b.w/2,-b.h/2,b.w,b.h); g.restore(); });
+      if(age<1500) requestAnimationFrame(frame); else cv.remove();
+    })(t0);
+  }catch(e){}
+}
 /* habits — the last three days, today on the right */
 (function(){
   const st=ls('titan_habits_v1',null); if(!st||!st.habits||!st.habits.length){ $('habits').innerHTML='<div class="empty">No habits set up.</div>'; return; }
@@ -581,9 +689,18 @@ window.addEventListener('focus',refreshNowCard);
     const day=c.dataset.day||htodayNow();
     if(day>htodayNow()){ paintHabits(); return; }          // the page sat open past midnight
     const h=s.habits.find(x=>x.id===c.dataset.id); if(!h) return; h.done=h.done||{};
+    const today=htodayNow();
+    const allBefore=s.habits.every(x=>x.done&&x.done[today]);
+    const ticking=!h.done[day];
     if(h.done[day]) delete h.done[day]; else h.done[day]=true;
     localStorage.setItem('titan_habits_v1',JSON.stringify(s));
     paintHabits();                                          // the streak moves too
+    /* The last habit of the day is worth a moment; the other four are not —
+       a celebration that fires every time stops being one. */
+    const allNow=s.habits.every(x=>x.done&&x.done[today]);
+    if(ticking && allNow && !allBefore && day===today){ try{window.apexDing('all');}catch(e){} confetti(); }
+    else { try{ window.apexDing(ticking?'tick':'undo'); }catch(e){} }
+    try{ renderDayCard(); }catch(e){}
   });
   /* another tab ticked it: repaint, or the next click here would untick what you
      just ticked over there */

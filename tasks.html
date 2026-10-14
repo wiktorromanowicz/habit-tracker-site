@@ -894,6 +894,7 @@ function toggleTask(listId, itemId){ try{ApexUse.log('task:done');}catch(e){}
   const it = findItem(listId, itemId); if(!it) return;
   const l = findList(listId);
   it.done = !it.done;
+  try{ window.apexDing(it.done?'done':'undo'); }catch(e){}
   // when, so the by-date view can show you what you finished today (and let you put it back)
   if(it.done) it.doneAt = Date.now(); else delete it.doneAt;
   // completing a parent completes its subtasks too

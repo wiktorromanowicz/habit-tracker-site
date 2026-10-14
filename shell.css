@@ -76,6 +76,11 @@ body{padding-left:calc(var(--sb) + 28px)!important;transition:padding-left .18s}
 #apexSide .tw .tw-edit input{flex:1;min-width:0;width:100%;border:1px solid var(--line);border-radius:7px;padding:4px 2px;font:inherit;font-size:12px;text-align:center;background:var(--surface,#fff);color:var(--ink,#232833);outline:none}
 #apexSide .tw .tw-edit input:focus{border-color:#a9741f}
 #apexSide .tw .tw-row button.prim{background:#a9741f;border-color:#a9741f;color:#fff}
+/* a focus session is the one button here worth looking at */
+#apexSide .tw .tw-row button.tw-focus{flex:0 0 auto;padding-left:10px;padding-right:10px;font-weight:600;
+  border-color:#a9741f;color:#a9741f;background:transparent}
+#apexSide .tw .tw-row button.tw-focus:hover{background:#a9741f;color:#fff}
+#apexSide .tw .tw-count{font-size:11px;color:var(--muted,#7a8496);align-self:center;margin-left:auto;white-space:nowrap}
 
 /* collapsed */
 html[data-sb="min"] #apexSide .sb-brand,html[data-sb="min"] #apexSide nav a .lb,html[data-sb="min"] #apexSide nav a .kb,

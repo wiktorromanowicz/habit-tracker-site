@@ -121,7 +121,8 @@
         '<div class="sb-chips" id="apexChips"></div>' +
         '<div class="sb-row"><button class="sb-btn" id="apexPalBtn" title="Command palette"><span>Search</span><kbd>' + MOD + 'K</kbd></button>' +
         '<button class="sb-btn" id="apexThemeBtn" title="Dark / light"><span id="apexThemeLbl"></span></button>' +
-        '<button class="sb-btn" id="apexKeysBtn" title="Keyboard shortcuts"><kbd>?</kbd></button></div>' +
+        '<button class="sb-btn" id="apexKeysBtn" title="Keyboard shortcuts"><kbd>?</kbd></button>' +
+        '<button class="sb-btn" id="apexSndBtn" title="Sound on ticks and timers"></button></div>' +
         '<div class="sb-row"><button class="sb-btn wide" id="apexCtxBtn" title="Build a snapshot you can read and edit before anything is copied">⧉ <span>Copy context</span></button></div>' +
       '</div>';
     document.body.appendChild(side);
@@ -131,6 +132,7 @@
     $('#apexPalBtn', side).addEventListener('click', openPalette);
     $('#apexThemeBtn', side).addEventListener('click', toggleTheme);
     $('#apexKeysBtn', side).addEventListener('click', openKeys);
+    $('#apexSndBtn', side).addEventListener('click', function () { var on = !soundOn(); setSound(on); if (on) window.apexDing('tick'); });
     $('#apexCtxBtn', side).addEventListener('click', copyContext);
     paintFoot(); paintMusic();
     window.addEventListener('apex-music', function (e) {
@@ -355,7 +357,11 @@
     try { opened.focus(); } catch (e) {}
   }
   window.apexOpenSolo = openSolo;
-  function paintFoot() { var l = $('#apexThemeLbl', side); if (l) l.textContent = theme === 'dark' ? '☀︎ Light' : '☾ Dark'; }
+  function paintFoot() {
+    var l = $('#apexThemeLbl', side); if (l) l.textContent = theme === 'dark' ? '☀︎ Light' : '☾ Dark';
+    var sb = $('#apexSndBtn', side);
+    if (sb) { var on = soundOn(); sb.textContent = on ? '🔔' : '🔕'; sb.title = on ? 'Sound is on — click to mute' : 'Sound is off — click to turn it on'; }
+  }
 
   // vertical drag-to-reorder, saved in the same key the old tab row used
   function wireReorder() {
@@ -371,6 +377,48 @@
     });
   }
 
+  /* ---- sound ----------------------------------------------------------
+     Ticking something off should feel like something. The tones are generated
+     here rather than shipped as files: nothing to download, nothing to cache,
+     works offline, and a few lines of maths instead of a megabyte of samples.
+     Every sound is short, quiet and in tune with the next one — this is
+     punctuation, not an alarm. Mute lives in the sidebar and is remembered. */
+  var SND_KEY = 'apexSound', actx = null;
+  function soundOn() { try { return localStorage.getItem(SND_KEY) !== 'off'; } catch (e) { return true; } }
+  function setSound(on) { try { localStorage.setItem(SND_KEY, on ? 'on' : 'off'); } catch (e) {} paintFoot(); }
+  function ctx() {
+    if (!actx) { var C = window.AudioContext || window.webkitAudioContext; if (!C) return null; try { actx = new C(); } catch (e) { return null; } }
+    if (actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }   // browsers start it asleep until a click
+    return actx;
+  }
+  /* one soft note: a sine with a quick rise and a gentle tail, so it reads as a
+     tap rather than a beep */
+  function note(freq, at, len, vol, type) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (at || 0);
+    var osc = a.createOscillator(), g = a.createGain();
+    osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (len || 0.14));
+    osc.connect(g); g.connect(a.destination);
+    osc.start(t); osc.stop(t + (len || 0.14) + 0.03);
+  }
+  var SOUNDS = {
+    tick:  function () { note(880, 0, 0.11, 0.07); },                                  // a habit ticked
+    done:  function () { note(660, 0, 0.09, 0.05); note(990, 0.055, 0.12, 0.045); },   // a task closed
+    all:   function () { [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) { note(f, i * 0.085, 0.22, 0.06); }); },  // the day's habits, all of them
+    start: function () { note(392, 0, 0.1, 0.05); note(587.33, 0.07, 0.16, 0.045); },  // a focus session begins
+    end:   function () { note(783.99, 0, 0.16, 0.06); note(587.33, 0.13, 0.26, 0.05); },  // and ends
+    undo:  function () { note(392, 0, 0.09, 0.04); }                                   // something put back
+  };
+  /* anything in Apex can call this; an unknown name or a muted app is a no-op */
+  window.apexDing = function (kind) {
+    if (!soundOn()) return;
+    try { (SOUNDS[kind] || SOUNDS.tick)(); } catch (e) {}
+  };
+  window.apexSoundOn = soundOn;
+
   /* ---- sidebar timer widget (shares apexTimer with the Timer tab and the watcher in pwa.js) ---- */
   var TK = 'apexTimer';
   function rt() { return ls.get(TK, {}) || {}; }
@@ -382,6 +430,61 @@
   /* the menu-bar item in Apex.app starts timers through this (see pwa.js) */
   window.apexStartTimer = function (min) { startTimer(min); };
   function stopTimer() { if (window.apexTimerStop) window.apexTimerStop(); else { var T = rt(); T.state = 'idle'; delete T.endAt; delete T.rang; T.stoppedAt = Date.now(); wt(T); } paintTw(); }
+  /* ---- focus sessions --------------------------------------------------
+     A timer on its own is a countdown. A focus session is the ritual: press it
+     and the music you had queued starts, the clock runs, and when it finishes
+     the week's count goes up by one. The count is the point — a number you can
+     push up is more fun than a timer you merely obey. */
+  var F_KEY = 'apexFocus', FLEN = 'apexFocusLen';
+  var ME_F = 'w' + Math.random().toString(36).slice(2, 8);
+  function isoDay(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function focusLen() { var n = ls.get(FLEN, 30); n = Math.round(+n || 30); return Math.max(1, Math.min(600, n)); }
+  function focusLog() { var f = ls.get(F_KEY, {}); return (f && typeof f === 'object') ? f : {}; }
+  function focusWeek() {
+    var f = focusLog(), d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));            // back to Monday
+    var n = 0;
+    for (var i = 0; i < 7; i++) { var k = isoDay(new Date(d.getFullYear(), d.getMonth(), d.getDate() + i)); n += (+f[k] || 0); }
+    return n;
+  }
+  function focusToday() { return +focusLog()[isoDay(new Date())] || 0; }
+  window.apexFocus = { week: focusWeek, today: focusToday, len: focusLen, start: function (m) { startFocus(m); } };
+
+  function startFocus(min) {
+    min = min || focusLen();
+    try { ApexUse.log('focus:start'); } catch (e) {}
+    var T = rt();
+    T.duration = min * 60; T.endAt = Date.now() + min * 60000; T.state = 'running';
+    T.focus = 1; delete T.counted; delete T.rang; delete T.remaining;
+    wt(T);
+    if (window.apexTimerRefresh) window.apexTimerRefresh();
+    window.apexDing('start');
+    // the music you already had waiting starts with it — but a new track is
+    // never chosen for you, and something already playing is left alone
+    try {
+      var M = window.ApexMusic;
+      if (M) { var n = M.now(); if (n && n.id && !n.playing) M.play(); }
+    } catch (e) {}
+    paintTw();
+  }
+  /* The session is counted where it ends. Any open window may notice first, so
+     the winner stamps its own id and only the window that still reads its own
+     stamp back does the counting — two windows cannot both add one. */
+  function checkFocusDone() {
+    var T = rt();
+    if (!T.focus || T.counted) return;
+    var over = (T.state === 'done') || (T.state === 'running' && T.endAt && Date.now() >= T.endAt);
+    if (!over) return;
+    T.counted = ME_F; wt(T);
+    if (rt().counted !== ME_F) return;                         // another window got there first
+    var f = focusLog(), k = isoDay(new Date());
+    f[k] = (+f[k] || 0) + 1;
+    ls.set(F_KEY, f);
+    try { ApexUse.log('focus:done'); } catch (e) {}
+    window.apexDing('end');
+    try { window.dispatchEvent(new Event('apex-focus-change')); } catch (e) {}
+  }
+
   var lastTw = '';
   /* the sidebar's quick timers — editable, shared across pages and devices */
   var QK = 'apexTimerQuick', twEditing = false;
@@ -403,12 +506,17 @@
   function readEditor() { return Array.prototype.map.call(tw.querySelectorAll('.tw-edit input'), function (i) { return +i.value; }).filter(function (n) { return n > 0; }); }
   function paintTw() {
     if (!tw || twEditing) return;
-    var T = rt(), h;
-    if (T.state === 'running') h = '<div class="tw-time">⏱ ' + fmt((T.endAt - Date.now()) / 1000) + '</div><div class="tw-row"><button data-a="pause">Pause</button><button data-a="stop">Stop</button></div>';
+    var T = rt(), h, fo = T.focus ? '◎ ' : '';
+    if (T.state === 'running') h = '<div class="tw-time">' + fo + '⏱ ' + fmt((T.endAt - Date.now()) / 1000) + '</div><div class="tw-row"><button data-a="pause">Pause</button><button data-a="stop">Stop</button></div>';
     else if (T.state === 'paused') h = '<div class="tw-time">⏸ ' + fmt(T.remaining || 0) + '</div><div class="tw-row"><button data-a="pause">Resume</button><button data-a="stop">Stop</button></div>';
     else if (T.state === 'done') h = '<div class="tw-time">⏰ Time’s up</div><div class="tw-row"><button class="stop" data-a="stop">Stop</button></div>';
-    else h = '<div class="tw-lbl">Timer<button class="tw-pen" data-a="edit" title="Change these times">\u270E</button></div><div class="tw-row">' +
-      quick().map(function (m) { return '<button data-m="' + m + '" title="Start ' + m + ' min — right-click to change">' + m + '</button>'; }).join('') + '</div>';
+    else {
+      var wk = focusWeek();
+      h = '<div class="tw-lbl">Timer<button class="tw-pen" data-a="edit" title="Change these times">\u270E</button></div><div class="tw-row">' +
+        quick().map(function (m) { return '<button data-m="' + m + '" title="Start ' + m + ' min — right-click to change">' + m + '</button>'; }).join('') + '</div>' +
+        '<div class="tw-row"><button class="tw-focus" data-a="focus" title="' + focusLen() + ' minutes with the music on — right-click to change the length">◎ Focus</button>' +
+        '<span class="tw-count" title="Focus sessions finished since Monday">' + (wk ? wk + ' this week' : 'none yet') + '</span></div>';
+    }
     if (h !== lastTw) { tw.innerHTML = h; lastTw = h; tw.classList.toggle('done', T.state === 'done'); }
   }
   window.addEventListener('apex-timer-change', paintTw);
@@ -420,6 +528,7 @@
     if (a === 'qcancel') { twEditing = false; lastTw = null; paintTw(); return; }
     if (a === 'qmore') { var v2 = readEditor(); if (v2.length < 6) { v2.push(10); } twEditing = false; saveQuick(v2); twEditor(); return; }
     if (a === 'qless') { var v3 = readEditor(); if (v3.length > 1) v3.pop(); twEditing = false; saveQuick(v3); twEditor(); return; }
+    if (a === 'focus') { startFocus(); return; }
     if (b.dataset.m) startTimer(+b.dataset.m); else if (a === 'pause') pauseTimer(); else if (a === 'stop') stopTimer();
   });
   /* right-click a quick timer to change just that one */
@@ -437,7 +546,18 @@
     });
   });
   window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && twEditing) { twEditing = false; lastTw = null; paintTw(); } });
-  setInterval(paintTw, 500);
+  setInterval(function () { checkFocusDone(); paintTw(); }, 500);
+  window.addEventListener('apex-focus-change', function () { lastTw = null; paintTw(); });
+  /* right-click Focus to set how long a session is */
+  document.addEventListener('contextmenu', function (e) {
+    var b = e.target.closest('#apexTw button[data-a="focus"]'); if (!b) return;
+    e.preventDefault();
+    window.apexPrompt('How many minutes is a focus session?', String(focusLen())).then(function (v) {
+      if (v === null || !String(v).trim()) return;
+      var n = Math.round(+v); if (!(n > 0)) return;
+      ls.set(FLEN, Math.min(600, n)); lastTw = null; paintTw();
+    });
+  });
   window.addEventListener('storage', function (e) { if (e.key === TK) paintTw(); });
 
   /* ---- writing settings (face + size), shared by every editor in Apex ----
