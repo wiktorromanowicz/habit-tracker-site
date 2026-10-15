@@ -18,6 +18,18 @@
   .hello h1{font-size:28px;margin:0;letter-spacing:-.4px}
   .hello .date{color:var(--muted);font-size:14px;padding-bottom:4px}
   .hello .sp{flex:1}
+  .hello .hgreet{display:flex;flex-direction:column;gap:3px}
+  .hello .htop{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+  /* one line under your name: what today actually holds, not a slogan */
+  .hello .hline{font-size:14px;color:var(--muted);line-height:1.45}
+  .hello .hline b{color:var(--text);font-weight:600}
+  .hello .hline .sepdot{opacity:.5;margin:0 7px}
+  .hello .hline .win{color:#16a34a;font-weight:600}
+  /* the first time you open Apex on a given day, it arrives rather than appears */
+  @keyframes helloIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .hello.fresh .hgreet{animation:helloIn .5s cubic-bezier(.2,.7,.3,1) both}
+  .hello.fresh .hline{animation:helloIn .5s cubic-bezier(.2,.7,.3,1) .12s both}
+  @media (prefers-reduced-motion:reduce){ .hello.fresh .hgreet,.hello.fresh .hline{animation:none} }
   .grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:start}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
   .col{display:flex;flex-direction:column;gap:16px}
@@ -198,7 +210,8 @@
     <a href="ideas.html">💡 Ideas</a>
   </nav>
 
-  <div class="hello"><h1 id="greet"></h1><span class="date" id="date"></span><span class="sp"></span>
+  <div class="hello"><div class="hgreet"><div class="htop"><h1 id="greet"></h1><span class="date" id="date"></span></div>
+    <div class="hline" id="greetLine"></div></div><span class="sp"></span>
     <div class="qa"><a href="tasks.html?new=1">+ Task</a><a href="notes.html?new=1">+ Note</a><a href="calendar.html?new=1">+ Event</a></div>
   </div>
 
@@ -389,9 +402,76 @@ document.addEventListener('contextmenu',e=>{
   grid.addEventListener('dragend',()=>{ if(drag) drag.classList.remove('dragging'); drag=null; clear(); });
 })();
 
-/* greeting */
-(function(){ const h=now.getHours(); const g=h<5?'Still up':h<12?'Good morning':h<18?'Good afternoon':'Good evening';
-  $('greet').textContent=g+', Wiktor'; $('date').textContent=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}); })();
+/* ---- the welcome ----------------------------------------------------------
+   A greeting that knows what today holds. Everything in the line under your
+   name is read from what Apex already has, so it is true or it is not shown —
+   no slogans, no encouragement for a day that has not happened yet. */
+function completeStreak(){
+  try{
+    const H=ls('titan_habits_v1',null)||{}; const hs=H.habits||[];
+    if(!hs.length) return 0;
+    let n=0; const d=new Date(); d.setHours(0,0,0,0);
+    if(!hs.every(h=>h.done&&h.done[isoDay(d)])) d.setDate(d.getDate()-1);   // today may not be finished yet
+    while(hs.every(h=>h.done&&h.done[isoDay(d)])){ n++; d.setDate(d.getDate()-1); }
+    return n;
+  }catch(e){ return 0; }
+}
+function nextEventToday(){
+  try{
+    const cache=ls('apexCal',{events:{}}), prefs=ls('apexCalPrefs',{hidden:{}});
+    const t=isoDay(new Date());
+    for(const k in cache.events){
+      const [a,b]=k.split('_'); if(!(a<=t&&t<b)) continue;
+      const up=(cache.events[k]||[])
+        .filter(e=>!/^(executive summary|apex inbox|apex replies)/i.test(e.title||''))
+        .filter(e=>!e.allDay && isoDay(new Date(e.start))===t && new Date(e.start)>new Date())
+        .sort((x,y)=>new Date(x.start)-new Date(y.start));
+      if(up.length) return up[0];
+    }
+  }catch(e){}
+  return null;
+}
+function renderWelcome(){
+  const d=new Date(), h=d.getHours();
+  const g = h<5?'Still up' : h<12?'Good morning' : h<18?'Good afternoon' : 'Good evening';
+  $('greet').textContent=g+', Wiktor';
+  $('date').textContent=d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+  const line=$('greetLine'); if(!line) return;
+  const n=dayNumbers(), parts=[];
+  const left=n.habitsAll-n.habits;
+  if(n.habitsAll){
+    if(!left) parts.push('<span class="win">every habit ticked</span>');
+    else parts.push('<b>'+left+'</b> habit'+(left===1?'':'s')+' to go');
+  }
+  // tasks that are actually due today or already late — not the whole backlog
+  let due=0, late=0;
+  try{
+    const T=ls('apexTasks',null)||{}, t=isoDay(d);
+    (T.taskLists||[]).forEach(l=>{ if(l.stashed) return; (l.items||[]).forEach(i=>{
+      if(i.done||!i.due) return; if(i.due===t) due++; else if(i.due<t) late++; }); });
+  }catch(e){}
+  if(due) parts.push('<b>'+due+'</b> task'+(due===1?'':'s')+' due today');
+  if(late) parts.push('<b>'+late+'</b> overdue');
+  const ev=nextEventToday();
+  if(ev) parts.push('next: <b>'+esc(ev.title)+'</b> at '+new Date(ev.start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}));
+  if(n.focus) parts.push('<b>'+n.focus+'</b> focus session'+(n.focus===1?'':'s')+' done');
+  const streak=completeStreak();
+  if(!left && n.habitsAll && streak>1) parts.push('<span class="win">'+streak+' days in a row</span>');
+  line.innerHTML = parts.length
+    ? parts.join('<span class="sepdot">·</span>')
+    : (h<12 ? 'A clear morning. Tick something small to start.' : 'Nothing waiting — add a task or tick a habit.');
+  /* the arrival animation belongs to the first open of the day; by the fifth
+     visit it would just be something that moves when you are trying to read */
+  try{
+    const seen=localStorage.getItem('apexHelloDay');
+    if(seen!==isoDay(d)){ localStorage.setItem('apexHelloDay',isoDay(d));
+      document.querySelector('.hello').classList.add('fresh'); }
+  }catch(e){}
+}
+renderWelcome();
+setInterval(renderWelcome,60000);
+window.addEventListener('storage',e=>{ if(['titan_habits_v1','apexTasks','apexFocus','apexCal'].indexOf(e.key)>=0) renderWelcome(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) renderWelcome(); });
 
 /* executive summary — from the Notes store; if today's isn't there yet, fetch it from the calendar carrier event and file it into the note */
 function briefFromCache(){                       // the Calendar tab stores the newest carrier event here
@@ -700,7 +780,7 @@ function confetti(){
     const allNow=s.habits.every(x=>x.done&&x.done[today]);
     if(ticking && allNow && !allBefore && day===today){ try{window.apexDing('all');}catch(e){} confetti(); }
     else { try{ window.apexDing(ticking?'tick':'undo'); }catch(e){} }
-    try{ renderDayCard(); }catch(e){}
+    try{ renderDayCard(); renderWelcome(); }catch(e){}
   });
   /* another tab ticked it: repaint, or the next click here would untick what you
      just ticked over there */
