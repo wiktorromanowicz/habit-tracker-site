@@ -36,18 +36,21 @@
   .ptab.dark:hover{background:#3a382f}
   .headbtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 
-  /* ---- two-pane notepad ---- */
-  .np{display:grid;grid-template-columns:290px 1fr;gap:0;border:1px solid var(--line);border-radius:14px;
-    background:var(--surface,#fff);overflow:hidden;margin-bottom:26px;height:calc(100vh - 250px);min-height:520px;}
+  /* ---- two-pane notepad ----
+     Modelled on Apple Notes: one quiet row of icons, the date centred above the
+     title, and nothing else between you and the writing. Everything that used
+     to sit in a header row now lives behind Aa or in that row. */
+  .np{display:grid;grid-template-columns:270px 1fr;gap:0;border:1px solid var(--line);border-radius:14px;
+    background:var(--surface,#fff);overflow:hidden;margin:16px 0 26px;height:calc(100vh - 150px);min-height:540px;}
   @media (max-width:820px){ .np{grid-template-columns:1fr;height:auto} .side{height:280px} }
-  .side{border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--soft2,#faf8f2);min-height:0;}
+  .side{border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg,#f7f9fc);min-height:0;}
+  .side-count{padding:0 14px 8px;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
   .np.side-hidden{grid-template-columns:1fr}
   .np.side-hidden .side{display:none}
   .sidebtn{background:transparent;color:#9aa1ad;padding:5px 8px;font-size:15px;line-height:1;border-radius:7px;flex-shrink:0}
   .sidebtn:hover{background:var(--chip);color:var(--ink)}
-  #showSide{display:none}
-  .np.side-hidden #showSide{display:inline-block}
-  .side-top{padding:12px 12px 8px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--line);}
+
+  .side-top{padding:12px 12px 9px;display:flex;gap:6px;align-items:center;}
   .search{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;
     background:var(--surface,#fff);color:var(--ink);outline:none;}
   .search:focus{border-color:var(--accent)}
@@ -55,7 +58,7 @@
   .newbtn:hover{background:#946417}
   .nlist{flex:1;overflow:auto;padding:6px;}
   .nitem{padding:10px 11px;border-radius:10px;cursor:pointer;margin-bottom:2px;border:1px solid transparent;}
-  .nitem:hover{background:#f1ece0}
+  .nitem:hover{background:rgba(0,0,0,.035)}
   .nitem.active{background:var(--surface,#fff);border-color:var(--line);box-shadow:0 1px 3px rgba(60,50,30,.08);}
   .nitem .t{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .nitem .t .pin{color:var(--accent);margin-right:4px;font-size:12px}
@@ -69,15 +72,38 @@
   html[data-font="roboto"] .ntitle,html[data-font="roboto"] .nbody{font-family:"Roboto",-apple-system,BlinkMacSystemFont,sans-serif}
   html[data-font="lora"] .ntitle,html[data-font="lora"] .nbody{font-family:"Lora",Georgia,"Times New Roman",serif;font-size:1.04em;line-height:1.6}
   html[data-font="mono"] .ntitle,html[data-font="mono"] .nbody{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.94em}
-  .ed-top{display:flex;align-items:center;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px;}
+  .ed-top{display:flex;align-items:center;gap:2px;padding:7px 12px;border-bottom:1px solid var(--line);color:var(--muted);}
   .ed-top .sp{flex:1}
-  .ed-top button{padding:5px 10px;font-size:12px;background:transparent;color:var(--muted)}
-  .ed-top button:hover{background:var(--chip);color:var(--ink)}
-  .ed-top button.on{color:var(--accent)}
-  .ed-scroll{flex:1;overflow:auto;padding:22px clamp(18px,4vw,56px) 60px;-webkit-user-select:text;user-select:text;}
-  .ntitle{font-size:28px;font-weight:700;letter-spacing:-.01em;outline:none;color:var(--ink);margin-bottom:8px;min-height:36px;}
+  /* a row of glyphs, the way a drawing program does it — no words, no emoji,
+     everything the same weight so none of it shouts */
+  .ed-top button.ic{width:32px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+    background:transparent;color:#8a93a3;border-radius:8px;font-size:13px;font-weight:600;transition:background .12s,color .12s}
+  .ed-top button.ic:hover{background:var(--chip);color:var(--ink)}
+  .ed-top button.ic.on{color:var(--accent)}
+  .ed-top button.ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .ed-top button.ic.on svg{fill:currentColor;fill-opacity:.14}
+  .ed-top .div{width:1px;height:18px;background:var(--line);margin:0 5px;flex:none}
+  /* the Aa sheet: the font and size that used to take a whole header row */
+  .aapop{position:fixed;z-index:60;background:var(--surface,#fff);border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 12px 34px rgba(20,24,35,.16);padding:10px;display:none;min-width:208px}
+  .aapop.show{display:block}
+  .aapop .row{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .aapop label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .aapop select{flex:1;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;
+    background:var(--surface,#fff);color:var(--ink)}
+  .aapop .szgrp{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .aapop .szgrp button{padding:4px 9px;font-size:13px}
+  .aapop .link{width:100%;text-align:left;background:transparent;color:var(--muted);font-size:12.5px;padding:6px 4px}
+  .aapop .link:hover{color:var(--ink);background:var(--chip)}
+  .ed-scroll{flex:1;overflow:auto;padding:14px clamp(16px,5vw,56px) 90px;min-height:0;}
+  /* a comfortable measure, centred — long lines are the main thing that makes
+     a writing app feel like a form to fill in */
+  .ed-scroll > *{max-width:720px;margin-left:auto;margin-right:auto}
+  .ndate{text-align:center;font-size:11.5px;color:#9aa1ad;padding:2px 0 14px;letter-spacing:.01em}
+  .ed-scroll .ntitle{font-size:calc(var(--apex-write,15px) * 1.75)!important;font-weight:700;letter-spacing:-.015em;
+    outline:none;color:var(--ink);margin-bottom:10px;min-height:34px;line-height:1.25!important}
   .ntitle:empty:before{content:"Title";color:#c9c2b2;}
-  .nbody{font-size:15px;line-height:1.75;outline:none;color:var(--ink);min-height:300px;overflow-wrap:anywhere;}
+  .nbody{font-size:15px;line-height:1.8;outline:none;color:var(--ink);min-height:300px;overflow-wrap:anywhere;}
   .nbody *{font-family:inherit!important}   /* pasted text (Apple Notes, web) carries its own font — the editor's font always wins */
   .nbody *:not(a):not(.dchip):not(.dchip *):not(.brief h3):not(mark){color:inherit!important;background-color:transparent!important}   /* …and its own colours, which go invisible in dark mode */
   .nbody .brief{background:var(--chip)!important}
@@ -214,43 +240,36 @@
 </div>
 
 <div class="sheet"><div class="sheet-inner">
-  <div class="sheet-head">
-    <div>
-      <div class="sheet-title">Notes</div>
-      <div class="sheet-sub" id="noteCount"></div>
-    </div>
-    <div class="headbtns">
-      <select class="ptab" id="fontPick" title="Editor font" style="appearance:none;-webkit-appearance:none;padding-right:26px;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%276%27%3E%3Cpath d=%27M1 1l4 4 4-4%27 fill=%27none%27 stroke=%27%238c8474%27 stroke-width=%271.5%27/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center"><option value="system">System</option><option value="inter">Inter</option><option value="roboto">Roboto</option><option value="lora">Lora (serif)</option><option value="mono">Mono</option></select>
-      <span class="ptab szgrp" title="Text size — applies everywhere you write in Apex">
-        <button type="button" onclick="bumpSize(-1)" aria-label="Smaller text">A−</button>
-        <b id="szNow">15</b>
-        <button type="button" onclick="bumpSize(1)" aria-label="Bigger text">A+</button>
-      </span>
-      <button class="ptab" onclick="toggleHelp()">⌘/ Shortcuts</button>
-      <button class="ptab dark" onclick="newNote()">+ New note <span style="opacity:.6;font-size:11px;margin-left:4px">⌘N</span></button>
-    </div>
-  </div>
-
   <div class="np">
     <aside class="side">
       <div class="side-top">
         <input class="search" id="search" placeholder="Search notes  ⌘F" autocomplete="off">
-        <button class="newbtn" onclick="newNote()" title="New note (⌘N)">+</button>
-        <button class="sidebtn" onclick="toggleSide()" title="Hide list (⌘\)">‹</button>
       </div>
+      <div class="side-count" id="noteCount"></div>
       <div class="nlist" id="nlist"></div>
     </aside>
     <section class="ed">
       <div class="ed-top">
-        <button class="sidebtn" id="showSide" onclick="toggleSide()" title="Show list (⌘\)">☰</button>
-        <span id="edMeta"></span>
+        <button class="ic" id="showSide" onclick="toggleSide()" title="Show or hide the list (⌘\)"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
         <span class="sp"></span>
-        <button id="pinBtn" onclick="togglePin()" title="Pin (⌘⇧P)">📌 Pin</button>
-        <button id="privBtn" onclick="togglePrivate()" title="Private — never included in a context snapshot">🔓 Private</button>
-        <button onclick="insertDateChip(null,true)" title="Insert date (⌘⇧D)">📅 Date</button>
-        <button onclick="deleteNote()" title="Delete note (⌘⇧⌫)">🗑 Delete</button>
+        <button class="ic" onclick="newNote()" title="New note (⌘N)"><svg viewBox="0 0 20 20"><path d="M16.5 3.5a1.9 1.9 0 0 1 0 2.7L8.9 13.8l-3.4.9.9-3.4 7.6-7.6a1.9 1.9 0 0 1 2.5-.2z"/><path d="M4 16.5h12"/></svg></button>
+        <button class="ic" id="aaBtn" title="Text style">Aa</button>
+        <button class="ic" onmousedown="fmt(event,'insertUnorderedList')" title="Checklist / list (⌘⇧L)"><svg viewBox="0 0 20 20"><path d="M3 5.5l1.6 1.6L7.4 4"/><path d="M3 13.5l1.6 1.6L7.4 12"/><path d="M10 6h7M10 14h7"/></svg></button>
+        <span class="div"></span>
+        <button class="ic" id="pinBtn" onclick="togglePin()" title="Pin (⌘⇧P)"><svg viewBox="0 0 20 20"><path d="M7.6 2.8h4.8l-.8 4.3 3 2.9H5.4l3-2.9z"/><path d="M10 10v6.6"/></svg></button>
+        <button class="ic" id="privBtn" onclick="togglePrivate()" title="Private — never included in a context snapshot"><svg viewBox="0 0 20 20"><rect x="4.2" y="8.6" width="11.6" height="8.2" rx="2"/><path d="M6.8 8.6V6.4a3.2 3.2 0 0 1 6.4 0v2.2"/></svg></button>
+        <button class="ic" onclick="insertDateChip(null,true)" title="Insert date (⌘⇧D)"><svg viewBox="0 0 20 20"><rect x="3" y="4.4" width="14" height="12.6" rx="2.2"/><path d="M3 8.2h14M7 2.8v3M13 2.8v3"/></svg></button>
+        <button class="ic" onclick="deleteNote()" title="Delete note (⌘⇧⌫)"><svg viewBox="0 0 20 20"><path d="M3.8 5.6h12.4M8.2 5.6V4.2a1.2 1.2 0 0 1 1.2-1.2h1.2a1.2 1.2 0 0 1 1.2 1.2v1.4"/><path d="M5.4 5.6l.7 10a1.4 1.4 0 0 0 1.4 1.3h5a1.4 1.4 0 0 0 1.4-1.3l.7-10"/></svg></button>
+      </div>
+      <div class="aapop" id="aaPop">
+        <div class="row"><label>Font</label>
+          <select id="fontPick"><option value="system">System</option><option value="inter">Inter</option><option value="roboto">Roboto</option><option value="lora">Lora (serif)</option><option value="mono">Mono</option></select></div>
+        <div class="row"><label>Size</label>
+          <span class="szgrp"><button type="button" onclick="bumpSize(-1)" aria-label="Smaller text">A−</button><b id="szNow">15</b><button type="button" onclick="bumpSize(1)" aria-label="Bigger text">A+</button></span></div>
+        <button class="link" onclick="toggleHelp()">⌘/ &nbsp;Keyboard shortcuts</button>
       </div>
       <div class="ed-scroll" id="edScroll">
+        <div class="ndate" id="edMeta"></div>
         <div class="ntitle" id="ntitle" contenteditable="true" spellcheck="true"></div>
         <div class="nbody" id="nbody" contenteditable="true" spellcheck="true"></div>
       </div>
@@ -467,11 +486,20 @@ function open(id, focusBody){
 }
 function renderMeta(){
   const n=cur(); if(!n){ $('edMeta').textContent=''; $('wc').textContent=''; return; }
-  $('edMeta').textContent='Edited '+fmtWhen(n.updated)+' · created '+new Date(n.created).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+  /* one line, centred over the note, the way a letter is dated — the full
+     "edited / created" history moved to the tooltip, where it belongs */
+  const d=new Date(n.updated);
+  $('edMeta').textContent = d.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})
+    + ' at ' + d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  $('edMeta').title = 'Edited '+fmtWhen(n.updated)+' · created '+new Date(n.created).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
   const words=textOf(n.body).split(' ').filter(Boolean).length;
   $('wc').textContent=words+' word'+(words===1?'':'s');
-  $('pinBtn').classList.toggle('on',!!n.pinned); $('pinBtn').textContent=n.pinned?'📌 Pinned':'📌 Pin';
-  const pb=$('privBtn'); if(pb){ pb.classList.toggle('on',!!n.private); pb.textContent=n.private?'🔒 Private':'🔓 Private';
+  /* the buttons hold an icon now: set the state and the words in the tooltip,
+     never textContent, or the icon is wiped out */
+  const pin=$('pinBtn');
+  pin.classList.toggle('on',!!n.pinned);
+  pin.title=(n.pinned?'Pinned':'Pin')+' (⌘⇧P)';
+  const pb=$('privBtn'); if(pb){ pb.classList.toggle('on',!!n.private);
     pb.title=n.private?'Private — left out of every context snapshot':'Mark private so it is never included in a context snapshot'; }
 }
 /* the saved HTML keeps data-img ids, not the temporary blob: URLs behind them */
@@ -1015,6 +1043,22 @@ bodyEl.addEventListener('blur',()=>{
 });
 
 /* ---- editor font ---- */
+/* the Aa sheet */
+(function(){
+  const btn=document.getElementById('aaBtn'), pop=document.getElementById('aaPop');
+  if(!btn||!pop) return;
+  const place=()=>{ const r=btn.getBoundingClientRect();
+    pop.style.top=Math.round(r.bottom+6)+'px';
+    pop.style.left=Math.round(Math.max(10, Math.min(r.left-74, innerWidth-pop.offsetWidth-14)))+'px'; };
+  const close=()=>pop.classList.remove('show');
+  btn.addEventListener('click',e=>{ e.stopPropagation();
+    const open=!pop.classList.contains('show');
+    pop.classList.toggle('show',open); btn.classList.toggle('on',open); if(open) place(); });
+  document.addEventListener('click',e=>{ if(!pop.contains(e.target)&&e.target!==btn){ close(); btn.classList.remove('on'); } });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ close(); btn.classList.remove('on'); } });
+  window.addEventListener('resize',()=>{ if(pop.classList.contains('show')) place(); });
+})();
+
 /* the font and the size are app-wide settings now — the shell owns them, this
    page just offers the controls */
 function bumpSize(d){
