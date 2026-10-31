@@ -300,7 +300,7 @@
     document.addEventListener('visibilitychange', function () { if (document.hidden && owner && audio) { state.pos = audio.currentTime; save(); } });
     return audio;
   }
-  function save() { try { localStorage.setItem(SKEY, JSON.stringify({ id: state.id, pos: state.pos, playing: state.playing, vol: state.vol, shuffle: state.shuffle, repeat: state.repeat })); } catch (e) {} }
+  function save() { try { localStorage.setItem(SKEY, JSON.stringify({ id: state.id, pos: state.pos, playing: state.playing, vol: state.vol, shuffle: state.shuffle, repeat: state.repeat, at: Date.now() })); } catch (e) {} }
   function emit(kind) {
     try { window.dispatchEvent(new CustomEvent('apex-music', { detail: { kind: kind || 'state' } })); } catch (e) {}
     if (!owner) return;
@@ -342,7 +342,9 @@
     }
     return Promise.resolve();
   }
-  /* autoplay is blocked without a gesture: resume on the first click/keypress instead */
+  /* Autoplay blocked mid-session: resume on the first click instead. Only ever
+     armed by a play we initiated — never by a cold start, or the first thing you
+     clicked in the morning would begin playing music. */
   function arm() {
     if (armed) return; armed = true;
     var go = function () { document.removeEventListener('pointerdown', go); document.removeEventListener('keydown', go); armed = false;
@@ -400,16 +402,31 @@
       emit('track');
     }).catch(function () {});
   }
+  /* Did this page open from another Apex page, or is this the app starting up?
+     Only the first should carry the music over. A tab change throws the <audio>
+     away and rebuilds it, so playback has to resume by itself — but opening
+     Apex in the morning must never start playing something on its own, which is
+     what "it just turns on the music" was. A referrer only exists when one page
+     led to another; a cold launch has none. */
+  function cameFromApex() {
+    try {
+      var r = document.referrer;
+      if (!r) return false;
+      return new URL(r, location.href).origin === location.origin;
+    } catch (e) { return false; }
+  }
   function boot() {
     askOwner(function (ok) {
       if (!ok) return metaOnly();
       if (!state.id) return;
-      var wasPlaying = state.playing;
+      // …and the state has to be seconds old, not left over from last night
+      var carry = state.playing && cameFromApex() && (Date.now() - (state.at || 0) < 90000);
+      if (state.playing && !carry) { state.playing = false; save(); }   // show it paused, because it is
       get(state.id).then(function (rec) {
         if (!rec || !owner) return;
         // one call, with autoplay decided up front — the old two-step (load, then
         // play) added a whole promise turn plus a second metadata wait
-        return load(rec, state.pos || 0, wasPlaying);
+        return load(rec, state.pos || 0, carry);
       }).catch(function () {});
     });
   }
