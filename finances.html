@@ -146,7 +146,6 @@
         <div class="alt" id="nw_pln"></div>
       </div>
       <div id="bars"></div>
-      <div class="note">Everything but the S&amp;P and personal cash is illiquid or trapped in a company. That's the whole story: rich on paper, thin in the account.</div>
     </div>
 
     <!-- CASH FLOW -->
@@ -178,10 +177,8 @@
       <div class="kv"><span>Currently saved</span><span><input type="number" id="saved" value="2000"> <span class="cur">PLN</span></span></div>
       <div class="progress"><div id="bufferBar"></div></div>
       <div class="kv"><span id="bufferPct"></span><span id="bufferEta"></span></div>
-      <div class="flag" id="bufferFlag"></div>
     </div>
   </div>
-  <div class="note" style="margin-top:18px">Editable — numbers save in your browser. Update the rate and balances anytime. Not financial advice; a picture, not a plan.</div>
 </div>
 
 <script>
@@ -354,9 +351,6 @@ function calc(){
     $('bufferEta').textContent='~'+months+' months at current surplus';
   } else if(saved>=target){ $('bufferEta').textContent='Funded ✅'; }
   else { $('bufferEta').textContent='— (no surplus to save)'; }
-  $('bufferFlag').textContent = saved>=target
-    ? 'Buffer is full. Now automate the S&P DCA with the surplus.'
-    : 'Fastest path: front-load this from the PL company via student zlecenie (near tax-free) instead of waiting years at a small monthly rate.';
   save();
 }
 $('today').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
