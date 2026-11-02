@@ -16,6 +16,20 @@
      controls: they show what is playing and send commands, and never create an
      <audio> at all. When the owning window closes it hands the music on, so
      playback carries to whatever Apex window is still open. */
+  /* ---- who is allowed to make a sound --------------------------------------
+     Two things used to count as permission to play: a `playing` flag saved in
+     localStorage, and a `playing` flag another page happened to hold in memory.
+     Neither is evidence. The flag is true after a quit mid-song, and a page the
+     app kept alive after its window closed holds whatever it read when it
+     loaded. Both got music started on launch. Permission is now one of:
+       - a person pressed play in THIS run of the app — recorded in
+         sessionStorage, which a cold launch does not have and which a window
+         opened from this one inherits;
+       - a page that was audibly playing a few seconds ago handed over. */
+  var IKEY = 'apexMusicIntent';
+  function intent(on) { try { if (on) sessionStorage.setItem(IKEY, '1'); else sessionStorage.removeItem(IKEY); } catch (e) {} }
+  function hasIntent() { try { return sessionStorage.getItem(IKEY) === '1'; } catch (e) { return false; } }
+
   var ME = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   var OWNKEY = 'apexMusicOwner', BUSKEY = 'apexMusicBus', LEASE = 8000;
   var owner = false, since = 0, suspend = false, remote = null;
@@ -100,9 +114,17 @@
   }
   function takeover() {
     if (owner) return;
+    /* a mini-window that is not on screen (minimised, or closed but kept alive
+       by the app) must not become the thing that plays — nobody could find it */
+    var solo = /[?&]solo=1/.test(location.search);
+    if (solo && document.hidden) return;
+    /* the departing owner told us what it was doing, at most a few seconds ago;
+       a flag in storage or in memory does not count */
+    var resume = !!(remote && remote.playing && (Date.now() - heard) < 8000);
     askOwner(function (ok) {
       if (!ok || !state.id) return;
-      get(state.id).then(function (rec) { if (rec && owner) return load(rec, state.pos || 0, state.playing); }).catch(function () {});
+      if (!resume && state.playing) { state.playing = false; save(); }   // show it paused, because it is
+      get(state.id).then(function (rec) { if (rec && owner) return load(rec, state.pos || 0, resume); }).catch(function () {});
     });
   }
   setInterval(function () { if (owner) stamp(); }, 2500);
@@ -116,10 +138,10 @@
   }
   /* a command from a page that is not the owner */
   function apply(fn, args) {
-    if (fn === 'play') return play(args[0]);
-    if (fn === 'toggle') return toggle();
-    if (fn === 'next') return next();
-    if (fn === 'prev') return prev();
+    if (fn === 'play') { intent(true); return play(args[0]); }
+    if (fn === 'toggle') { intent(!(audio && !audio.paused)); return toggle(); }
+    if (fn === 'next') { intent(true); return next(); }
+    if (fn === 'prev') { intent(true); return prev(); }
     if (fn === 'seek') return seek(args[0]);
     if (fn === 'volume') return volume(args[0]);
     if (fn === 'flag') return setFlag(args[0], args[1]);
@@ -312,10 +334,10 @@
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({ title: rec.title || rec.name, artist: rec.artist || 'Apex', album: 'Apex' });
-      navigator.mediaSession.setActionHandler('play', function () { toggle(); });
-      navigator.mediaSession.setActionHandler('pause', function () { toggle(); });
-      navigator.mediaSession.setActionHandler('nexttrack', function () { next(); });
-      navigator.mediaSession.setActionHandler('previoustrack', function () { prev(); });
+      navigator.mediaSession.setActionHandler('play', function () { intent(true); toggle(); });
+      navigator.mediaSession.setActionHandler('pause', function () { intent(false); toggle(); });
+      navigator.mediaSession.setActionHandler('nexttrack', function () { intent(true); next(); });
+      navigator.mediaSession.setActionHandler('previoustrack', function () { intent(true); prev(); });
     } catch (e) {}
   }
   function load(rec, at, autoplay) {
@@ -358,7 +380,7 @@
     return a.play().catch(function () { arm(); });
   }
   function toggle() { var a = el(); if (a.paused) return play(); a.pause(); return Promise.resolve(); }
-  function stop() { if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) { URL.revokeObjectURL(url); url = null; } cur = null; }
+  function stop() { intent(false); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) { URL.revokeObjectURL(url); url = null; } cur = null; }
   function seek(t) { var a = el(); try { a.currentTime = t; } catch (e) {} state.pos = t; save(); emit('time'); }
   function volume(v) { state.vol = Math.max(0, Math.min(1, v)); el().volume = state.vol; save(); emit(); }
   function step(dir, auto) {
@@ -402,12 +424,12 @@
       emit('track');
     }).catch(function () {});
   }
-  /* Did this page open from another Apex page, or is this the app starting up?
-     Only the first should carry the music over. A tab change throws the <audio>
-     away and rebuilds it, so playback has to resume by itself — but opening
-     Apex in the morning must never start playing something on its own, which is
-     what "it just turns on the music" was. A referrer only exists when one page
-     led to another; a cold launch has none. */
+  /* Is this a page of the same run, or the app starting up? A tab change throws
+     the <audio> away and rebuilds it, so playback has to resume by itself — but
+     opening Apex in the morning must never start playing something on its own.
+     The referrer was the first attempt at telling them apart (v101); it is kept
+     for diagnostics, but sessionStorage intent is the real test: it exists only
+     in a run where a person pressed play, and a launch starts without one. */
   function cameFromApex() {
     try {
       var r = document.referrer;
@@ -420,7 +442,7 @@
       if (!ok) return metaOnly();
       if (!state.id) return;
       // …and the state has to be seconds old, not left over from last night
-      var carry = state.playing && cameFromApex() && (Date.now() - (state.at || 0) < 90000);
+      var carry = state.playing && hasIntent() && (Date.now() - (state.at || 0) < 90000);
       if (state.playing && !carry) { state.playing = false; save(); }   // show it paused, because it is
       get(state.id).then(function (rec) {
         if (!rec || !owner) return;
@@ -433,16 +455,21 @@
   /* The public API goes through the owner: on the playing page these run here,
      on any other page they travel over the channel. */
   window.ApexMusic = { list: list, add: add, remove: del, get: get, put: put,
-    play: function (id) { return cmd('play', [id]); },
-    toggle: function () { return cmd('toggle', []); },
-    next: function () { return cmd('next', []); },
-    prev: function () { return cmd('prev', []); },
+    play: function (id) { intent(true); return cmd('play', [id]); },
+    toggle: function () { intent(!now().playing); return cmd('toggle', []); },
+    next: function () { intent(true); return cmd('next', []); },
+    prev: function () { intent(true); return cmd('prev', []); },
     seek: function (t) { if (!owner && remote) { remote.pos = t; emit('time'); } return cmd('seek', [t]); },
     volume: function (v) { state.vol = Math.max(0, Math.min(1, v)); save(); return cmd('volume', [v]); },
     setFlag: function (k, v) { state[k] = v; save();
       if (!owner && remote) remote[k] = v;          // so the button lights up at once, not on the next broadcast
       return cmd('flag', [k, v]); },
     owns: function () { return owner; },
+    /* if it ever starts by itself again, this says what it was looking at */
+    why: function () { return { owner: owner, intent: hasIntent(), playingFlag: !!state.playing,
+      flagAge: state.at ? Math.round((Date.now() - state.at) / 1000) : null, referrer: cameFromApex(),
+      heardAgo: heard ? Math.round((Date.now() - heard) / 1000) : null, remotePlaying: !!(remote && remote.playing),
+      solo: /[?&]solo=1/.test(location.search), hidden: document.hidden }; },
     /* Go back over the library and re-read each file's own header. Anything
        stored from a container the browser mis-read (a fragmented MP4 reported at
        twice its length) is corrected in place, and given an end point so it
