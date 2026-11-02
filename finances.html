@@ -29,6 +29,20 @@
   .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
   .row:last-child{border-bottom:none}
   .row label{font-size:14px;flex:1}
+  /* a row you own: the name is editable, the currency is a switch, and ✕ removes it */
+  .row label[contenteditable]{outline:none;border-radius:6px;padding:2px 4px;margin-left:-4px;min-width:40px}
+  .row label[contenteditable]:hover{background:var(--chip)}
+  .row label[contenteditable]:focus{background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
+  .row label[contenteditable]:empty:before{content:"Name this asset";color:var(--muted)}
+  .row .cur.cur-btn{cursor:pointer;border:1px solid transparent;font-family:inherit}
+  .row .cur.cur-btn:hover{border-color:var(--line);color:var(--ink)}
+  .row .rm{opacity:0;background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:13px;
+    padding:2px 5px;border-radius:6px;line-height:1;flex:none}
+  .row:hover .rm{opacity:.65}
+  .row .rm:hover{opacity:1;background:var(--chip);color:#c1362c}
+  .addasset{margin-top:8px;background:transparent;border:0;color:var(--accent);font-size:13px;font-weight:600;
+    padding:5px 6px;border-radius:7px;cursor:pointer;font-family:inherit}
+  .addasset:hover{background:var(--chip)}
   .row .cur{font-size:11px;color:var(--muted);background:var(--chip);border-radius:6px;padding:1px 6px;margin-left:6px}
   input[type=number]{font:inherit;font-size:14px;text-align:right;width:110px;border:1px solid var(--line);
     border-radius:8px;padding:5px 8px;background:var(--surface,#fff);color:var(--ink)}
@@ -185,6 +199,9 @@ const $ = id => document.getElementById(id);
 const fmt = (n,c)=> (c||'$')+Math.round(n).toLocaleString('en-US');
 const fmtPln = n => Math.round(n).toLocaleString('pl-PL')+' zł';
 
+/* The list used to be fixed in the code. It is yours now: the whole list lives
+   in finState, seeded once from the rows below plus whatever values were already
+   saved under a_<key>, so nothing you had typed in is lost. */
 function load(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
   if(s.rate)$('rate').value=s.rate;
   if(s.goals!=null)$('goals').innerHTML=s.goals;
@@ -193,37 +210,82 @@ function load(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
   if(s.skoolPrice!=null) skool.price=s.skoolPrice;
   skool.v=(parseFloat(skool.shares)||0)*(parseFloat(skool.price)||0);
   assets.forEach(a=>{ if(a.k!=='skool' && s['a_'+a.k]!=null)a.v=s['a_'+a.k];});
+  if(Array.isArray(s.assets) && s.assets.length){
+    assets.length=0;
+    s.assets.forEach(a=>{ if(a && a.k) assets.push(Object.assign({cur:'USD',v:0,color:nextColor()},a)); });
+    const sk=assets.find(a=>a.k==='skool');
+    if(sk) sk.v=(parseFloat(sk.shares)||0)*(parseFloat(sk.price)||0);
+  }
   FIELDS.forEach(id=>{ if(s[id]!=null && $(id))$(id).value=s[id];});
 }catch(e){} }
-function save(){ try{const s={rate:$('rate').value, goals:$('goals').innerHTML};
+function save(){ try{const s=JSON.parse(localStorage.getItem('finState')||'{}');
+  s.rate=$('rate').value; s.goals=$('goals').innerHTML;
+  s.assets=assets.map(a=>Object.assign({},a));
   assets.forEach(a=>{ if(a.k==='skool'){ s.skoolShares=a.shares; s.skoolPrice=a.price; } s['a_'+a.k]=a.v; });
   FIELDS.forEach(id=>{ if($(id))s[id]=$(id).value; });
   localStorage.setItem('finState',JSON.stringify(s)); }catch(e){} }
+/* colours for new rows, so the donut stays readable */
+const PALETTE=['#4f46e5','#0ea5a4','#f59e0b','#8b5cf6','#10b981','#ef4444','#0891b2','#d946ef','#65a30d','#f97316'];
+function nextColor(){ const used=assets.map(a=>a.color);
+  return PALETTE.find(c=>used.indexOf(c)<0) || PALETTE[assets.length%PALETTE.length]; }
 
-function buildAssetRows(){
+const esc = t => String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function buildAssetRows(focusKey){
   $('assets').innerHTML='';
   assets.forEach(a=>{
-    const row=document.createElement('div'); row.className='row';
+    const row=document.createElement('div'); row.className='row'; row.dataset.k=a.k;
+    const nameCell=`<label contenteditable="true" spellcheck="false" title="Click to rename">${esc(a.name)}</label>`;
+    const tail=`<span class="cur cur-btn" title="Click to switch currency">${esc(a.cur)}</span>`+
+               `<span class="usd" id="usd_${a.k}"></span>`+
+               `<button class="rm" type="button" title="Remove this asset">\u2715</button>`;
     if(a.k==='skool'){
-      row.innerHTML=`<label>${a.name}</label>
-        <span style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px">
+      row.innerHTML=nameCell+
+        `<span style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px">
           <input type="number" class="sh" value="${a.shares}" style="width:80px" title="Number of shares"> sh ×
           $<input type="number" class="pr" value="${a.price}" style="width:66px" title="Price per share">
-        </span>
-        <span class="cur">${a.cur}</span><span class="usd" id="usd_${a.k}"></span>`;
+        </span>`+tail;
       $('assets').appendChild(row);
       const upd=()=>{ a.shares=parseFloat(row.querySelector('.sh').value)||0;
         a.price=parseFloat(row.querySelector('.pr').value)||0; a.v=a.shares*a.price; calc(); };
       row.querySelector('.sh').addEventListener('input',upd);
       row.querySelector('.pr').addEventListener('input',upd);
     } else {
-      row.innerHTML=`<label>${a.name}</label>
-        <input type="number" value="${a.v}" data-ak="${a.k}">
-        <span class="cur">${a.cur}</span><span class="usd" id="usd_${a.k}"></span>`;
+      row.innerHTML=nameCell+`<input type="number" value="${a.v}" data-ak="${a.k}">`+tail;
       $('assets').appendChild(row);
       row.querySelector('input').addEventListener('input',e=>{a.v=parseFloat(e.target.value)||0;calc();});
     }
+    /* rename in place */
+    const lab=row.querySelector('label');
+    lab.addEventListener('blur',()=>{ const t=lab.textContent.trim();
+      a.name = t || 'Untitled'; if(!t) lab.textContent=a.name; calc(); });
+    lab.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lab.blur(); }
+      if(e.key==='Escape'){ lab.textContent=a.name; lab.blur(); } });
+    /* USD ↔ PLN without leaving the row */
+    row.querySelector('.cur-btn').addEventListener('click',()=>{
+      a.cur = a.cur==='USD' ? 'PLN' : 'USD';
+      row.querySelector('.cur-btn').textContent=a.cur; calc(); });
+    /* removing one takes its number with it, so it asks first */
+    row.querySelector('.rm').addEventListener('click',()=>{
+      if(!confirm('Remove "'+a.name+'" from net worth? The number goes with it.')) return;
+      const i=assets.indexOf(a); if(i>=0) assets.splice(i,1);
+      buildAssetRows(); calc();
+    });
   });
+  const add=document.createElement('button');
+  add.type='button'; add.className='addasset'; add.textContent='+ Add asset';
+  add.addEventListener('click',addAsset);
+  $('assets').appendChild(add);
+  if(focusKey){
+    const l=$('assets').querySelector('.row[data-k="'+focusKey+'"] label');
+    if(l){ l.focus(); const r=document.createRange(); r.selectNodeContents(l);
+      const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+  }
+}
+/* a new row starts empty and in edit mode — name it, type the number, done */
+function addAsset(){
+  const k='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  assets.push({k:k, name:'', v:0, cur:'USD', color:nextColor()});
+  buildAssetRows(k); calc();
 }
 function toUsd(v,cur,rate){ return cur==='USD'? v : v/rate; }
 
